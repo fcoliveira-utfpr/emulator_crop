@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 from ._fmt import num
@@ -47,6 +48,33 @@ class SoilProfile:
         bad = self.layers.query("not (slll < sdul < ssat)")
         if len(bad):
             raise ValueError(f"layers must satisfy slll < sdul < ssat; violated at depths {bad.slb.tolist()}")
+
+    @classmethod
+    def from_standard(cls, profile: pd.DataFrame, **kw) -> "SoilProfile":
+        """From a cropemu standard soil profile with hydraulics (``cropemu.soil.hydraulics``).
+
+        Root growth factor: 1 down to 15 cm, then exp(-0.02 x layer midpoint) (the
+        usual DSSAT/SBuild rule). Texture class from the top layer. Surface
+        parameters (albedo, SLU1, drainage, curve number) keep the defaults unless
+        given in ``kw``.
+        """
+        need = ["bottom", "ll", "dul", "sat", "bdod", "soc", "clay", "silt", "sand"]
+        bad = [c for c in need if c not in profile or profile[c].isna().any()]
+        if bad:
+            raise ValueError(f"profile lacks values in {bad} (no soil data at this point?)")
+        from cropemu.soil import texture_class
+
+        mid = (profile["top"] + profile["bottom"]) / 2 if "top" in profile else profile["bottom"]
+        layers = pd.DataFrame({
+            "slb": profile["bottom"], "slll": profile["ll"], "sdul": profile["dul"], "ssat": profile["sat"],
+            "srgf": np.where(mid <= 15, 1.0, np.exp(-0.02 * mid)), "ssks": profile.get("ksat"),
+            "sbdm": profile["bdod"], "sloc": profile["soc"], "slcl": profile["clay"], "slsi": profile["silt"],
+            "slcf": profile.get("cfvo"), "slni": profile.get("nitrogen"), "slhw": profile.get("phh2o"),
+            "scec": profile.get("cec")}).reset_index(drop=True)
+        site = {k: profile.attrs[k] for k in ("lat", "lon") if k in profile.attrs}
+        texture = str(texture_class(profile["sand"].iloc[0], profile["clay"].iloc[0]))
+        return cls(layers, texture=texture, source=profile.attrs.get("source", "cropemu")[:11],
+                   **{**site, **kw})
 
     @property
     def depth(self) -> float:

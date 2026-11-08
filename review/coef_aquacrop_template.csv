@@ -1,0 +1,1 @@
+coef_id,source_ref,model_version,cultivar,maturity_group,site_ids,calibration_data,n_seasons_cal,n_seasons_eval,time_mode,Tbase,Tupper,emergence,max_rooting,senescence,maturity,flowering,flowering_duration,CCx,CGC,CDC,CC0,Zmin,Zmax,WP,HI0,p_upper_expansion,p_lower_expansion,p_upper_stomata,p_upper_senescence,notes

@@ -134,3 +134,21 @@ def test_nasa_power_to_dssat(model, tmp_path):
     T = [Treatment("lond", SOIL, "990006", date(2016, 10, 20), seasons=4, evapotranspiration="F")]
     res = model.simulate(T, weather={"lond": w}, soils={SOIL: clay_soil()})
     assert len(res.summary) == 4 and (res.summary["HWAM"] > 500).all()
+
+
+@pytest.mark.skipif(os.environ.get("CROPEMU_NETWORK_TESTS") != "1", reason="set CROPEMU_NETWORK_TESTS=1")
+def test_real_weather_and_soil_to_dssat(model, tmp_path):
+    """NASA POWER + SoilGrids -> DSSAT at one point."""
+    pytest.importorskip("rasterio")
+    from cropemu.soil import hydraulics, soilgrids
+    from cropemu.weather import fetch, fill_gaps
+
+    from cropemu_bench.models.dssat import SoilProfile, Weather
+
+    lat, lon = -23.2, -51.2
+    soil = SoilProfile.from_standard(hydraulics(soilgrids.fetch(lat, lon, cache_dir=tmp_path)))
+    assert soil.texture in ("C", "SIC", "CL", "SC") and soil.depth == 200
+    w = Weather.from_standard(fill_gaps(fetch(lat, lon, "2015-01-01", "2020-12-31", cache_dir=tmp_path)))
+    T = [Treatment("p", "SGLOND0001", "990006", date(2016, 10, 20), seasons=4, evapotranspiration="F")]
+    res = model.simulate(T, weather={"p": w}, soils={"SGLOND0001": soil})
+    assert len(res.summary) == 4 and (res.summary["HWAM"] > 500).all()

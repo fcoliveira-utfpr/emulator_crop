@@ -196,9 +196,12 @@ Dois grupos de pontos:
 - **CO₂ e clima futuro:** incluir o CO₂ como entrada e amostrar perturbações de temperatura, chuva e CO₂ (ΔT, fator de chuva, 350–800 ppm). Sem isso, a biblioteca não serve para estudos de mudança climática com CMIP6, que é um uso óbvio.
 
 **Solos**
-- **SoilGrids 250 m** (ISRIC, CC-BY 4.0), com funções de pedotransferência para os parâmetros hídricos de cada modelo.
+- **SoilGrids 2.0, mapas agregados a 1 km** (ISRIC, CC-BY 4.0): 11 propriedades × 6 profundidades até 200 cm (argila, areia, silte, C orgânico, densidade, fragmentos grossos, N, pH, CTC, água a −33 e −1500 kPa).
+  - **Como ler:** a API REST não serve (deu 504 depois de 3 min em 08/11/2026). Os GeoTIFFs de 1 km são lidos remotamente (rasterio/GDAL) só nos blocos em torno dos pontos (`cropemu.soil.soilgrids`). Cada arquivo tem ~190 MB e baixar tudo daria ~12,5 GB. 1 km basta, porque o clima é de 0,5°.
+  - **Representatividade:** mediana numa janela de 3 × 3 km, para não cair num pixel de cidade ou de água. Pontos sem solo (oceano, cidade) voltam como NaN e são descartados ou deslocados.
+- **Parâmetros hídricos:** LL e DUL dos mapas de retenção do próprio SoilGrids (wv1500, wv0033). A saturação vem da densidade e a Ksat de Saxton & Rawls (2006). Saxton & Rawls também é a alternativa para LL e DUL e a reserva das camadas sem dado.
+- **A decidir:** parâmetros de superfície do DSSAT (albedo, SLU1, drenagem, curva-número) por textura e declividade. Hoje são constantes (0,13; 6 mm; 0,6/d; 73). Também falta a profundidade efetiva de raízes (hoje 200 cm, o limite do SoilGrids).
 - Alternativa pronta para o DSSAT: base global de perfis a 10 km (Han et al. 2019) e os 27 perfis genéricos HC27.
-- Conversão para o formato de cada modelo em `inputs/solos`.
 
 **Manejo**
 - **Calendário de semeadura:** janela por ponto a partir do calendário do GGCMI Phase 3 (Jägermeyr et al. 2021) ou de Sacks et al. 2010, ampliada nas bordas. A data dentro da janela entra por hipercubo latino.

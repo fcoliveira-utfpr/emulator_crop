@@ -16,7 +16,7 @@ Status: early development (phase 0). See [planing.md](planing.md) for the resear
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e packages/cropemu -e "packages/cropemu-bench[test]"
+pip install -e "packages/cropemu[soil,test]" -e "packages/cropemu-bench[test]"
 pytest packages
 ```
 
