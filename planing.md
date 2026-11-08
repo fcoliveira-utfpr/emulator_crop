@@ -162,20 +162,36 @@ O objetivo é só garantir ordens de grandeza, não ajustar o modelo. Combinaç�
 
 ### 4.2 Locais, clima, solo e manejo (global)
 
-**Locais**
-- **Amostragem estratificada global** de pontos:
-  - estratos: zona climática de Köppen-Geiger × faixa de latitude × hemisfério;
-  - peso maior onde há soja (máscaras de área cultivada: SPAM, MIRCA2000 ou EarthStat);
-  - uma parte em terras agrícolas sem soja hoje, para o emulador valer em áreas de expansão.
-- Meta: de 1.000 a 5.000 pontos, para que H2 tenha espaço de verdade.
-- Altitude por MDE global (ex.: Copernicus DEM ou SRTM).
+**Locais: núcleo em sítios com dados de experimentos** (decisão de 08/11/2026)
+
+Dois grupos de pontos:
+
+1. **Sítios experimentais (núcleo).** Locais onde houve experimentos de campo com soja publicados, com coordenadas.
+   - **Fontes:**
+     - os próprios artigos da revisão sistemática (fase 0a): quem calibrou o DSSAT ou o AquaCrop informa o local do experimento. A mesma triagem rende coeficientes e sítios;
+     - redes públicas de ensaios de cultivares, a verificar acesso e coordenadas: USDA Uniform Soybean Tests (EUA e Canadá), RECSO/INTA (Argentina), ensaios VCU e redes estaduais no Brasil, ensaios na China e na Índia;
+     - bases de referência agronômica (ex.: estações do Global Yield Gap Atlas para soja), como complemento.
+   - **Base de sítios** (`sites.csv`): id, lat, lon, país, fonte (DOI ou relatório), anos, tipo de dado observado (fenologia, produtividade, biomassa, água no solo) e se os dados são públicos.
+   - **Ganhos:**
+     - o emulador fica mais exato justamente onde há dados para usá-lo;
+     - H4 pode ser testada também com **observações reais**, e não só com cultivares sintéticas;
+     - a checagem de plausibilidade (4.1.2) fica mais forte, com observações locais além de FAOSTAT e GDHY.
+2. **Pontos de preenchimento.** Os sítios experimentais se concentram nos EUA, no Brasil, na Argentina e na China, e quase faltam na África, no Sul da Ásia e em partes da Europa. Só com eles, o emulador não generaliza para o resto do globo. Por isso entram pontos complementares:
+   - amostragem estratificada por zona climática de Köppen-Geiger × faixa de latitude × hemisfério;
+   - prioridade para estratos sem sítio experimental (preencher o espaço de clima, não repetir o que já está coberto);
+   - dentro de áreas com soja (SPAM, MIRCA2000 ou EarthStat) e uma parte em terras agrícolas sem soja hoje (áreas de expansão).
+
+- Meta: de 1.000 a 5.000 pontos no total.
+- Altitude: a do NASA POWER (por célula) ou de MDE global (Copernicus DEM ou SRTM) para o ponto exato.
+- **Validação:** os sítios experimentais vêm em aglomerados (várias estações de uma mesma rede). Os blocos espaciais de 4.3 precisam separar os aglomerados inteiros, para não vazar informação entre treino e teste.
+- **Comparação extra:** treinar só com sítios experimentais contra treinar com sítios + preenchimento, testando em blocos fora. Isso responde se um emulador treinado onde há dados basta para o mundo (liga com H2).
 
 **Clima (diário)**
-- **Base única: NASA POWER** (meteorologia a 0,5° do MERRA-2, radiação a 1°, de 1981 até hoje). É gratuita, tem API aberta, é já usada pela comunidade DSSAT e traz Tmax, Tmin, chuva, radiação, umidade e vento.
+- **Base única: NASA POWER** (meteorologia a 0,5° do MERRA-2, radiação a 1°). **Período útil: de 1984 em diante.** A meteorologia começa em 1981, mas a radiação solar só existe a partir de 1984-01-01 (conferido na API v2.10.3). É gratuita, tem API aberta, é já usada pela comunidade DSSAT e traz Tmax, Tmin, chuva, radiação, umidade e vento.
 - **Treino e biblioteca usam a mesma fonte.** Isso elimina a diferença entre o clima do treino e o do uso.
 - **Os vieses do POWER não são problema para o emulador.** Ele aprende a resposta do modelo a qualquer clima; o que importa é cobrir a faixa de climas reais.
 - **Reprodutibilidade:** o POWER é revisado com o tempo. Guardar a versão e a data da baixa e publicar o recorte dos pontos usados no Zenodo.
-- **Baixa:** milhares de pontos × 40+ anos. A API aceita vários anos por requisição, mas tem limite de taxa: baixar em paralelo moderado e com cache local.
+- **Baixa:** milhares de pontos × 42 anos. Uma requisição traz 1984–2025 de um ponto em ~3 s (~1,8 MB de JSON). 5.000 pontos levam ~1 h com 4 requisições em paralelo. A API tem limite de taxa: paralelismo moderado, nova tentativa com espera e cache local (`cropemu.weather.fetch`).
 - **Teste de robustez opcional:** prever com outra fonte de clima (AgERA5, ou Xavier no Brasil) para medir o erro de quem usar a biblioteca com clima próprio.
 - **CO₂ e clima futuro:** incluir o CO₂ como entrada e amostrar perturbações de temperatura, chuva e CO₂ (ΔT, fator de chuva, 350–800 ppm). Sem isso, a biblioteca não serve para estudos de mudança climática com CMIP6, que é um uso óbvio.
 

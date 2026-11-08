@@ -42,6 +42,23 @@ class Weather:
         if len(idx) > 1 and not (np.diff(idx.values) == np.timedelta64(1, "D")).all():
             raise ValueError("weather data must be daily without gaps")
 
+    @classmethod
+    def from_standard(cls, df: pd.DataFrame, **kw) -> "Weather":
+        """From a cropemu standard daily table (``cropemu.weather``): wind m/s -> km/d.
+
+        Site data come from ``df.attrs`` (``lat``, ``lon``, ``elev``) unless given in ``kw``.
+        Raises if a required column has NaN (fill or drop gaps first).
+        """
+        data = df[[c for c in DAILY_COLUMNS if c in df]].copy()
+        nan = [c for c in REQUIRED if data[c].isna().any()]
+        if nan:
+            raise ValueError(f"missing values in {nan}; use cropemu.weather.fill_gaps first")
+        if "wind" in data:
+            data["wind"] = data["wind"] * 86.4
+        site = {k: df.attrs[k] for k in ("lat", "lon", "elev") if k in df.attrs}
+        site.update(kw)
+        return cls(data, **site)
+
     def tav_amp(self) -> tuple[float, float]:
         """Annual mean temperature and amplitude (half the range of monthly means)."""
         tmed = (self.data["tmax"] + self.data["tmin"]) / 2

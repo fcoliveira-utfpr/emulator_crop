@@ -118,3 +118,19 @@ def test_golden_regression(scenario):
         assert days.abs().max() <= 1, c
     for c in ("HWAM", "CWAM", "LAIX", "PRCP", "ETCP", "CO2A"):
         np.testing.assert_allclose(got[c], expected[c], rtol=0.01, equal_nan=True, err_msg=c)
+
+
+@pytest.mark.skipif(os.environ.get("CROPEMU_NETWORK_TESTS") != "1", reason="set CROPEMU_NETWORK_TESTS=1")
+def test_nasa_power_to_dssat(model, tmp_path):
+    """Real weather end to end: NASA POWER -> cropemu standard -> DSSAT."""
+    from cropemu.weather import check, fetch, fill_gaps
+
+    from cropemu_bench.models.dssat import Weather
+
+    df = fill_gaps(fetch(-23.2, -51.2, "2015-01-01", "2020-12-31", cache_dir=tmp_path))
+    assert check(df)["ok"]
+    w = Weather.from_standard(df)
+    assert w.data["wind"].median() > 20                          # m/s converted to km/d
+    T = [Treatment("lond", SOIL, "990006", date(2016, 10, 20), seasons=4, evapotranspiration="F")]
+    res = model.simulate(T, weather={"lond": w}, soils={SOIL: clay_soil()})
+    assert len(res.summary) == 4 and (res.summary["HWAM"] > 500).all()
