@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cropemu-bench"
+version = "0.0.1"
+description = "Crop model adapters, simulation design and emulator benchmarking for cropemu"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Fabrício Correia de Oliveira" }]
+dependencies = ["cropemu", "numpy>=1.24", "pandas>=2.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cropemu_bench"]
+
+[tool.pytest.ini_options]
+markers = ["dssat: runs the real DSSAT executable (needs CROPEMU_DSSAT_EXE and CROPEMU_DSSAT_HOME)"]

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+
+# local data and simulation outputs (published separately on Zenodo)
+/data/
+/runs/
+/cache/
+*.parquet
