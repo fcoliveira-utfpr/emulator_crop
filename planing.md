@@ -11,6 +11,10 @@ Nasceu da experiência com o CROPGRO-Soybean no projeto `calibracao_mg` (artigos
 3. **Todas as saídas que o programa do modelo fornece devem estar disponíveis**, tanto na simulação (adaptadores) quanto, na medida do possível, na emulação. Ver seção 3.
 4. **Cobertura global.** Locais, clima e solos cobrem todos os ambientes onde a soja é (ou pode ser) cultivada no mundo, não só o Brasil. Os dados de entrada são globais e abertos. Ver seção 4.2.
 5. **O produto final é uma biblioteca Python** construída com os emuladores vencedores. Ela é leve: o usuário prevê com o emulador sem instalar os modelos de cultura. O benchmark é o meio para chegar a ela. Ver seção 5.
+6. **Entradas padronizadas de bases globais; dados locais só na validação** (decisão de 08/11/2026).
+   - **Treino e benchmark** usam, em **todos** os pontos (inclusive nos sítios experimentais), as mesmas bases globais: clima do NASA POWER, solo do SoilGrids, calendário de semeadura do GGCMI e parâmetros de cultivar da revisão. Não entram solo medido, clima de estação nem manejo local.
+   - **Por quê:** a comparação entre modelos, locais e emuladores precisa usar a mesma fonte e o mesmo tratamento em todo o globo. A biblioteca também vai usar essas bases, então o emulador aprende a resposta do modelo às entradas que o usuário de fato terá. Vieses das bases (ex.: o SoilGrids pode subestimar a retenção de água em solos tropicais muito argilosos) são iguais em todo lugar e não afetam a comparação.
+   - **Ordem do projeto:** primeiro os emuladores (benchmark e consolidação), depois a biblioteca. **A validação local com valores reais vem depois**, numa fase própria. Ela compara as previsões feitas com entradas globais com observações dos sítios experimentais e mede quanto se ganha trocando as entradas globais por dados locais (solo medido, estação meteorológica).
 
 ## 1. Ponto de partida
 
@@ -172,10 +176,11 @@ Dois grupos de pontos:
      - redes públicas de ensaios de cultivares, a verificar acesso e coordenadas: USDA Uniform Soybean Tests (EUA e Canadá), RECSO/INTA (Argentina), ensaios VCU e redes estaduais no Brasil, ensaios na China e na Índia;
      - bases de referência agronômica (ex.: estações do Global Yield Gap Atlas para soja), como complemento.
    - **Base de sítios** (`sites.csv`): id, lat, lon, país, fonte (DOI ou relatório), anos, tipo de dado observado (fenologia, produtividade, biomassa, água no solo) e se os dados são públicos.
+   - **Nas simulações, os sítios usam só as entradas globais** (princípio 6). Deles vêm apenas as coordenadas, e as observações ficam guardadas para a validação local.
    - **Ganhos:**
      - o emulador fica mais exato justamente onde há dados para usá-lo;
-     - H4 pode ser testada também com **observações reais**, e não só com cultivares sintéticas;
-     - a checagem de plausibilidade (4.1.2) fica mais forte, com observações locais além de FAOSTAT e GDHY.
+     - na fase de validação local, H4 pode ser testada também com **observações reais**, e não só com cultivares sintéticas;
+     - a mesma fase mede o ganho de trocar as entradas globais por dados locais.
 2. **Pontos de preenchimento.** Os sítios experimentais se concentram nos EUA, no Brasil, na Argentina e na China, e quase faltam na África, no Sul da Ásia e em partes da Europa. Só com eles, o emulador não generaliza para o resto do globo. Por isso entram pontos complementares:
    - amostragem estratificada por zona climática de Köppen-Geiger × faixa de latitude × hemisfério;
    - prioridade para estratos sem sítio experimental (preencher o espaço de clima, não repetir o que já está coberto);
@@ -368,6 +373,7 @@ Versão mínima publicável: **DSSAT + AquaCrop**, saídas completas no nível 1
 | 2 | Adaptador AquaCrop (executável oficial v7); harmonização; mesmo benchmark | DSSAT + AquaCrop | Simulações plausíveis em todos os locais |
 | 3 | Tarefa (H4): calibração sintética, simulador × emuladores | H4 | — |
 | 4 | Emuladores consolidados v1 (DSSAT, AquaCrop) + fichas; exportação ONNX; **primeira versão da biblioteca leve** (NASA POWER, SoilGrids, predição, checagem de domínio) | `cropemu` 0.1 no PyPI | Predição pela biblioteca idêntica à do pacote de pesquisa |
+| 4b | **Validação local com valores reais** (princípio 6): previsões com entradas globais contra observações dos sítios experimentais; ganho de trocar entradas globais por solo medido e clima de estação; H4 com observações reais | relatório de validação local; ficha do emulador atualizada | — |
 | 5 | Nível 2 (trajetórias diárias) para o DSSAT e o AquaCrop | emuladores de séries | — |
 | 6 | Fenologia CROPGRO em JAX + HMC (opcional) | emular × reimplementar | — |
 | 7 | Redação, Zenodo, documentação, submissão | artigo + pacote | — |
