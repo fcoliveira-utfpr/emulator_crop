@@ -431,7 +431,26 @@ R² por saída, com validação por bloco:
 - **A emergência e a floração não melhoram**, porque o AquaCrop atrasa a germinação quando o solo está seco e empurra o ciclo inteiro. É um efeito em degrau, ligado à chuva depois da semeadura.
 - Maturou ou não: AUC de 0,98 e acurácia balanceada de 0,92. 12% das safras do AquaCrop não maturam na janela.
 - **O erro da fenologia do AquaCrop está numa cauda pequena.** O erro absoluto mediano é de 0,9 d na emergência, 1,4 d na floração e 2,6 d na maturidade (no DSSAT, 0,5, 0,9 e 1,4 d). O RMSE alto vem de ~1% das safras em que o solo seco atrasa a germinação por semanas ou meses (até 270 d) e empurra o ciclo inteiro. O dia da primeira chuva explica pouco (correlação de ~0,25).
-  - Próximo passo: tratar "germinação atrasada mais de N dias" como saída de classificador (falha de estabelecimento) e censurar as datas dessas safras, como foi feito com a maturidade do DSSAT. Depois, repetir o benchmark do AquaCrop com as entradas de soma térmica.
+
+**Entradas novas (09/11/2026), testadas nos dois modelos** (validação por bloco; "antes" = entradas da 4.7):
+- **Balanço hídrico, nos dois modelos:** ETo da janela e índice de estresse médio de um balde de uma camada. A capacidade do balde é a água disponível do solo, começa com 50% e perde ETo × (1 − estresse). `cropemu.features.WeatherSeries.bucket_stress`, calculável na biblioteca.
+- **AquaCrop:** dias após a semeadura para acumular os graus-dia de emergência, floração, senescência e maturidade.
+- **AquaCrop:** a germinação mais de 10 dias além da estimativa por soma térmica (5,3% das safras) vira saída de classificador ("estabelecimento atrasado"), e as datas dessas safras são censuradas. O limiar de 10 dias foi fixado antes de rodar.
+
+| Saída (MLP por grupos) | AquaCrop antes | AquaCrop agora | DSSAT antes | DSSAT agora |
+|---|---|---|---|---|
+| R² mediano | 0,82 | **0,87** | 0,93 | 0,93 |
+| RMSE emergência (d) | 7,9 | **1,1** | 3,4 | 3,4 |
+| RMSE floração (d) | 11,6 | **7,3** | 3,0 | 3,2 |
+| RMSE maturidade (d) | 10,7 | **6,3** | 3,1 | 3,4 |
+| Produtividade, RMSE (R²) | 0,72 t/ha (0,86) | **0,63 t/ha (0,89)** | 493 kg/ha (0,930) | **469 kg/ha (0,936)** |
+| Biomassa, R² | 0,86 | 0,89 | 0,951 | 0,956 |
+| Drenagem, R² | 0,87 | 0,88 | 0,891 | 0,903 |
+
+- **No AquaCrop, o ganho é grande.** A emergência passa no critério de aceitação; floração e maturidade têm erro mediano de 1,0 e 1,5 d, mas ainda uma cauda (RMSE de 6–7 d).
+- **Classificadores do AquaCrop:** maturou ou não, AUC de 0,995. Estabelecimento atrasado, AUC de 0,99 e recall de 0,85.
+- **No DSSAT, o balanço hídrico melhora pouco** a produtividade (−5% no RMSE) e a drenagem. Na fenologia, a diferença de 0,2–0,3 d está dentro da variação entre treinos e precisa de repetições com outras sementes para ser separada do ruído.
+- **Caminho por modelo até aqui:** MLP por grupos nos dois. No AquaCrop, entradas de soma térmica e censura do estabelecimento. No DSSAT, as janelas bastam para a fenologia, e o balanço hídrico ajuda pouco no crescimento.
 
 ### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
 
