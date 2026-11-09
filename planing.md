@@ -430,6 +430,8 @@ R² por saída, com validação por bloco:
 - **O ciclo do AquaCrop é soma térmica pura** e, em locais frios, chega a 300–470 dias. Médias por janela até 130 dias não bastam. A entrada "dias até acumular os graus-dia de cada fase" (calculada do clima com os parâmetros da cultivar, também na biblioteca: `WeatherSeries.thermal_days`) reduz o erro da maturidade de 10,7 para 6,7 d.
 - **A emergência e a floração não melhoram**, porque o AquaCrop atrasa a germinação quando o solo está seco e empurra o ciclo inteiro. É um efeito em degrau, ligado à chuva depois da semeadura.
 - Maturou ou não: AUC de 0,98 e acurácia balanceada de 0,92. 12% das safras do AquaCrop não maturam na janela.
+- **O erro da fenologia do AquaCrop está numa cauda pequena.** O erro absoluto mediano é de 0,9 d na emergência, 1,4 d na floração e 2,6 d na maturidade (no DSSAT, 0,5, 0,9 e 1,4 d). O RMSE alto vem de ~1% das safras em que o solo seco atrasa a germinação por semanas ou meses (até 270 d) e empurra o ciclo inteiro. O dia da primeira chuva explica pouco (correlação de ~0,25).
+  - Próximo passo: tratar "germinação atrasada mais de N dias" como saída de classificador (falha de estabelecimento) e censurar as datas dessas safras, como foi feito com a maturidade do DSSAT. Depois, repetir o benchmark do AquaCrop com as entradas de soma térmica.
 
 ### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
 
