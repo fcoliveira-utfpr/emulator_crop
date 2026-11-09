@@ -33,8 +33,18 @@ def _profile():
                          "wv1500": [0.22, np.nan], "wv0033": [0.36, np.nan]})
 
 
-def test_hydraulics_soilgrids_with_fallback():
+def test_hydraulics_default_is_saxton_rawls():
     p = hydraulics(_profile())
+    sr = saxton_rawls([30, 25], [40, 50], np.array([1.5, 0.5]) * 1.724, [1.2, 1.35])
+    np.testing.assert_allclose(p["ll"], sr["ll"])
+    np.testing.assert_allclose(p["dul"], np.maximum(sr["dul"], sr["ll"] + 0.02))
+    assert ((p["ll"] < p["dul"]) & (p["dul"] < p["sat"])).all()
+    organic = hydraulics(_profile().assign(soc=[10.0, 20.0]))         # OM above 8 %: capped
+    np.testing.assert_allclose(organic["ll"], saxton_rawls([30, 25], [40, 50], [8.0, 8.0], [1.2, 1.35])["ll"])
+
+
+def test_hydraulics_soilgrids_with_fallback():
+    p = hydraulics(_profile(), method="soilgrids")
     assert p.loc[0, "ll"] == 0.22 and p.loc[0, "dul"] == 0.36
     assert p.loc[0, "sat"] == pytest.approx(1 - 1.2 / 2.65)
     sr = saxton_rawls(25, 50, 0.5 * 1.724, 1.35)
@@ -45,7 +55,7 @@ def test_hydraulics_soilgrids_with_fallback():
 def test_hydraulics_enforces_order():
     p = _profile()
     p.loc[0, "wv0033"] = 0.21                                       # dul below ll in the data
-    out = hydraulics(p, min_gap=0.02)
+    out = hydraulics(p, method="soilgrids", min_gap=0.02)
     assert out.loc[0, "dul"] == pytest.approx(0.24)
 
 

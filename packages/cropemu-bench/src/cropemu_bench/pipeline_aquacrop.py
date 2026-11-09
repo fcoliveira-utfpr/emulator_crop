@@ -79,7 +79,7 @@ def generate(dssat_dir, out_dir, model: AquaCrop | None = None, crop_name: str =
         "model": "AquaCrop 7.3 (official executable)", "executable": str(model.executable),
         "crop": f"FAO {crop_name}.CRO", "seasons_from": str(src),
         "weather": f"NASA POWER {WEATHER_START}..{WEATHER_END}; ETo FAO-56 PM",
-        "soil": "SoilGrids 2.0 1 km, 3x3 km median; top layers merged to 5 horizons",
+        "soil": "SoilGrids 2.0 1 km, 3x3 km median; Saxton & Rawls (2006) hydraulics; top layers merged to 5 horizons",
         "window_days": [DAYS_BEFORE, DAYS_AFTER], "initial_water": INITIAL_WATER,
         "potential": "net irrigation requirement (0 % RAW depletion)",
         "perturbations": {k: list(v) for k, v in AQ_PERTURBATIONS.items()}}, indent=1, default=str))

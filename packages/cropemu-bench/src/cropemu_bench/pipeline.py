@@ -108,7 +108,7 @@ def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(
     cultivar_table(cultivars).to_parquet(out / "cultivars.parquet")
     (out / "meta.json").write_text(json.dumps({
         "design": asdict(design), "weather": f"NASA POWER {WEATHER_START}..{WEATHER_END}",
-        "soil": "SoilGrids 2.0 1 km, 3x3 km median; LL/DUL from wv1500/wv0033",
+        "soil": "SoilGrids 2.0 1 km, 3x3 km median; LL/DUL/SAT/Ksat from Saxton & Rawls (2006)",
         "calendar": f"GGCMI Phase 3 v1.01 soy_{regime}", "dssat": str(model.executable)}, indent=1, default=str))
 
     cul_by_id = {c.id: c for c in cultivars}

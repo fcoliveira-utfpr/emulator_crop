@@ -33,21 +33,31 @@ def saxton_rawls(sand, clay, om, bd=None):
     return {"ll": th1500, "dul": th33, "sat": thS, "ksat": ksat_mm_h / 10}
 
 
-def hydraulics(profile: pd.DataFrame, method: str = "soilgrids", min_gap: float = 0.02) -> pd.DataFrame:
+#: Default water retention method. The SoilGrids retention maps give very little available
+#: water in clayey tropical soils (e.g. 0.03 cm³/cm³ in a Paraná Oxisol with 52 % clay, against
+#: 0.10-0.12 from Saxton & Rawls); decision of 09/11/2026 (plan, 5.2.1).
+DEFAULT_METHOD = "saxton_rawls"
+#: Organic matter (%) above which Saxton & Rawls is not fitted (their data: OM <= 8 %); larger
+#: values (organic topsoils, 24 % of the dssat_v1 points in some layer) are capped.
+MAX_OM = 8.0
+
+
+def hydraulics(profile: pd.DataFrame, method: str = DEFAULT_METHOD, min_gap: float = 0.02) -> pd.DataFrame:
     """Add ``ll``, ``dul``, ``sat`` and ``ksat`` to a standard soil profile.
 
     method
+        ``"saxton_rawls"`` (default): everything from texture, organic matter and density
+        (Saxton & Rawls 2006, with the density adjustment).
         ``"soilgrids"``: LL and DUL from the SoilGrids water retention maps
         (columns ``wv1500`` and ``wv0033``), saturation from bulk density and
         Ksat from Saxton & Rawls; layers without them fall back to Saxton & Rawls.
-        ``"saxton_rawls"``: everything from texture, organic matter and density.
 
     The result always satisfies ``ll + min_gap <= dul`` and ``dul + min_gap <= sat``.
     """
     if method not in ("soilgrids", "saxton_rawls"):
         raise ValueError("method must be 'soilgrids' or 'saxton_rawls'")
     out = profile.copy()
-    sr = saxton_rawls(out["sand"], out["clay"], out["soc"] * 1.724, out.get("bdod"))
+    sr = saxton_rawls(out["sand"], out["clay"], np.minimum(out["soc"] * 1.724, MAX_OM), out.get("bdod"))
     ll, dul, sat = sr["ll"], sr["dul"], sr["sat"]
     if method == "soilgrids" and {"wv1500", "wv0033"} <= set(out):
         ok = out["wv1500"].notna() & out["wv0033"].notna()
