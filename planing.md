@@ -479,6 +479,24 @@ R² por saída, com validação por bloco:
 - Classificadores: maturou ou não, AUC de 0,995 (12% não maturam). Estabelecimento atrasado, AUC de 0,984, acurácia balanceada de 0,93.
 - **Escolha para o AquaCrop:** MLP por grupos com offset de soma térmica.
 
+**AquaCrop nas safras do `dssat_v1` (`aquacrop_v1`, 117.720 safras, 86 min de simulação, 1 erro).** As mesmas safras do DSSAT, para comparar os dois modelos com o mesmo volume de dados. MLP por grupos com offset, validação por bloco:
+
+| Saída | `aquacrop_v0` (39.240) | `aquacrop_v1` (117.720) |
+|---|---|---|
+| R² mediano (44 saídas) | 0,875 | **0,886** |
+| Emergência, floração, maturidade, RMSE (d) | 0,98; 0,95; 4,06 | 0,96; 1,09; 4,25 |
+| Início da formação do grão, RMSE (d) | 5,49 | **4,96** (passa) |
+| Produtividade, RMSE (R²) | 0,63 t/ha (0,890) | **0,58 t/ha (0,907)** |
+| Biomassa, R² | 0,887 | 0,905 |
+| Índice de colheita, R² | 0,667 | 0,714 |
+| Dossel máximo, R² | 0,820 | 0,858 |
+
+- Triplicar os dados melhora o crescimento em ~8% no RMSE. As datas já estavam no limite do que o modelo determina.
+- Aceitação: as 4 datas passam; 7 recomendadas, 15 com cuidado (produtividade 0,37) e 22 não recomendadas.
+- Classificadores: maturou ou não, AUC de 0,996; estabelecimento atrasado, AUC de 0,984 (12,2% das safras).
+- Exportado como `aquacrop-soybean-v1`, que substitui o v0 na biblioteca (R² nos dados de treino de 0,94 na produtividade).
+- **Mesmo volume de dados nos dois modelos:** o emulador do DSSAT acerta melhor o crescimento (R² de 0,936 contra 0,907 na produtividade), e o do AquaCrop acerta melhor as datas, que são soma térmica pura.
+
 **Repetições no DSSAT (dssat_v1, MLP por grupos, validação por bloco, 3 sementes da rede, mesmas dobras).** Média ± desvio entre sementes:
 
 | Saída | Entradas da 4.7 (f1) | Com balanço hídrico (f2) |
