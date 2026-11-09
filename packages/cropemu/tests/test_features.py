@@ -45,3 +45,15 @@ def test_soil_features():
     assert f["paw_mm"] == pytest.approx(150 * 0.15 + 150 * 0.13 + 700 * 0.10)
     assert f["paw30_mm"] == pytest.approx(150 * 0.15 + 150 * 0.13)
     assert f["clay30"] == pytest.approx(45) and f["depth_cm"] == 100
+
+
+def test_thermal_days():
+    from cropemu.features import WeatherSeries, gdd
+
+    idx = pd.date_range("2000-01-01", periods=400)
+    df = pd.DataFrame({"tmax": 25.0, "tmin": 15.0, "srad": 20.0, "rain": 0.0}, index=idx)   # 15 GDD/day (base 5)
+    w = WeatherSeries(df, -23.0)
+    assert gdd(np.array([25.0]), np.array([15.0]), 5, 30)[0] == 15
+    d = w.thermal_days("2000-02-01", {"a": 150, "b": 151, "c": 1e6}, 5.0, 30.0, max_days=300)
+    assert d == {"a": 10.0, "b": 11.0, "c": 300.0}
+    assert w.thermal_days("2000-02-01", {"a": 150}, 5.0, 30.0, dt=5.0)["a"] == 8.0      # 20 GDD/day

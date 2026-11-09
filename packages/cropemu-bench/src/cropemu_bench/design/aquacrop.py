@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import qmc
 
+from cropemu.features import gdd  # noqa: F401  (AquaCrop method 3)
+
 from ..models.aquacrop.crop import CropFile
 from .cultivars import mg_center
 
@@ -38,14 +40,6 @@ AQ_PERTURBATIONS = {
 CYCLE_PER_MG = 0.125
 #: Fixed: plants per hectare (30 plants/m², as in the DSSAT design).
 PLANTS = 300_000
-
-
-def gdd(tmax, tmin, tbase: float, tupper: float) -> np.ndarray:
-    """Daily growing degrees as AquaCrop (method 3): temperatures capped at ``tupper``,
-    Tmax floored at ``tbase``, mean floored at ``tbase``."""
-    tx = np.clip(tmax, tbase, tupper)
-    tn = np.minimum(tmin, tupper)
-    return np.maximum((tx + tn) / 2 - tbase, 0.0)
 
 
 def climatological_gdd(weather: pd.DataFrame, planting_doy: int, maturity_doy: int, tbase: float,

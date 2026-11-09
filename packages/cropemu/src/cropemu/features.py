@@ -48,6 +48,14 @@ def co2_at(d) -> float:
 
 
 # ---------------------------------------------------------------------------- weather
+def gdd(tmax, tmin, tbase: float, tupper: float) -> np.ndarray:
+    """Daily growing degrees, AquaCrop method 3: Tmax in [Tbase, Tupper], Tmin capped at Tupper,
+    mean floored at Tbase."""
+    tx = np.clip(tmax, tbase, tupper)
+    tn = np.minimum(tmin, tupper)
+    return np.maximum((tx + tn) / 2 - tbase, 0.0)
+
+
 def _vpd(df: pd.DataFrame) -> np.ndarray:
     """Mean daily vapour pressure deficit (kPa) from tmax/tmin and dewp or rhum."""
     es = lambda t: 0.6108 * np.exp(17.27 * t / (t + 237.3))
@@ -75,6 +83,21 @@ class WeatherSeries:
         self.rain = df["rain"].to_numpy(float)
         self.vpd = _vpd(df)
         self.dayl = daylength(lat, idx.dayofyear.to_numpy())
+
+    def thermal_days(self, sowing, requirements: dict, tbase: float, tupper: float, dt: float = 0.0,
+                     max_days: int = 600) -> dict:
+        """Days after sowing to accumulate each thermal time requirement (``{name: GDD}``).
+
+        Requirements not met within ``max_days`` (or the end of the series) get ``max_days``.
+        """
+        i0 = (pd.Timestamp(sowing) - self.t0).days
+        i1 = min(i0 + max_days, self.n)
+        cum = np.cumsum(gdd(self.tmax[i0:i1] + dt, self.tmin[i0:i1] + dt, tbase, tupper))
+        out = {}
+        for name, req in requirements.items():
+            k = int(np.searchsorted(cum, req))
+            out[name] = float(k + 1) if k < len(cum) else float(max_days)
+        return out
 
     def window(self, sowing, start: int, end: int, dt: float = 0.0, rain_factor: float = 1.0) -> dict:
         i0 = (pd.Timestamp(sowing) - self.t0).days + start
