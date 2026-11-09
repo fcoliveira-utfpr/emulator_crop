@@ -15,8 +15,8 @@ import pandas as pd
 from .base import Emulator
 from .mlp import MLPEmulator
 
-#: Default groups: development dates; everything else.
-PHENOLOGY = ("EDAT_dap", "ADAT_dap", "MDAT_dap", "HDAT_dap")
+#: Default groups: development dates (DSSAT and AquaCrop names); everything else.
+PHENOLOGY = ("EDAT_dap", "ADAT_dap", "MDAT_dap", "HDAT_dap", "EMR_dap", "FLO_dap", "YLD_dap", "MAT_dap")
 
 
 class GroupedEmulator(Emulator):

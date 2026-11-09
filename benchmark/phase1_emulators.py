@@ -19,7 +19,9 @@ from cropemu_bench.emulators import GBEmulator, GroupedEmulator, MLPEmulator, Ri
 from cropemu_bench.evaluate import cross_validate, metrics
 
 ROOT = Path(__file__).resolve().parents[1]
-KEY = ["EDAT_dap", "ADAT_dap", "MDAT_dap", "HWAM", "CWAM", "LAIX", "HIAM", "ETCM", "PRCM", "DRCM", "SWXM"]
+KEY = ["EDAT_dap", "ADAT_dap", "MDAT_dap", "HWAM", "CWAM", "LAIX", "HIAM", "ETCM", "PRCM", "DRCM", "SWXM",
+       # AquaCrop
+       "EMR_dap", "FLO_dap", "MAT_dap", "Y(dry)", "BioMass", "HI", "CC_max", "ET_crop", "Tr_crop", "Drain_crop"]
 EMULATORS = {"ridge": RidgeEmulator, "gb": GBEmulator, "mlp": MLPEmulator, "mlp_grouped": GroupedEmulator}
 
 
