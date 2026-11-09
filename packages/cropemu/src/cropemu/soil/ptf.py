@@ -33,32 +33,80 @@ def saxton_rawls(sand, clay, om, bd=None):
     return {"ll": th1500, "dul": th33, "sat": thS, "ksat": ksat_mm_h / 10}
 
 
-#: Default water retention method. The SoilGrids retention maps give very little available
-#: water in clayey tropical soils (e.g. 0.03 cm³/cm³ in a Paraná Oxisol with 52 % clay, against
-#: 0.10-0.12 from Saxton & Rawls); decision of 09/11/2026 (plan, 5.2.1).
-DEFAULT_METHOD = "saxton_rawls"
+def reichert(clay, silt, om, bd):
+    """Water retention of southern Brazilian soils (Reichert et al. 2009, RBCS 33:1547, Table 4).
+
+    ``clay``, ``silt`` and ``om`` (organic matter) in kg/kg, ``bd`` bulk density in g/cm³.
+    The equations give gravimetric water (kg/kg), converted here to volumetric with ``bd``.
+    Fitted on 725 samples from Rio Grande do Sul (OM <= 0.10 kg/kg; R² 0.56-0.67).
+    Returns ``ll`` (θ1500), ``dul10`` (θ10 kPa) and ``dul33`` (θ33 kPa) in cm³/cm³.
+    """
+    C, CS = np.asarray(clay, float), np.asarray(clay, float) + np.asarray(silt, float)
+    OM, BD = np.asarray(om, float), np.asarray(bd, float)
+    w10 = 0.268 + 0.05 * C + 0.24 * CS + 0.85 * OM - 0.127 * BD
+    w33 = 0.106 + 0.29 * CS + 0.93 * OM - 0.048 * BD
+    w1500 = -0.04 + 0.15 * C + 0.17 * CS + 0.91 * OM + 0.026 * BD
+    return {"ll": w1500 * BD, "dul10": w10 * BD, "dul33": w33 * BD}
+
+
+#: Default water retention method (plan, 5.2.1; decision of 09/11/2026). The SoilGrids retention
+#: maps give very little available water in clayey tropical soils (0.03 cm³/cm³ in a Paraná Oxisol
+#: with 52 % clay); Saxton & Rawls, fitted on US soils, gives 0.10-0.12. "hybrid" uses the
+#: Brazilian PTF of Reichert et al. (2009), with field capacity at 10 kPa (the usual value for
+#: well-structured tropical soils), in the tropics and subtropics, and Saxton & Rawls elsewhere.
+DEFAULT_METHOD = "hybrid"
+METHODS = ("hybrid", "saxton_rawls", "reichert", "soilgrids")
 #: Organic matter (%) above which Saxton & Rawls is not fitted (their data: OM <= 8 %); larger
 #: values (organic topsoils, 24 % of the dssat_v1 points in some layer) are capped.
 MAX_OM = 8.0
+#: Same for Reichert et al. (2009): OM <= 10 %.
+MAX_OM_REICHERT = 10.0
+#: "hybrid": Reichert up to |lat| = HYBRID_LAT[0], Saxton & Rawls from HYBRID_LAT[1], a linear
+#: blend between them (no jump in the soil inputs). Rio Grande do Sul spans 27-34 °S.
+HYBRID_LAT = (30.0, 40.0)
 
 
-def hydraulics(profile: pd.DataFrame, method: str = DEFAULT_METHOD, min_gap: float = 0.02) -> pd.DataFrame:
+def reichert_weight(lat: float) -> float:
+    """Weight of Reichert et al. (2009) in the "hybrid" method at latitude ``lat``."""
+    a, b = HYBRID_LAT
+    return float(np.clip((b - abs(lat)) / (b - a), 0.0, 1.0))
+
+
+def hydraulics(profile: pd.DataFrame, method: str = DEFAULT_METHOD, lat: float | None = None,
+               min_gap: float = 0.02) -> pd.DataFrame:
     """Add ``ll``, ``dul``, ``sat`` and ``ksat`` to a standard soil profile.
 
     method
-        ``"saxton_rawls"`` (default): everything from texture, organic matter and density
+        ``"hybrid"`` (default): ``"reichert"`` in the tropics and subtropics (|lat| <= 30°),
+        ``"saxton_rawls"`` from 40°, a linear blend between them (:data:`HYBRID_LAT`).
+        ``lat`` defaults to ``profile.attrs["lat"]`` (set by :mod:`cropemu.soil.soilgrids`).
+        ``"saxton_rawls"``: everything from texture, organic matter and density
         (Saxton & Rawls 2006, with the density adjustment).
+        ``"reichert"``: LL (1500 kPa) and DUL (10 kPa) from Reichert et al. (2009);
+        saturation and Ksat from Saxton & Rawls.
         ``"soilgrids"``: LL and DUL from the SoilGrids water retention maps
         (columns ``wv1500`` and ``wv0033``), saturation from bulk density and
         Ksat from Saxton & Rawls; layers without them fall back to Saxton & Rawls.
 
     The result always satisfies ``ll + min_gap <= dul`` and ``dul + min_gap <= sat``.
     """
-    if method not in ("soilgrids", "saxton_rawls"):
-        raise ValueError("method must be 'soilgrids' or 'saxton_rawls'")
+    if method not in METHODS:
+        raise ValueError(f"method must be one of {METHODS}")
     out = profile.copy()
-    sr = saxton_rawls(out["sand"], out["clay"], np.minimum(out["soc"] * 1.724, MAX_OM), out.get("bdod"))
+    soc = out["soc"]
+    sr = saxton_rawls(out["sand"], out["clay"], np.minimum(soc * 1.724, MAX_OM), out.get("bdod"))
     ll, dul, sat = sr["ll"], sr["dul"], sr["sat"]
+    w = {"saxton_rawls": 0.0, "soilgrids": 0.0, "reichert": 1.0}.get(method)
+    if method == "hybrid":
+        lat = profile.attrs.get("lat") if lat is None else lat
+        if lat is None:
+            raise ValueError('method "hybrid" needs the latitude (argument lat or profile.attrs["lat"])')
+        w = reichert_weight(lat)
+    if w > 0:
+        silt = out["silt"] if "silt" in out else 100 - out["sand"] - out["clay"]
+        re = reichert(out["clay"] / 100, silt / 100, np.minimum(soc * 1.724, MAX_OM_REICHERT) / 100, out["bdod"])
+        ll = w * re["ll"] + (1 - w) * ll
+        dul = w * re["dul10"] + (1 - w) * dul
     if method == "soilgrids" and {"wv1500", "wv0033"} <= set(out):
         ok = out["wv1500"].notna() & out["wv0033"].notna()
         ll = np.where(ok, out["wv1500"], ll)

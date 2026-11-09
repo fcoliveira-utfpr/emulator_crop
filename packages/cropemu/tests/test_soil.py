@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cropemu.soil import hydraulics, saxton_rawls, texture_class
+from cropemu.soil import hydraulics, reichert, saxton_rawls, texture_class
+from cropemu.soil.ptf import reichert_weight
 
 
 @pytest.mark.parametrize("sand, clay, expected", [
@@ -33,14 +34,42 @@ def _profile():
                          "wv1500": [0.22, np.nan], "wv0033": [0.36, np.nan]})
 
 
-def test_hydraulics_default_is_saxton_rawls():
-    p = hydraulics(_profile())
+def test_hydraulics_saxton_rawls():
+    p = hydraulics(_profile(), method="saxton_rawls")
     sr = saxton_rawls([30, 25], [40, 50], np.array([1.5, 0.5]) * 1.724, [1.2, 1.35])
     np.testing.assert_allclose(p["ll"], sr["ll"])
     np.testing.assert_allclose(p["dul"], np.maximum(sr["dul"], sr["ll"] + 0.02))
     assert ((p["ll"] < p["dul"]) & (p["dul"] < p["sat"])).all()
-    organic = hydraulics(_profile().assign(soc=[10.0, 20.0]))         # OM above 8 %: capped
+    organic = hydraulics(_profile().assign(soc=[10.0, 20.0]), method="saxton_rawls")   # OM above 8 %: capped
     np.testing.assert_allclose(organic["ll"], saxton_rawls([30, 25], [40, 50], [8.0, 8.0], [1.2, 1.35])["ll"])
+
+
+def test_reichert_oxisol():
+    # clayey Oxisol (60 % clay, 20 % silt, 3 % OM, 1.2 g/cm³): ~0.10 cm³/cm³ between 33 and
+    # 1500 kPa and ~0.15 between 10 and 1500 kPa, as measured in Brazilian Latosols
+    r = reichert(0.60, 0.20, 0.03, 1.2)
+    assert 0.07 < r["dul33"] - r["ll"] < 0.13
+    assert 0.12 < r["dul10"] - r["ll"] < 0.19
+    assert r["ll"] < r["dul33"] < r["dul10"] < 1 - 1.2 / 2.65
+
+
+def test_hydraulics_hybrid():
+    prof = _profile()
+    with pytest.raises(ValueError):
+        hydraulics(prof)                                            # no latitude
+    assert reichert_weight(-23) == 1 and reichert_weight(45) == 0 and reichert_weight(35) == 0.5
+    re = reichert(np.array([40, 50]) / 100, np.array([30, 25]) / 100, np.array([1.5, 0.5]) * 1.724 / 100,
+                  np.array([1.2, 1.35]))
+    prof.attrs["lat"] = -23.0                                       # tropics: Reichert, DUL at 10 kPa
+    p = hydraulics(prof)
+    np.testing.assert_allclose(p["ll"], re["ll"])
+    np.testing.assert_allclose(p["dul"], re["dul10"])
+    np.testing.assert_allclose(p["sat"], hydraulics(prof, method="saxton_rawls")["sat"])
+    np.testing.assert_allclose(hydraulics(prof, lat=50)["ll"], hydraulics(prof, method="saxton_rawls")["ll"])
+    mid = hydraulics(prof, lat=35)["dul"]
+    sr = hydraulics(prof, method="saxton_rawls")["dul"]
+    np.testing.assert_allclose(mid, 0.5 * re["dul10"] + 0.5 * sr)
+    assert ((p["ll"] < p["dul"]) & (p["dul"] < p["sat"])).all()
 
 
 def test_hydraulics_soilgrids_with_fallback():

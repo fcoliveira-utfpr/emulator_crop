@@ -24,6 +24,6 @@ ksat        saturated hydraulic conductivity, cm/h
 Site information goes in ``df.attrs`` (``lat``, ``lon``, ``source``).
 """
 
-from .ptf import hydraulics, saxton_rawls, texture_class
+from .ptf import hydraulics, reichert, saxton_rawls, texture_class
 
-__all__ = ["hydraulics", "saxton_rawls", "texture_class"]
+__all__ = ["hydraulics", "reichert", "saxton_rawls", "texture_class"]
