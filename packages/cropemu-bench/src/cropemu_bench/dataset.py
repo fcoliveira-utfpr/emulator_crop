@@ -46,7 +46,9 @@ def targets(summary: pd.DataFrame, min_valid: float = 0.5, derived: bool = False
     """Every numeric Summary.OUT output that varies, indexed by ``sample``.
 
     Dates become days after planting (``EDAT_dap``...). Missing values (e.g. no
-    maturity) stay NaN: emulators must mask them. Columns with fewer than
+    maturity) stay NaN: emulators must mask them. When the crop ended before maturity
+    (``CRST`` != 1, e.g. 39 early end, 32 cold kill) DSSAT writes the end date as MDAT;
+    it is set to NaN (censored), the status is a classifier target (:func:`labels`). Columns with fewer than
     ``min_valid`` non-missing values or no variance are dropped. The :data:`DERIVED`
     ratios are left out unless ``derived`` is True (they are computed with :func:`derive`).
     """
@@ -64,8 +66,23 @@ def targets(summary: pd.DataFrame, min_valid: float = 0.5, derived: bool = False
             continue
         out[c] = s[c].astype(float)
     y = pd.DataFrame(out, index=s.index)
+    if "CRST" in s and "MDAT_dap" in y:
+        y.loc[s["CRST"].to_numpy() != 1, "MDAT_dap"] = np.nan
     keep = [c for c in y if y[c].notna().mean() >= min_valid and y[c].std(skipna=True) > 0]
     return y[keep]
+
+
+#: DSSAT end-of-season crop status codes (``CRST``; CROPGRO RStages/GROW, CERES GROSUB).
+CROP_STATUS = {1: "matured", 32: "cold_kill", 33: "water_kill", 39: "ended_before_maturity"}
+
+
+def labels(summary: pd.DataFrame, model: str = "dssat") -> pd.DataFrame:
+    """Categorical outputs, by ``sample``: ``matured`` (bool) and, for DSSAT, ``crop_status``."""
+    s = summary.set_index("sample")
+    if model == "aquacrop":
+        return pd.DataFrame({"matured": s["matured"].fillna(False).astype(bool)}, index=s.index)
+    st = s["CRST"].map(lambda v: CROP_STATUS.get(int(v), f"code_{int(v)}") if pd.notna(v) else "missing")
+    return pd.DataFrame({"matured": (s["CRST"] == 1).to_numpy(), "crop_status": st.to_numpy()}, index=s.index)
 
 
 #: AquaCrop summary columns that are dates of the simulation period, flags or errors.
@@ -126,8 +143,8 @@ def features(design: pd.DataFrame, points: pd.DataFrame, cultivar_features=CULTI
 
 
 def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """X (features), Y (targets) and ``info`` (point, block, koppen, kind) of a dataset,
-    aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``.
+    """X (features), Y (targets) and ``info`` (point, block, koppen, kind and the
+    categorical outputs of :func:`labels`) of a dataset, aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``.
     With ``derived``, Y also has the true :data:`DERIVED` ratios (to evaluate :func:`derive`)."""
     out = Path(out_dir)
     model = model_of(out)
@@ -148,6 +165,6 @@ def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFr
         X.to_parquet(fpath)
     Y = targets_aquacrop(t["summary"]) if model == "aquacrop" else targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(
-        t["points"].set_index("id")[["block", "koppen", "kind"]], on="point")
+        t["points"].set_index("id")[["block", "koppen", "kind"]], on="point").join(labels(t["summary"], model))
     idx = X.index.intersection(Y.index)
     return X.loc[idx], Y.loc[idx], info.loc[idx]

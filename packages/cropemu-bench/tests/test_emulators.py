@@ -67,3 +67,37 @@ def test_ratio_outputs_are_derived_not_emulated():
     p = derive(targets(s))
     assert p.loc[0, "YPPM"] == 6.0 and p.loc[0, "DMPPM"] == 12.0
     assert p.loc[1, "YPPM"] == 2000.0                                  # rain floored at 1 mm
+
+
+def test_acceptance_and_within_site_sd():
+    from cropemu_bench.evaluate import acceptance, within_site_sd
+
+    site = np.repeat(["a", "b"], 50)
+    rng = np.random.default_rng(0)
+    y = pd.Series(np.r_[rng.normal(0, 1, 50), rng.normal(100, 1, 50)])
+    assert within_site_sd(y, site) == pytest.approx(1.0, abs=0.15)           # between-site offset ignored
+    Y = pd.DataFrame({"HWAM": y, "ADAT_dap": 40 + rng.normal(0, 10, 100)})
+    P = Y + pd.DataFrame({"HWAM": rng.normal(0, 0.1, 100), "ADAT_dap": rng.normal(0, 6, 100)})
+    a = acceptance(Y, P, site)
+    assert a.loc["HWAM", "recommended"] and not a.loc["ADAT_dap", "recommended"]   # 6 d > 5 d
+
+
+def test_classify_cv_and_labels():
+    from cropemu_bench.dataset import labels
+    from cropemu_bench.evaluate import classify_cv
+
+    X, Y, groups = _data(n=800)
+    y = np.where(X.a + 0.3 * X.b > 0.8, "fail", "ok")
+    out, pred, proba = classify_cv(X, y, groups=groups, n_splits=3, max_iter=100)
+    assert out["balanced_accuracy"] > 0.85 and out["roc_auc"] > 0.95 and len(pred) == 800
+    s = pd.DataFrame({"sample": [0, 1, 2], "CRST": [1, 39, 32]})
+    lab = labels(s)
+    assert lab["matured"].tolist() == [True, False, False]
+    assert lab["crop_status"].tolist() == ["matured", "ended_before_maturity", "cold_kill"]
+
+
+def test_mdat_is_censored_when_crop_did_not_mature():
+    s = pd.DataFrame({"sample": [0, 1, 2], "PDAT": [2019305] * 3, "MDAT": [2020040, 2020010, 2020050],
+                      "CRST": [1, 39, 1], "HWAM": [1.0, 2.0, 3.0]})
+    y = targets(s)
+    assert np.isnan(y.loc[1, "MDAT_dap"]) and y.loc[0, "MDAT_dap"] == 100
