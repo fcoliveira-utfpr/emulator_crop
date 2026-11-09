@@ -15,12 +15,12 @@ from pathlib import Path
 import pandas as pd
 
 from cropemu_bench.dataset import DERIVED, build, derive
-from cropemu_bench.emulators import GBEmulator, MLPEmulator, RidgeEmulator
+from cropemu_bench.emulators import GBEmulator, GroupedEmulator, MLPEmulator, RidgeEmulator
 from cropemu_bench.evaluate import cross_validate, metrics
 
 ROOT = Path(__file__).resolve().parents[1]
 KEY = ["EDAT_dap", "ADAT_dap", "MDAT_dap", "HWAM", "CWAM", "LAIX", "HIAM", "ETCM", "PRCM", "DRCM", "SWXM"]
-EMULATORS = {"ridge": RidgeEmulator, "gb": GBEmulator, "mlp": MLPEmulator}
+EMULATORS = {"ridge": RidgeEmulator, "gb": GBEmulator, "mlp": MLPEmulator, "mlp_grouped": GroupedEmulator}
 
 
 def main():

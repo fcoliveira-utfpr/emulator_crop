@@ -77,3 +77,17 @@ def test_check_and_fill_gaps():
 def test_live_request(tmp_path):
     df = nasa_power.fetch(42.0, -93.6, "2020-01-01", "2020-01-31", cache_dir=tmp_path)
     assert len(df) == 31 and check(df)["ok"]
+
+
+def test_eto_fao56_example_18():
+    # FAO-56 example 18 (Uccle, 6 July, 50°48'N, 100 m): ETo = 3.9 mm/d
+    from cropemu.weather import eto_fao56
+    from cropemu.weather.eto import saturation_vapour_pressure
+
+    df = pd.DataFrame({"tmax": [21.5], "tmin": [12.3], "srad": [22.07], "wind": [2.078]},
+                      index=pd.to_datetime(["2001-07-06"]))
+    ea = [1.409]
+    assert eto_fao56(df, 50.80, 100, ea=ea).iloc[0] == pytest.approx(3.9, abs=0.1)
+    df["dewp"] = 12.0                                      # e°(12) = 1.40 kPa ~ the example's ea
+    assert saturation_vapour_pressure(12.0) == pytest.approx(1.40, abs=0.01)
+    assert eto_fao56(df, 50.80, 100).iloc[0] == pytest.approx(3.9, abs=0.15)

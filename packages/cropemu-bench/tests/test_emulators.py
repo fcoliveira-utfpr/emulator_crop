@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from cropemu_bench.dataset import derive, targets
-from cropemu_bench.emulators import GBEmulator, MLPEmulator, RidgeEmulator
+from cropemu_bench.emulators import GBEmulator, GroupedEmulator, MLPEmulator, RidgeEmulator
 from cropemu_bench.evaluate import cross_validate, metrics, splits
 
 
@@ -19,6 +19,7 @@ def _data(n=1500, seed=0):
 @pytest.mark.parametrize("factory, r2_min", [
     (lambda: MLPEmulator(hidden=(64, 64), max_epochs=150, patience=15), 0.7),
     (lambda: GBEmulator(max_iter=200), 0.7),
+    (lambda: GroupedEmulator(groups={"g1": ["lin"]}, hidden=(64, 64), max_epochs=150, patience=15), 0.7),
     (lambda: RidgeEmulator(), None)])
 def test_emulators_fit_masked_targets(factory, r2_min):
     X, Y, groups = _data()
