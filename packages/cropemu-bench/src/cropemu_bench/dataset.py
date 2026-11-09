@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -67,6 +68,34 @@ def targets(summary: pd.DataFrame, min_valid: float = 0.5, derived: bool = False
     return y[keep]
 
 
+#: AquaCrop summary columns that are dates of the simulation period, flags or errors.
+AQ_NOT_TARGETS = {"Day1", "Month1", "Year1", "DayN", "MonthN", "YearN", "error", "matured"}
+
+
+def targets_aquacrop(summary: pd.DataFrame, min_valid: float = 0.5) -> pd.DataFrame:
+    """Every numeric AquaCrop output that varies (season file + crop-period summary), by ``sample``.
+
+    The maturity day is NaN for seasons that did not reach maturity (censored), as in DSSAT.
+    """
+    s = summary.set_index("sample")
+    y = pd.DataFrame({c: s[c].astype(float) for c in s.columns
+                      if c not in AQ_NOT_TARGETS and pd.api.types.is_numeric_dtype(s[c])
+                      and not pd.api.types.is_bool_dtype(s[c])}, index=s.index)
+    if "matured" in s and "MAT_dap" in y:
+        y.loc[~s["matured"].fillna(False).astype(bool), "MAT_dap"] = np.nan
+    y = y.where(y > -9)                               # AquaCrop writes -9 / -9.9 for undefined values
+    keep = [c for c in y if y[c].notna().mean() >= min_valid and y[c].std(skipna=True) > 0]
+    return y[keep]
+
+
+def model_of(out_dir) -> str:
+    """``"aquacrop"`` or ``"dssat"``, from the dataset's ``meta.json``."""
+    meta = Path(out_dir) / "meta.json"
+    if meta.exists() and json.loads(meta.read_text()).get("model", "").lower().startswith("aquacrop"):
+        return "aquacrop"
+    return "dssat"
+
+
 def derive(P: pd.DataFrame) -> pd.DataFrame:
     """The :data:`DERIVED` ratios computed from predicted outputs (columns added to a copy of ``P``)."""
     P = P.copy()
@@ -76,7 +105,7 @@ def derive(P: pd.DataFrame) -> pd.DataFrame:
     return P
 
 
-def features(design: pd.DataFrame, points: pd.DataFrame) -> pd.DataFrame:
+def features(design: pd.DataFrame, points: pd.DataFrame, cultivar_features=CULTIVAR_FEATURES) -> pd.DataFrame:
     """Emulator inputs of every season (index ``sample``): site, soil, weather windows,
     cultivar, water regime, CO2. Weather and soil are read from the cropemu cache."""
     pts = points.set_index("id")
@@ -91,7 +120,7 @@ def features(design: pd.DataFrame, points: pd.DataFrame) -> pd.DataFrame:
             co2 = r["co2"] if r["perturbed"] else co2_at(pd.Timestamp(r["sowing"]) + pd.Timedelta(days=60))
             rows.append({"sample": r["sample"], **site, **soil,
                          **season_features(w, r["sowing"], r["dt"], r["rain_factor"]),
-                         **{c: float(r[c]) for c in CULTIVAR_FEATURES},
+                         **{c: float(r[c]) for c in cultivar_features},
                          "water": float(r["water"]), "co2": float(co2)})
     return pd.DataFrame(rows).set_index("sample")
 
@@ -101,6 +130,7 @@ def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFr
     aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``.
     With ``derived``, Y also has the true :data:`DERIVED` ratios (to evaluate :func:`derive`)."""
     out = Path(out_dir)
+    model = model_of(out)
     t = load(out)
     design = t["design"]
     done = t["summary"]["sample"].unique()
@@ -109,9 +139,14 @@ def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFr
     if cache and fpath.exists():
         X = pd.read_parquet(fpath)
     else:
-        X = features(design, t["points"])
+        if model == "aquacrop":
+            from .design.aquacrop import AQ_PERTURBATIONS
+            cf = ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS)
+        else:
+            cf = CULTIVAR_FEATURES
+        X = features(design, t["points"], cf)
         X.to_parquet(fpath)
-    Y = targets(t["summary"], derived=derived)
+    Y = targets_aquacrop(t["summary"]) if model == "aquacrop" else targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(
         t["points"].set_index("id")[["block", "koppen", "kind"]], on="point")
     idx = X.index.intersection(Y.index)

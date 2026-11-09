@@ -7,6 +7,7 @@ on:
 
 env:
   DSSAT_TAG: v4.8.6.4
+  AQUACROP_TAG: v7.3_typofix
 
 jobs:
   unit:
@@ -48,3 +49,20 @@ jobs:
           CROPEMU_DSSAT_EXE: /home/runner/dssat/build/bin/dscsm048
           CROPEMU_DSSAT_HOME: /home/runner/dssat/Data
         run: pytest -q
+
+  aquacrop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download the official AquaCrop executable
+        run: |
+          curl -sL -o ac.zip "https://github.com/KUL-RSDA/AquaCrop/releases/download/${AQUACROP_TAG}/aquacrop-7.3-x86_64-linux.zip"
+          unzip -q ac.zip -d ~/aquacrop
+          chmod +x ~/aquacrop/*/aquacrop
+          echo "CROPEMU_AQUACROP_EXE=$(ls ~/aquacrop/*/aquacrop)" >> "$GITHUB_ENV"
+      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e "packages/cropemu[soil,test]" -e "packages/cropemu-bench[test]"
+      - name: Tests with AquaCrop
+        run: pytest -q -m aquacrop
