@@ -470,6 +470,22 @@ R² por saída, com validação por bloco:
 - Classificadores: maturou ou não, AUC de 0,995 (12% não maturam). Estabelecimento atrasado, AUC de 0,984, acurácia balanceada de 0,93.
 - **Escolha para o AquaCrop:** MLP por grupos com offset de soma térmica.
 
+**Repetições no DSSAT (dssat_v1, MLP por grupos, validação por bloco, 3 sementes da rede, mesmas dobras).** Média ± desvio entre sementes:
+
+| Saída | Entradas da 4.7 (f1) | Com balanço hídrico (f2) |
+|---|---|---|
+| RMSE emergência (d) | 3,41 ± 0,03 | 3,42 ± 0,10 |
+| RMSE floração (d) | 3,10 ± 0,09 | 3,19 ± 0,07 |
+| RMSE maturidade (d) | 3,26 ± 0,15 | 3,37 ± 0,03 |
+| RMSE produtividade (kg/ha) | 488 ± 4 | **469 ± 1** |
+| RMSE biomassa (kg/ha) | 754 ± 8 | **722 ± 4** |
+| RMSE IAF máximo | 0,553 | **0,529** |
+| R² mediano | 0,931 | **0,936** |
+
+- Na fenologia, a diferença (0,0–0,1 d) é do tamanho da variação entre sementes: as entradas novas não pioram nem melhoram.
+- No crescimento, o ganho de ~4% é maior que a variação entre sementes e é real.
+- **Escolha para o DSSAT:** MLP por grupos com as entradas f2 (janelas + balanço hídrico).
+
 ### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
 
 **Executável:** o oficial do AquaCrop 7.3 (KU Leuven/FAO, licença BSD-3), baixado das releases do repositório KUL-RSDA/AquaCrop, com uma versão para cada sistema. Na máquina, ele reproduz idênticas as saídas de referência do caso de teste oficial. A cultura padrão vem da base da FAO (`SoybeanGDD.CRO`, ciclo em graus-dia). O CI baixa o executável Linux da mesma release.
