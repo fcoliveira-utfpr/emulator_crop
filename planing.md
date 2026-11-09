@@ -421,10 +421,10 @@ R² por saída, com validação por bloco:
 
 | | Ridge | MLP | MLP por grupos | MLP por grupos + dias até a soma térmica |
 |---|---|---|---|---|
-| R² mediano (44 saídas) | | 0,82 | 0,82 | 0,84 |
-| RMSE emergência (d) | 9,3 | 7,5 | 7,9 | 7,6 |
-| RMSE floração (d) | 14,8 | 10,8 | 11,6 | 11,4 |
-| RMSE maturidade (d) | 15,0 | 10,5 | 10,7 | **6,7** |
+| R² mediano (44 saídas) | 0,54 | 0,82 | 0,82 | 0,84 |
+| RMSE emergência (d) | 8,9 | 7,5 | 7,9 | 7,6 |
+| RMSE floração (d) | 12,9 | 10,8 | 11,6 | 11,4 |
+| RMSE maturidade (d) | 15,4 | 10,5 | 10,7 | **6,7** |
 | R² produtividade | 0,53 | 0,85 | 0,86 | 0,85 |
 
 - **O ciclo do AquaCrop é soma térmica pura** e, em locais frios, chega a 300–470 dias. Médias por janela até 130 dias não bastam. A entrada "dias até acumular os graus-dia de cada fase" (calculada do clima com os parâmetros da cultivar, também na biblioteca: `WeatherSeries.thermal_days`) reduz o erro da maturidade de 10,7 para 6,7 d.
