@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cropemu_bench.dataset import targets
+from cropemu_bench.dataset import derive, targets
 from cropemu_bench.emulators import GBEmulator, MLPEmulator, RidgeEmulator
 from cropemu_bench.evaluate import cross_validate, metrics, splits
 
@@ -56,3 +56,13 @@ def test_targets_from_summary():
     assert list(y.columns) == ["ADAT_dap", "MDAT_dap", "HWAM"]        # no identifiers, codes or constants
     assert y.loc[0, "ADAT_dap"] == 35 and y.loc[2, "ADAT_dap"] == 40 and np.isnan(y.loc[1, "ADAT_dap"])
     assert y.loc[0, "MDAT_dap"] == 100                                # across the new year (2019 not leap)
+
+
+def test_ratio_outputs_are_derived_not_emulated():
+    s = pd.DataFrame({"sample": [0, 1], "PDAT": [2019305, 2019305], "HWAM": [3000.0, 2000.0],
+                      "CWAM": [6000.0, 5000.0], "PRCP": [500.0, 0.0], "YPPM": [6.0, 2000.0], "DMPPM": [12.0, 5000.0]})
+    assert "YPPM" not in targets(s) and "DMPPM" not in targets(s)
+    assert "YPPM" in targets(s, derived=True)
+    p = derive(targets(s))
+    assert p.loc[0, "YPPM"] == 6.0 and p.loc[0, "DMPPM"] == 12.0
+    assert p.loc[1, "YPPM"] == 2000.0                                  # rain floored at 1 mm

@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def metrics(Y: pd.DataFrame, P: pd.DataFrame) -> pd.DataFrame:
-    """Per output: n, RMSE, MAE, bias (pred - true), R², NRMSE (RMSE / std of the truth)."""
+    """Per output: n, RMSE, MAE, median absolute error, bias (pred - true), R², NRMSE (RMSE / std of the truth)."""
     rows = []
     for c in Y.columns:
         y, p = Y[c].to_numpy(float), P[c].to_numpy(float)
@@ -19,6 +19,7 @@ def metrics(Y: pd.DataFrame, P: pd.DataFrame) -> pd.DataFrame:
         sd = y.std()
         rmse = float(np.sqrt(np.mean(e**2)))
         rows.append({"target": c, "n": int(ok.sum()), "rmse": rmse, "mae": float(np.mean(np.abs(e))),
+                     "medae": float(np.median(np.abs(e))),
                      "bias": float(e.mean()), "r2": float(1 - np.mean(e**2) / sd**2) if sd > 0 else np.nan,
                      "nrmse": rmse / sd if sd > 0 else np.nan})
     return pd.DataFrame(rows).set_index("target")

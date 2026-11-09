@@ -24,6 +24,14 @@ NOT_TARGETS |= CATEGORICAL
 #: Date outputs (YYYYDDD) converted to days after planting.
 DATE_TARGETS = ("EDAT", "ADAT", "MDAT", "HDAT")
 CULTIVAR_FEATURES = ("mg",) + tuple(PERTURBATIONS)
+#: Ratio outputs computed from predicted outputs instead of emulated: name -> (numerator,
+#: denominator, factor). Per-mm-of-rain ratios explode where the season rain is near zero
+#: (up to ~80,000 kg/ha/mm in deserts), which no regression learns; computed from the
+#: predicted yield/biomass and rain their median error is ~40x smaller (plan, 4.7).
+#: The other ratios (YPEM, HIAM, HWUM...) are emulated better directly.
+DERIVED = {"YPPM": ("HWAM", "PRCP", 1.0), "DMPPM": ("CWAM", "PRCP", 1.0)}
+#: Smallest denominator used for derived ratios (mm of rain).
+DERIVED_FLOOR = 1.0
 
 
 def _doy_date(v) -> date | None:
@@ -33,12 +41,13 @@ def _doy_date(v) -> date | None:
     return date(v // 1000, 1, 1) + pd.Timedelta(days=v % 1000 - 1)
 
 
-def targets(summary: pd.DataFrame, min_valid: float = 0.5) -> pd.DataFrame:
+def targets(summary: pd.DataFrame, min_valid: float = 0.5, derived: bool = False) -> pd.DataFrame:
     """Every numeric Summary.OUT output that varies, indexed by ``sample``.
 
     Dates become days after planting (``EDAT_dap``...). Missing values (e.g. no
     maturity) stay NaN: emulators must mask them. Columns with fewer than
-    ``min_valid`` non-missing values or no variance are dropped.
+    ``min_valid`` non-missing values or no variance are dropped. The :data:`DERIVED`
+    ratios are left out unless ``derived`` is True (they are computed with :func:`derive`).
     """
     s = summary.set_index("sample")
     planting = s["PDAT"].map(_doy_date)
@@ -49,12 +58,22 @@ def targets(summary: pd.DataFrame, min_valid: float = 0.5) -> pd.DataFrame:
             out[f"{c}_dap"] = [(a - p).days if a is not None and p is not None else np.nan
                                for a, p in zip(d, planting)]
     for c in s.columns:
-        if c in NOT_TARGETS or c in DATE_TARGETS or not pd.api.types.is_numeric_dtype(s[c]):
+        if (c in NOT_TARGETS or c in DATE_TARGETS or (c in DERIVED and not derived)
+                or not pd.api.types.is_numeric_dtype(s[c])):
             continue
         out[c] = s[c].astype(float)
     y = pd.DataFrame(out, index=s.index)
     keep = [c for c in y if y[c].notna().mean() >= min_valid and y[c].std(skipna=True) > 0]
     return y[keep]
+
+
+def derive(P: pd.DataFrame) -> pd.DataFrame:
+    """The :data:`DERIVED` ratios computed from predicted outputs (columns added to a copy of ``P``)."""
+    P = P.copy()
+    for name, (num, den, f) in DERIVED.items():
+        if num in P and den in P:
+            P[name] = f * P[num].clip(lower=0) / P[den].clip(lower=DERIVED_FLOOR)
+    return P
 
 
 def features(design: pd.DataFrame, points: pd.DataFrame) -> pd.DataFrame:
@@ -77,9 +96,10 @@ def features(design: pd.DataFrame, points: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("sample")
 
 
-def build(out_dir, cache: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """X (features), Y (targets) and ``info`` (point, block, koppen, kind) of a dataset,
-    aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``."""
+    aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``.
+    With ``derived``, Y also has the true :data:`DERIVED` ratios (to evaluate :func:`derive`)."""
     out = Path(out_dir)
     t = load(out)
     design = t["design"]
@@ -91,7 +111,7 @@ def build(out_dir, cache: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
     else:
         X = features(design, t["points"])
         X.to_parquet(fpath)
-    Y = targets(t["summary"])
+    Y = targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(
         t["points"].set_index("id")[["block", "koppen", "kind"]], on="point")
     idx = X.index.intersection(Y.index)

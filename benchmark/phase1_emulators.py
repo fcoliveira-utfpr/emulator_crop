@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from cropemu_bench.dataset import build
+from cropemu_bench.dataset import DERIVED, build, derive
 from cropemu_bench.emulators import GBEmulator, MLPEmulator, RidgeEmulator
-from cropemu_bench.evaluate import cross_validate
+from cropemu_bench.evaluate import cross_validate, metrics
 
 ROOT = Path(__file__).resolve().parents[1]
 KEY = ["EDAT_dap", "ADAT_dap", "MDAT_dap", "HWAM", "CWAM", "LAIX", "HIAM", "ETCM", "PRCM", "DRCM", "SWXM"]
@@ -36,11 +36,17 @@ def main():
     out = data / "benchmark"
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
-    X, Y, info = build(data)
+    X, Y_all, info = build(data, derived=True)
+    Y = Y_all.drop(columns=[c for c in DERIVED if c in Y_all])       # ratios computed from predictions
     print(f"X {X.shape}, Y {Y.shape}, {info['point'].nunique()} points, {info['block'].nunique()} blocks "
           f"({time.time() - t0:.0f}s)", flush=True)
 
+    old = out / "summary.csv"
     summary = []
+    if old.exists():                       # keep the rows of emulators/validations not rerun now
+        prev = pd.read_csv(old)
+        keep = ~(prev["emulator"].isin(args.emulators) & prev["validation"].isin(args.validation))
+        summary = prev[keep].to_dict("records")
     for v in args.validation:
         groups = info["block"] if v == "block" else None
         for name in args.emulators:
@@ -48,11 +54,18 @@ def main():
             t1 = time.time()
             print(f"{name} / {v}: {y.shape[1]} outputs", flush=True)
             m, oof, cost = cross_validate(EMULATORS[name], X, y, groups=groups, n_splits=args.folds)
+            m["derived"] = False
+            der = [c for c in DERIVED if c in Y_all and set(DERIVED[c][:2]) <= set(oof.columns)]
+            if der:
+                oof = derive(oof)
+                md = metrics(Y_all[der], oof[der])
+                md["derived"] = True
+                m = pd.concat([m, md])
             m.to_csv(out / f"{name}_{v}_metrics.csv")
             cost.to_csv(out / f"{name}_{v}_cost.csv", index=False)
             oof.to_parquet(out / f"{name}_{v}_oof.parquet")
             summary.append({"emulator": name, "validation": v, "outputs": y.shape[1],
-                            "median_r2": m["r2"].median(), "minutes": (time.time() - t1) / 60,
+                            "median_r2": m.loc[~m["derived"], "r2"].median(), "minutes": (time.time() - t1) / 60,
                             "fit_s_per_fold": cost["fit_s"].mean(),
                             "predict_us_per_row": cost["predict_us_per_row"].mean(),
                             **{f"rmse_{k}": m.loc[k, "rmse"] for k in KEY if k in m.index}})
