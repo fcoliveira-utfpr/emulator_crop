@@ -310,7 +310,7 @@ Fenologia do CROPGRO (PHENOL) em **JAX**:
 
 A comparação entre emular e reimplementar entra junto do diffWOFOST.
 
-### 4.7 Fase 1: implementação e primeiro resultado (preliminar)
+### 4.7 Fase 1: implementação e resultados (DSSAT)
 
 **Entradas do emulador** (`cropemu.features`, o mesmo código no treino e na biblioteca), 69 no total:
 - **Local:** latitude, |latitude|, altitude.
@@ -339,7 +339,42 @@ A comparação entre emular e reimplementar entra junto do diffWOFOST.
 
 Já aparece a vantagem da H6: uma rede só, para todas as saídas, é mais exata, ~20 vezes mais rápida de treinar e ~150 vezes mais rápida de prever que um GB por saída. O índice de colheita (HIAM) é a saída mais difícil (R² 0,43).
 
-O benchmark completo sobre o `dssat_v0` (2.000 pontos × 20 safras) roda com `benchmark/phase1_emulators.py`.
+**Benchmark completo sobre o `dssat_v0`** (`benchmark/phase1_emulators.py`; resultados em `data/dssat_v0/benchmark/`):
+- 2.000 pontos sorteados, 1.962 utilizáveis (os demais sem solo no SoilGrids), 39.240 safras;
+- geração em 62 min, dos quais ~40 min para baixar o solo; a simulação leva 28 ms por safra;
+- 5 dobras com 285 blocos de 5° fora do treino; o GB foi treinado só nas 11 saídas principais.
+
+| Emulador | Validação | R² mediano | RMSE R1 (d) | RMSE R7 (d) | RMSE HWAM (kg/ha) | RMSE CWAM (kg/ha) | Treino/dobra | Predição |
+|---|---|---|---|---|---|---|---|---|
+| Ridge | bloco | 0,64 (41) | 4,7 | 8,4 | 1.271 | 2.203 | 1 s | 4 µs/linha |
+| GB | bloco | 0,91 (11) | **2,7** | 4,5 | 670 | 1.015 | 97 s | 204 µs/linha (11 saídas) |
+| **MLP** | bloco | **0,92 (41)** | 3,3 | **4,2** | **532** | **817** | **30 s** | **5 µs/linha (41 saídas)** |
+| GB | aleatória | 0,93 (11) | 2,6 | 3,8 | 629 | 934 | | |
+| MLP | aleatória | 0,92 (41) | 3,0 | 3,5 | 514 | 778 | | |
+
+R² por saída, com validação por bloco:
+
+| Saída | Ridge | GB | MLP |
+|---|---|---|---|
+| EDAT, emergência | 0,78 | **0,93** | 0,89 |
+| ADAT, floração | 0,85 | **0,97** | 0,96 |
+| MDAT, maturidade | 0,88 | 0,97 | **0,97** |
+| HWAM, produtividade | 0,53 | 0,87 | **0,92** |
+| CWAM, biomassa | 0,59 | 0,91 | **0,94** |
+| LAIX, IAF máximo | 0,60 | 0,89 | **0,92** |
+| HIAM, índice de colheita | 0,44 | 0,70 | **0,76** |
+| ETCM, evapotranspiração | 0,67 | 0,94 | **0,95** |
+| PRCM, chuva | 0,96 | 0,96 | **0,98** |
+| DRCM, drenagem | 0,74 | **0,87** | 0,84 |
+| SWXM, água extraível | 0,62 | **0,82** | 0,82 |
+
+**Conclusões da fase 1 (DSSAT):**
+- **A MLP com várias saídas é o melhor caminho para o DSSAT.** É a mais exata nas saídas de produção e água, fica a menos de 0,04 de R² do GB na fenologia e na drenagem, treina ~3 vezes mais rápido e prevê ~40 vezes mais rápido, com todas as 41 saídas de uma vez.
+- O GB ganha em emergência (EDAT) e drenagem (DRCM), duas saídas mais "em degraus". Um ensemble MLP+GB, ou um GB só para essas saídas, fica para a fase de consolidação.
+- A diferença entre validação por bloco e aleatória é pequena (R² mediano 0,92 contra 0,92 para a MLP; RMSE de HWAM 532 contra 514 kg/ha). Com 2.000 pontos, o emulador generaliza bem para regiões fora do treino. A maior perda está na drenagem (R² 0,84 contra 0,92), que depende do solo local.
+- **As razões emuladas diretamente falham:** YPPM e DMPPM (produtividade e biomassa por mm de chuva) têm R² negativo, porque divisões por chuvas quase nulas criam valores extremos (máximo de 80.886 kg/ha/mm). Na biblioteca, essas razões devem ser **calculadas a partir das saídas previstas** (HWAM/PRCM etc.), e não emuladas. O mesmo vale para as outras razões do `Summary.OUT`.
+- O HIAM continua sendo a saída mais difícil (R² 0,76); os outros pontos fracos são ROCM (0,52) e HWUM (0,76).
+- Sobre os números do teste de 100 pontos: com 20 vezes mais dados, o R² mediano da MLP subiu de 0,83 para 0,92 e o RMSE de HWAM caiu de 883 para 532 kg/ha.
 
 ## 5. Biblioteca
 
