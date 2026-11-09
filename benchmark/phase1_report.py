@@ -17,7 +17,7 @@ from cropemu_bench.dataset import build
 from cropemu_bench.evaluate import acceptance, classify_cv
 
 ROOT = Path(__file__).resolve().parents[1]
-LABELS = ("matured", "crop_status")
+LABELS = ("matured", "crop_status", "delayed_germination")
 
 
 def main():

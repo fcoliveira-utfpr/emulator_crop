@@ -122,24 +122,46 @@ def derive(P: pd.DataFrame) -> pd.DataFrame:
     return P
 
 
-def features(design: pd.DataFrame, points: pd.DataFrame, cultivar_features=CULTIVAR_FEATURES) -> pd.DataFrame:
+def aquacrop_thermal(r) -> tuple[dict, float, float]:
+    """Thermal requirements of an AquaCrop design row (FAO SoybeanGDD scaled by the cycle):
+    emergence, flowering, start of senescence and maturity (GDD), Tbase, Tupper."""
+    f = float(r["gdd_maturity"]) / 2700.0
+    return ({"td_emergence": 200.0, "td_flowering": 1500.0 * f, "td_senescence": 2200.0 * f,
+             "td_maturity": float(r["gdd_maturity"])}, 5.0, 30.0)
+
+
+def features(design: pd.DataFrame, points: pd.DataFrame, cultivar_features=CULTIVAR_FEATURES,
+             thermal=None, water: bool = True, initial_water: float = 0.5) -> pd.DataFrame:
     """Emulator inputs of every season (index ``sample``): site, soil, weather windows,
-    cultivar, water regime, CO2. Weather and soil are read from the cropemu cache."""
+    water balance (window ETo and bucket stress, with ``water``), cultivar, water regime,
+    CO2 and, with ``thermal`` (row -> (requirements, tbase, tupper)), the days after sowing
+    to accumulate each thermal requirement. Weather and soil are read from the cropemu cache."""
     pts = points.set_index("id")
     rows = []
     for pid, seasons in design.groupby("point", sort=False):
         p = pts.loc[pid]
-        w = WeatherSeries(fill_gaps(fetch(p["lat"], p["lon"], WEATHER_START, WEATHER_END)), p["lat"])
+        w = WeatherSeries(fill_gaps(fetch(p["lat"], p["lon"], WEATHER_START, WEATHER_END)), p["lat"], p["elev"])
         soil = soil_features(hydraulics(soilgrids.fetch(p["lat"], p["lon"])))
         site = site_features(p["lat"], p["elev"])
         for r in seasons.to_dict("records"):          # dicts keep names like "EM-FL"
             # CO2 of the season: the replaced value, or Mauna Loa ~60 days after sowing
             co2 = r["co2"] if r["perturbed"] else co2_at(pd.Timestamp(r["sowing"]) + pd.Timedelta(days=60))
-            rows.append({"sample": r["sample"], **site, **soil,
-                         **season_features(w, r["sowing"], r["dt"], r["rain_factor"]),
-                         **{c: float(r[c]) for c in cultivar_features},
-                         "water": float(r["water"]), "co2": float(co2)})
+            rec = {"sample": r["sample"], **site, **soil,
+                   **season_features(w, r["sowing"], r["dt"], r["rain_factor"],
+                                     paw_mm=soil["paw_mm"] if water else None, initial_water=initial_water),
+                   **{c: float(r[c]) for c in cultivar_features},
+                   "water": float(r["water"]), "co2": float(co2)}
+            if thermal is not None:
+                req, tb, tu = thermal(r)
+                rec.update(w.thermal_days(r["sowing"], req, tb, tu, dt=r["dt"]))
+            rows.append(rec)
     return pd.DataFrame(rows).set_index("sample")
+
+
+#: AquaCrop: germination later than this many days after the thermal-time estimate is a
+#: failed/delayed establishment (classifier output); the dates of those seasons are censored.
+DELAYED_GERMINATION_DAYS = 10
+AQ_DATES = ("EMR_dap", "FLO_dap", "YLD_dap", "MAT_dap")
 
 
 def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -158,13 +180,19 @@ def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFr
     else:
         if model == "aquacrop":
             from .design.aquacrop import AQ_PERTURBATIONS
-            cf = ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS)
+            X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS),
+                         thermal=aquacrop_thermal)
         else:
-            cf = CULTIVAR_FEATURES
-        X = features(design, t["points"], cf)
+            X = features(design, t["points"], CULTIVAR_FEATURES)
         X.to_parquet(fpath)
     Y = targets_aquacrop(t["summary"]) if model == "aquacrop" else targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(
         t["points"].set_index("id")[["block", "koppen", "kind"]], on="point").join(labels(t["summary"], model))
     idx = X.index.intersection(Y.index)
-    return X.loc[idx], Y.loc[idx], info.loc[idx]
+    X, Y, info = X.loc[idx], Y.loc[idx].copy(), info.loc[idx].copy()
+    if model == "aquacrop" and "td_emergence" in X and "EMR_dap" in Y:
+        delay = Y["EMR_dap"] - X["td_emergence"]
+        delayed = (delay > DELAYED_GERMINATION_DAYS) | Y["EMR_dap"].isna()
+        info["delayed_germination"] = delayed.to_numpy()
+        Y.loc[delayed, [c for c in AQ_DATES if c in Y]] = np.nan
+    return X, Y, info

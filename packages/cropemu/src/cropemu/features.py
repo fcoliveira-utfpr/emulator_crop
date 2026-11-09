@@ -18,6 +18,9 @@ import pandas as pd
 #: Windows in days after sowing (start inclusive, end exclusive).
 WINDOWS = ((-30, 0), (0, 30), (30, 60), (60, 90), (90, 130))
 WINDOW_VARIABLES = ("tmax", "tmin", "srad", "rain", "vpd", "dayl", "hot32", "hot35")
+#: Water balance variables per window (when the soil water capacity is given): reference ET (mm)
+#: and mean stress index (0-1) of a one-layer bucket (see :meth:`WeatherSeries.bucket_stress`).
+WATER_VARIABLES = ("eto", "wstr")
 SOIL_FEATURES = ("paw_mm", "paw30_mm", "clay30", "sand30", "soc30", "bdod30", "depth_cm")
 
 
@@ -72,8 +75,14 @@ def _vpd(df: pd.DataFrame) -> np.ndarray:
 class WeatherSeries:
     """Daily weather prepared once for many seasons of the same point."""
 
-    def __init__(self, df: pd.DataFrame, lat: float):
+    def __init__(self, df: pd.DataFrame, lat: float, elev: float | None = None):
+        from .weather.eto import actual_vapour_pressure, eto_fao56
+
         idx = pd.DatetimeIndex(df.index)
+        self.df = df
+        self.elev = float(df.attrs.get("elev", 0.0) if elev is None else elev)
+        self.ea = actual_vapour_pressure(df)
+        self.eto = eto_fao56(df, lat, self.elev, ea=self.ea).to_numpy()
         self.t0 = idx[0]
         self.n = len(idx)
         self.lat = lat
@@ -99,6 +108,36 @@ class WeatherSeries:
             out[name] = float(k + 1) if k < len(cum) else float(max_days)
         return out
 
+    def _eto(self, i0: int, i1: int, dt: float) -> np.ndarray:
+        if not dt:
+            return self.eto[i0:i1]
+        from .weather.eto import eto_fao56
+
+        d = self.df.iloc[i0:i1].copy()
+        d["tmax"] += dt
+        d["tmin"] += dt
+        return eto_fao56(d, self.lat, self.elev, ea=self.ea[i0:i1]).to_numpy()   # vapour pressure kept
+
+    def bucket_stress(self, sowing, paw_mm: float, initial: float = 0.5, start: int = -30, end: int = 130,
+                      dt: float = 0.0, rain_factor: float = 1.0, p: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
+        """Daily ETo and water stress index of a one-layer bucket from ``start`` to ``end`` days after sowing.
+
+        The bucket holds ``paw_mm`` and starts at ``initial`` of it; it gains rain and loses
+        ET = ETo x (1 - stress), where stress = 1 - min(1, S / ((1 - p) x paw_mm)).
+        A crude summary of the water supply, not a crop model.
+        """
+        i0 = (pd.Timestamp(sowing) - self.t0).days + start
+        i1 = i0 + (end - start)
+        eto = self._eto(i0, i1, dt)
+        rain = self.rain[i0:i1] * rain_factor
+        cap = max(float(paw_mm), 1.0)
+        s, stress = initial * cap, np.empty(len(eto))
+        for k in range(len(eto)):
+            s = min(s + rain[k], cap)
+            stress[k] = 1 - min(1.0, s / ((1 - p) * cap))
+            s = max(s - eto[k] * (1 - stress[k]), 0.0)
+        return eto, stress
+
     def window(self, sowing, start: int, end: int, dt: float = 0.0, rain_factor: float = 1.0) -> dict:
         i0 = (pd.Timestamp(sowing) - self.t0).days + start
         i1 = i0 + (end - start)
@@ -117,14 +156,22 @@ class WeatherSeries:
 
 
 def season_features(weather: WeatherSeries, sowing, dt: float = 0.0, rain_factor: float = 1.0,
-                    windows=WINDOWS) -> dict:
+                    windows=WINDOWS, paw_mm: float | None = None, initial_water: float = 0.5) -> dict:
     """Weather features of one season: one value per (window, variable), plus the
-    photoperiod on the sowing day and the sowing day of year (as sine and cosine)."""
+    photoperiod on the sowing day and the sowing day of year (as sine and cosine).
+    With ``paw_mm`` (soil available water), also the window ETo and bucket stress
+    (:data:`WATER_VARIABLES`)."""
     out = {}
     for a, b in windows:
         w = weather.window(sowing, a, b, dt, rain_factor)
         for v in WINDOW_VARIABLES:
             out[f"{v}_{a}_{b}"] = w[v]
+    if paw_mm is not None:
+        s0, s1 = windows[0][0], windows[-1][1]
+        eto, stress = weather.bucket_stress(sowing, paw_mm, initial_water, s0, s1, dt, rain_factor)
+        for a, b in windows:
+            out[f"eto_{a}_{b}"] = float(eto[a - s0:b - s0].sum())
+            out[f"wstr_{a}_{b}"] = float(stress[a - s0:b - s0].mean())
     s = pd.Timestamp(sowing)
     out["dayl_sowing"] = float(daylength(weather.lat, s.dayofyear))
     out["sowing_sin"] = float(np.sin(2 * np.pi * s.dayofyear / 365.25))

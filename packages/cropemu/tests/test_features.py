@@ -57,3 +57,20 @@ def test_thermal_days():
     d = w.thermal_days("2000-02-01", {"a": 150, "b": 151, "c": 1e6}, 5.0, 30.0, max_days=300)
     assert d == {"a": 10.0, "b": 11.0, "c": 300.0}
     assert w.thermal_days("2000-02-01", {"a": 150}, 5.0, 30.0, dt=5.0)["a"] == 8.0      # 20 GDD/day
+
+
+def test_bucket_stress_and_water_features():
+    idx = pd.date_range("2000-01-01", periods=400)
+    base = {"tmax": 30.0, "tmin": 18.0, "srad": 22.0, "rhum": 50.0, "wind": 2.0}
+    dry = pd.DataFrame({**base, "rain": 0.0}, index=idx)
+    wet = pd.DataFrame({**base, "rain": 20.0}, index=idx)
+    wd, ww = WeatherSeries(dry, -10.0, elev=300), WeatherSeries(wet, -10.0, elev=300)
+    eto, s_dry = wd.bucket_stress("2000-03-01", 150.0)
+    _, s_wet = ww.bucket_stress("2000-03-01", 150.0)
+    assert 4 < eto.mean() < 8 and (s_wet == 0).all()
+    assert s_dry[0] == 0 and s_dry[-1] > 0.9 and np.all(np.diff(s_dry) >= -1e-12)   # drying bucket
+    f = season_features(wd, "2000-03-01", paw_mm=150.0)
+    assert f["wstr_90_130"] > f["wstr_0_30"] and f["eto_0_30"] == pytest.approx(eto[30:60].sum())
+    hot = season_features(wd, "2000-03-01", dt=3.0, paw_mm=150.0)
+    assert hot["eto_0_30"] > f["eto_0_30"]                                          # warmer -> more ETo
+    assert "eto_0_30" not in season_features(wd, "2000-03-01")
