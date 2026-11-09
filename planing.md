@@ -310,6 +310,37 @@ Fenologia do CROPGRO (PHENOL) em **JAX**:
 
 A comparação entre emular e reimplementar entra junto do diffWOFOST.
 
+### 4.7 Fase 1: implementação e primeiro resultado (preliminar)
+
+**Entradas do emulador** (`cropemu.features`, o mesmo código no treino e na biblioteca), 69 no total:
+- **Local:** latitude, |latitude|, altitude.
+- **Solo (SoilGrids):** água disponível total e até 30 cm; argila, areia, C orgânico e densidade até 30 cm; profundidade.
+- **Clima:** janelas de −30–0, 0–30, 30–60, 60–90 e 90–130 dias após a semeadura. Em cada uma: Tmax, Tmin, radiação, chuva, déficit de pressão de vapor, fotoperíodo civil e dias com Tmax ≥ 32 e ≥ 35 °C. Também o fotoperíodo na semeadura e o dia da semeadura (seno e cosseno).
+  - A perturbação de clima (ΔT, fator de chuva) é aplicada antes do cálculo, como no DSSAT.
+- **Cultivar:** GM e os 13 coeficientes perturbados.
+- **Manejo e CO₂:** regime (sequeiro ou potencial) e CO₂ da safra. Sem perturbação, o CO₂ de Mauna Loa (NOAA) a +60 dias da semeadura; a série vai embutida na biblioteca.
+
+**Alvos:** todas as saídas numéricas do `Summary.OUT` que variam (41). As datas são convertidas em dias após a semeadura. Os valores faltantes (ex.: sem maturidade) ficam como NaN e são ignorados na perda. `CRST` (código) fica para um classificador.
+
+**Emuladores** (`cropemu_bench.emulators`):
+- **MLP com várias saídas** (PyTorch): 3 × 256, SiLU, AdamW, perda que ignora NaN, parada antecipada com blocos espaciais de validação.
+- **Gradient boosting** com um modelo por saída.
+- **Ridge** como referência linear.
+
+**Ambiente desta máquina:** Mac x86_64, onde o PyTorch 2.2.2 é a última versão com pacote pronto e exige NumPy < 2. Num servidor Linux, um PyTorch atual.
+
+**Primeiro teste** (conjunto de 100 pontos: 1.940 safras, 5 dobras com 81 blocos de 5° fora do treino). **Preliminar**, com poucos dados:
+
+| Emulador | R² mediano (41 saídas) | RMSE R1 (d) | RMSE R7 (d) | RMSE produtividade (kg/ha) | Treino (5 dobras) | Predição |
+|---|---|---|---|---|---|---|
+| Ridge | 0,54 | 7,6 | 10,5 | 1.479 | 16 s | 24 µs/linha |
+| GB | 0,81 | 5,7 | 8,7 | 935 | 353 s | 897 µs/linha |
+| **MLP** | **0,83** | **5,3** | **6,9** | **883** | **17 s** | **6 µs/linha (todas as saídas)** |
+
+Já aparece a vantagem da H6: uma rede só, para todas as saídas, é mais exata, ~20 vezes mais rápida de treinar e ~150 vezes mais rápida de prever que um GB por saída. O índice de colheita (HIAM) é a saída mais difícil (R² 0,43).
+
+O benchmark completo sobre o `dssat_v0` (2.000 pontos × 20 safras) roda com `benchmark/phase1_emulators.py`.
+
 ## 5. Biblioteca
 
 **Linguagem: Python.** O tempo de execução está nos executáveis dos modelos e nas bibliotecas de ML. Rust/PyO3 só entraria num gargalo específico.
