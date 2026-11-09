@@ -66,8 +66,8 @@ def _cache_file(cache_dir: Path, lat: float, lon: float, radius: int) -> Path:
     return cache_dir / f"{lat:+08.4f}_{lon:+09.4f}_r{radius}.csv"
 
 
-def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: int = 8,
-               properties=tuple(PROPERTIES), source=None) -> dict:
+def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: int = 32,
+               properties=tuple(PROPERTIES), source=None, points_per_job: int = 25) -> dict:
     """Soil profiles (cropemu standard, 6 layers to 200 cm) at many points.
 
     ``points`` has columns ``id``, ``lat``, ``lon``. ``radius`` is the half-width of
@@ -75,6 +75,9 @@ def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: in
     not read again. ``source`` overrides the base URL/folder (e.g. a local copy).
     Returns ``{id: DataFrame}``; profiles of points with no soil data (water,
     urban areas, ice) have NaN values.
+
+    Each remote window read takes about a second (HTTP latency), so the work is split
+    in jobs of (property, depth, group of ``points_per_job`` points) run by ``n_jobs`` threads.
     """
     cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -84,15 +87,19 @@ def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: in
 
     if len(todo):
         base = source or f"/vsicurl/{BASE_URL}"
-        jobs = [(p, t, b) for p in properties for t, b in DEPTHS]
+        lats, lons = todo["lat"].to_numpy(), todo["lon"].to_numpy()
+        groups = [slice(i, i + points_per_job) for i in range(0, len(todo), points_per_job)]
+        jobs = [(p, t, b, g) for p in properties for t, b in DEPTHS for g in groups]
 
         def job(j):
-            p, t, b = j
+            p, t, b, g = j
             path = f"{base}/{p}/{p}_{t}-{b}cm_mean_1000.tif"
-            return j, _sample_file(path, todo["lat"].to_numpy(), todo["lon"].to_numpy(), radius)
+            return (p, t, b), g, _sample_file(path, lats[g], lons[g], radius)
 
+        values = {(p, t, b): np.full(len(todo), np.nan) for p in properties for t, b in DEPTHS}
         with ThreadPoolExecutor(max_workers=n_jobs) as ex:
-            values = dict(ex.map(job, jobs))
+            for key, g, v in ex.map(job, jobs):
+                values[key][g] = v
         stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for k, r in enumerate(todo.itertuples()):
             rows = [{"top": t, "bottom": b, **{p: values[(p, t, b)][k] * PROPERTIES[p] for p in properties}}

@@ -156,7 +156,7 @@ class DSSAT(CropModel):
         if missing_w or missing_s:
             raise KeyError(f"missing weather {missing_w or ''} soils {missing_s or ''}")
         insi = {k: code(i, 4) for i, k in enumerate(weather)}
-        cultivars = list(cultivars or [])
+        by_id = {c.id: c for c in (cultivars or [])}
         chunks = [treatments[i:i + chunk_size] for i in range(0, len(treatments), chunk_size)]
         offsets = [i for i in range(0, len(treatments), chunk_size)]
 
@@ -164,7 +164,8 @@ class DSSAT(CropModel):
         try:
             def job(k):
                 folder = base / f"chunk{k:06d}"
-                self._prepare_folder(folder, cultivars)
+                used = dict.fromkeys(t.cultivar for t in chunks[k])      # only this chunk's custom cultivars
+                self._prepare_folder(folder, [by_id[c] for c in used if c in by_id])
                 res = self._run_chunk(folder, chunks[k], weather, insi, soils, tuple(daily), overview, retries)
                 if not keep_folders:
                     shutil.rmtree(folder, ignore_errors=True)

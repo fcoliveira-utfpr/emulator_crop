@@ -152,3 +152,20 @@ def test_real_weather_and_soil_to_dssat(model, tmp_path):
     T = [Treatment("p", "SGLOND0001", "990006", date(2016, 10, 20), seasons=4, evapotranspiration="F")]
     res = model.simulate(T, weather={"p": w}, soils={"SGLOND0001": soil})
     assert len(res.summary) == 4 and (res.summary["HWAM"] > 500).all()
+
+
+def test_sliced_weather_gives_identical_results(model, inputs):
+    """Short weather files (from the day before the start) give the same results as the full series."""
+    w = inputs["weather"]["w1"]
+    T = [base_treatment(), base_treatment(water=False), replace(base_treatment(), planting=date(2020, 11, 20),
+                                                                start=date(2020, 10, 21))]
+    full = model.simulate(T, **inputs)
+    sliced_w, T2 = {}, []
+    for t in T:
+        key = f"w1|{t.start}"
+        sliced_w[key] = w.slice(pd.Timestamp(t.start) - pd.Timedelta(days=1),
+                                pd.Timestamp(t.start) + pd.Timedelta(days=420))
+        T2.append(replace(t, weather=key))
+    sliced = model.simulate(T2, weather=sliced_w, soils=inputs["soils"])
+    skip = ["RUNNO", "TRNO", "TNAM", "FNAM", "WSTA", "WYEAR"]
+    pd.testing.assert_frame_equal(full.summary.drop(columns=skip), sliced.summary.drop(columns=skip))

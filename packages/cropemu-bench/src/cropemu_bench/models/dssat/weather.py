@@ -33,6 +33,8 @@ class Weather:
     refht: float = 2.0
     wndht: float = 2.0
     co2: float | None = None   # written as CCO2; used by DSSAT only with CO2 option "W"
+    tav: float | None = None   # long-term TAV/AMP; computed from ``data`` when None
+    amp: float | None = None
 
     def __post_init__(self):
         missing = [c for c in REQUIRED if c not in self.data]
@@ -60,10 +62,23 @@ class Weather:
         return cls(data, **site)
 
     def tav_amp(self) -> tuple[float, float]:
-        """Annual mean temperature and amplitude (half the range of monthly means)."""
+        """Annual mean temperature and amplitude (half the range of monthly means).
+
+        Uses the given ``tav``/``amp`` if set (e.g. from the full series when ``data``
+        is a slice), so that DSSAT's soil temperature does not depend on the slice.
+        """
+        if self.tav is not None and self.amp is not None:
+            return float(self.tav), float(self.amp)
         tmed = (self.data["tmax"] + self.data["tmin"]) / 2
         monthly = tmed.groupby(pd.DatetimeIndex(tmed.index).month).mean()
         return float(tmed.mean()), float((monthly.max() - monthly.min()) / 2)
+
+    def slice(self, start, end) -> "Weather":
+        """Weather of [start, end] keeping the long-term TAV/AMP of the full series
+        (DSSAT reads a short file much faster than a 40-year one)."""
+        tav, amp = self.tav_amp()
+        return Weather(self.data.loc[pd.Timestamp(start):pd.Timestamp(end)], self.lat, self.lon, self.elev,
+                       self.refht, self.wndht, self.co2, tav, amp)
 
     def to_wth(self, insi: str) -> str:
         """Text of the .WTH file (4-digit-year dates)."""

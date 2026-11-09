@@ -139,3 +139,9 @@ def test_treatment_validation():
     with pytest.raises(ValueError, match="irrigation"):
         Treatment("w", "s", "c", date(2019, 11, 1), water=False, irrigation=True)
     assert Treatment("w", "s", "c", date(2019, 11, 1)).start == date(2019, 10, 2)
+
+
+def test_weather_slice_keeps_long_term_tav_amp(weather):
+    s = weather.slice("2020-10-01", "2021-03-31")
+    assert len(s.data) == 182 and s.tav_amp() == weather.tav_amp()
+    assert s.tav_amp() != type(weather)(s.data, lat=0, lon=0, elev=0).tav_amp()

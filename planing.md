@@ -164,6 +164,32 @@ O objetivo é só garantir ordens de grandeza, não ajustar o modelo. Combinaç�
 - **Densidade e espaçamento** de semeadura: fixos ou por hipercubo latino, dentro de faixas da literatura.
 - **Irrigação no potencial:** automática, com o mesmo critério nos dois modelos.
 
+**Implementado na versão provisória do desenho** (`cropemu_bench.design`, 08/11/2026). Tudo o que o usuário da biblioteca não saberia informar fica fixo:
+- água inicial a 50% da água disponível, 30 dias antes da semeadura (esses 30 dias funcionam como aquecimento curto);
+- balanço de N desligado (sem estresse de N);
+- 30 plantas/m², 50 cm entre linhas;
+- potencial = balanço hídrico desligado; evapotranspiração por Priestley-Taylor (padrão do DSSAT).
+
+### 4.1.4 Desenho das safras (provisório)
+
+Um hipercubo latino por ponto. Padrão: 20 safras por ponto e semente fixa. Cada safra tem:
+- **Ano:** 1985–2024. O de 1984 fica fora para sobrar margem antes do início.
+- **Semeadura:** dia do GGCMI ± 30 dias.
+- **Grupo de maturidade (GM) contínuo:** GM típico da latitude ± 2.
+  - Regra provisória do GM típico por latitude: trópicos ~9, 23° ~6,5, 40° ~3, 50° ~000.
+  - Escala: 000 = −2, 00 = −1, 0 = 0, depois 1 a 10.
+- **Coeficientes da cultivar:**
+  - **Base:** as cultivares padrão do próprio DSSAT, uma por grupo de maturidade no `SBGRO048.CUL`, interpoladas linearmente no GM.
+  - **Perturbações independentes** em 13 coeficientes: CSDL ± 0,3 h; PPSEN ×0,8–1,2; EM-FL, FL-SH, FL-SD, SD-PM, FL-LF, LFMAX, SLAVR, SIZLF, WTPSD, SFDUR e SDPDV ×0,85–1,15. Cada um é recortado às linhas MINIMA/MAXIMA do `.CUL`.
+  - O ecótipo é o do GM inteiro mais próximo.
+  - **Será trocado** pelas distribuições da revisão sistemática (4.1.1) quando ela estiver pronta.
+- **Regime:** 20% potencial e 80% sequeiro.
+- **Clima perturbado em 30% das safras:** ΔT de −1 a +4 °C (máxima e mínima), chuva ×0,7–1,3, CO₂ de 350 a 800 ppm. Nas demais, o CO₂ segue a série observada (Mauna Loa).
+
+**Teste de ponta a ponta** (`cropemu_bench.pipeline`): 30 pontos globais × 10 safras, todos os pontos com clima e solo válidos.
+- **DSSAT:** com um arquivo de clima curto por safra (do dia anterior ao início até +450 dias, com o TAV/AMP da série completa), ~40 ms por safra com 8 processos nesta máquina de 4 núcleos, com resultados idênticos aos da série de 42 anos. Com a série inteira, eram ~125 ms.
+- **Solo:** ~1,3 s por leitura remota, por causa da latência. As leituras foram paralelizadas em 32 threads.
+
 ### 4.2 Locais, clima, solo e manejo (global)
 
 **Locais: núcleo em sítios com dados de experimentos** (decisão de 08/11/2026)
