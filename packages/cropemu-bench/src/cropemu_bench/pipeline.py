@@ -39,7 +39,13 @@ def prepare_inputs(points: pd.DataFrame, n_jobs_weather: int = 4, n_jobs_soil: i
     if progress:
         print(f"weather: {len(w)} ok, {len(w.errors)} errors in {time.time() - t0:.0f}s")
     t0 = time.time()
-    s = soilgrids.fetch_many(pts, n_jobs=n_jobs_soil)
+    s = soilgrids.fetch_many(pts, n_jobs=n_jobs_soil, progress=progress)
+    for attempt in range(3):                     # network failures are not cached: retry them
+        failed = [k for k, v in s.items() if "error" in v.attrs]
+        if not failed:
+            break
+        time.sleep(60 * (attempt + 1))
+        s.update(soilgrids.fetch_many(pts[pts["id"].isin(failed)], n_jobs=n_jobs_soil))
     if progress:
         print(f"soil: {len(s)} points in {time.time() - t0:.0f}s")
 
@@ -55,6 +61,8 @@ def prepare_inputs(points: pd.DataFrame, n_jobs_weather: int = 4, n_jobs_soil: i
             prof = s[r.id]
             if not rep["ok"]:
                 rec["problem"] = f"weather check: {rep}"
+            elif "error" in prof.attrs:
+                rec["problem"] = f"soil: {prof.attrs['error']} (not cached; rerun to retry)"
             elif prof[["clay", "sand", "soc", "bdod"]].isna().any().any():
                 rec["problem"] = "no soil data"
             else:

@@ -43,23 +43,48 @@ def url(prop: str, top: int, bottom: int) -> str:
     return f"{BASE_URL}/{prop}/{prop}_{top}-{bottom}cm_mean_1000.tif"
 
 
-def _sample_file(path: str, lats, lons, radius: int) -> np.ndarray:
-    """Median of the valid pixels in a (2r+1)² window around each point (NaN if none)."""
+def _sample_file(path: str, lats, lons, radius: int, retries: int = 4) -> tuple[np.ndarray, np.ndarray]:
+    """Median of the valid pixels in a (2r+1)² window around each point (NaN if none).
+
+    Returns (values, failed). A failed read (e.g. a tile truncated by the network) is
+    retried with a freshly opened dataset, since GDAL may have cached the bad block;
+    points still failing are flagged instead of stopping the batch.
+    """
+    import time
+
     import rasterio
+    from rasterio.errors import RasterioIOError
     from rasterio.warp import transform
     from rasterio.windows import Window
 
     out = np.full(len(lats), np.nan)
-    with rasterio.Env(**GDAL_ENV), rasterio.open(path) as src:
-        xs, ys = transform("EPSG:4326", src.crs, list(lons), list(lats))
-        for i, (x, y) in enumerate(zip(xs, ys)):
-            row, col = src.index(x, y)
-            win = Window(col - radius, row - radius, 2 * radius + 1, 2 * radius + 1)
-            a = src.read(1, window=win, boundless=True, fill_value=NODATA).astype(float)
-            a = a[a != NODATA]
-            if a.size:
-                out[i] = np.median(a)
-    return out
+    failed = np.zeros(len(lats), bool)
+    pending = list(range(len(lats)))
+    for attempt in range(retries + 1):
+        if not pending:
+            break
+        if attempt:
+            time.sleep(5 * attempt)
+        still = []
+        try:
+            with rasterio.Env(**GDAL_ENV), rasterio.open(path) as src:
+                xs, ys = transform("EPSG:4326", src.crs, [lons[i] for i in pending], [lats[i] for i in pending])
+                for i, x, y in zip(pending, xs, ys):
+                    row, col = src.index(x, y)
+                    win = Window(col - radius, row - radius, 2 * radius + 1, 2 * radius + 1)
+                    try:
+                        a = src.read(1, window=win, boundless=True, fill_value=NODATA).astype(float)
+                    except RasterioIOError:
+                        still.append(i)
+                        continue
+                    a = a[a != NODATA]
+                    if a.size:
+                        out[i] = np.median(a)
+        except RasterioIOError:                       # could not even open the file
+            still = pending
+        pending = still
+    failed[pending] = True
+    return out, failed
 
 
 def _cache_file(cache_dir: Path, lat: float, lon: float, radius: int) -> Path:
@@ -67,7 +92,8 @@ def _cache_file(cache_dir: Path, lat: float, lon: float, radius: int) -> Path:
 
 
 def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: int = 32,
-               properties=tuple(PROPERTIES), source=None, points_per_job: int = 25) -> dict:
+               properties=tuple(PROPERTIES), source=None, points_per_job: int = 25,
+               points_per_save: int = 100, progress: bool = False) -> dict:
     """Soil profiles (cropemu standard, 6 layers to 200 cm) at many points.
 
     ``points`` has columns ``id``, ``lat``, ``lon``. ``radius`` is the half-width of
@@ -78,15 +104,20 @@ def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: in
 
     Each remote window read takes about a second (HTTP latency), so the work is split
     in jobs of (property, depth, group of ``points_per_job`` points) run by ``n_jobs`` threads.
+    The cache is written every ``points_per_save`` points. Points whose reads kept
+    failing are not cached (a later call retries them); their profile is all NaN with
+    ``attrs["error"]`` set.
     """
     cache_dir = Path(cache_dir) if cache_dir else default_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
     pts = points[["id", "lat", "lon"]].reset_index(drop=True)
     files = {r.id: _cache_file(cache_dir, r.lat, r.lon, radius) for r in pts.itertuples()}
-    todo = pts[[not files[i].exists() for i in pts["id"]]]
+    todo_all = pts[[not files[i].exists() for i in pts["id"]]].reset_index(drop=True)
+    base = source or f"/vsicurl/{BASE_URL}"
+    failed_ids = set()
 
-    if len(todo):
-        base = source or f"/vsicurl/{BASE_URL}"
+    for s0 in range(0, len(todo_all), points_per_save):
+        todo = todo_all.iloc[s0:s0 + points_per_save]
         lats, lons = todo["lat"].to_numpy(), todo["lon"].to_numpy()
         groups = [slice(i, i + points_per_job) for i in range(0, len(todo), points_per_job)]
         jobs = [(p, t, b, g) for p in properties for t, b in DEPTHS for g in groups]
@@ -94,23 +125,41 @@ def fetch_many(points: pd.DataFrame, cache_dir=None, radius: int = 1, n_jobs: in
         def job(j):
             p, t, b, g = j
             path = f"{base}/{p}/{p}_{t}-{b}cm_mean_1000.tif"
-            return (p, t, b), g, _sample_file(path, lats[g], lons[g], radius)
+            return (p, t, b), g, *_sample_file(path, lats[g], lons[g], radius)
 
         values = {(p, t, b): np.full(len(todo), np.nan) for p in properties for t, b in DEPTHS}
+        failed = np.zeros(len(todo), bool)
         with ThreadPoolExecutor(max_workers=n_jobs) as ex:
-            for key, g, v in ex.map(job, jobs):
+            for key, g, v, f in ex.map(job, jobs):
                 values[key][g] = v
+                failed[g] |= f
         stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for k, r in enumerate(todo.itertuples()):
+            if failed[k]:
+                failed_ids.add(r.id)
+                continue
             rows = [{"top": t, "bottom": b, **{p: values[(p, t, b)][k] * PROPERTIES[p] for p in properties}}
                     for t, b in DEPTHS]
             attrs = {"lat": float(r.lat), "lon": float(r.lon), "source": "SoilGrids 2.0 (1 km)",
                      "radius_km": radius, "downloaded": stamp}
-            with open(files[r.id], "w") as f:
-                f.write("# " + json.dumps(attrs) + "\n")
-                pd.DataFrame(rows).to_csv(f, index=False, float_format="%.4g")
+            tmp = files[r.id].with_suffix(".tmp")
+            with open(tmp, "w") as fh:
+                fh.write("# " + json.dumps(attrs) + "\n")
+                pd.DataFrame(rows).to_csv(fh, index=False, float_format="%.4g")
+            tmp.replace(files[r.id])
+        if progress:
+            print(f"soil: {min(s0 + points_per_save, len(todo_all))}/{len(todo_all)} points "
+                  f"({len(failed_ids)} failed)", flush=True)
 
-    return {i: _read(files[i]) for i in pts["id"]}
+    out = {}
+    for r in pts.itertuples():
+        if r.id in failed_ids:
+            df = pd.DataFrame([{"top": t, "bottom": b, **{p: np.nan for p in properties}} for t, b in DEPTHS])
+            df.attrs = {"lat": float(r.lat), "lon": float(r.lon), "error": "SoilGrids read failed"}
+            out[r.id] = df
+        else:
+            out[r.id] = _read(files[r.id])
+    return out
 
 
 def _read(path: Path) -> pd.DataFrame:

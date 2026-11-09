@@ -61,3 +61,25 @@ def test_soilgrids_live(tmp_path):
     assert res["ocean"]["clay"].isna().all()
     again = soilgrids.fetch_many(pts.iloc[:1], cache_dir=tmp_path)   # from the cache
     pd.testing.assert_frame_equal(again["londrina"], lond)
+
+
+def test_soilgrids_failed_reads_are_not_cached(tmp_path, monkeypatch):
+    from cropemu.soil import soilgrids
+
+    calls = {"n": 0}
+
+    def fake_sample(path, lats, lons, radius, retries=4):
+        calls["n"] += 1
+        values = np.full(len(lats), 300.0)                          # e.g. 30% clay everywhere
+        failed = np.asarray(lats) > 50                             # points north of 50° "lose the network"
+        return values, failed
+
+    monkeypatch.setattr(soilgrids, "_sample_file", fake_sample)
+    pts = pd.DataFrame({"id": ["ok", "bad"], "lat": [-23.2, 60.0], "lon": [-51.2, 10.0]})
+    res = soilgrids.fetch_many(pts, cache_dir=tmp_path, n_jobs=2)
+    assert res["ok"]["clay"].iloc[0] == pytest.approx(30.0) and "error" not in res["ok"].attrs
+    assert res["bad"]["clay"].isna().all() and "error" in res["bad"].attrs
+    assert len(list(tmp_path.glob("*.csv"))) == 1                  # only the good point is cached
+    n = calls["n"]
+    soilgrids.fetch_many(pts, cache_dir=tmp_path, n_jobs=2)        # retries only the failed point
+    assert calls["n"] == n + len(soilgrids.PROPERTIES) * len(soilgrids.DEPTHS)
