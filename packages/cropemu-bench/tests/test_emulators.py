@@ -60,13 +60,15 @@ def test_targets_from_summary():
 
 
 def test_ratio_outputs_are_derived_not_emulated():
-    s = pd.DataFrame({"sample": [0, 1], "PDAT": [2019305, 2019305], "HWAM": [3000.0, 2000.0],
-                      "CWAM": [6000.0, 5000.0], "PRCP": [500.0, 0.0], "YPPM": [6.0, 2000.0], "DMPPM": [12.0, 5000.0]})
+    s = pd.DataFrame({"sample": [0, 1, 2], "PDAT": [2019305] * 3, "HWAM": [3000.0, 2000.0, 1000.0],
+                      "CWAM": [6000.0, 5000.0, 2000.0], "PRCP": [500.0, 0.0, 100.0], "YPPM": [6.0, 20000.0, 10.0],
+                      "DMPPM": [12.0, 50000.0, 20.0]})
     assert "YPPM" not in targets(s) and "DMPPM" not in targets(s)
-    assert "YPPM" in targets(s, derived=True)
+    y = targets(s, derived=True, min_valid=0.5)
+    assert np.isnan(y.loc[1, "YPPM"]) and y.loc[2, "YPPM"] == 10.0     # ratio censored with almost no rain
     p = derive(targets(s))
     assert p.loc[0, "YPPM"] == 6.0 and p.loc[0, "DMPPM"] == 12.0
-    assert p.loc[1, "YPPM"] == 2000.0                                  # rain floored at 1 mm
+    assert p.loc[1, "YPPM"] == 80.0                                    # rain floored at 25 mm
 
 
 def test_acceptance_and_within_site_sd():
@@ -80,6 +82,13 @@ def test_acceptance_and_within_site_sd():
     P = Y + pd.DataFrame({"HWAM": rng.normal(0, 0.1, 100), "ADAT_dap": rng.normal(0, 6, 100)})
     a = acceptance(Y, P, site)
     assert a.loc["HWAM", "recommended"] and not a.loc["ADAT_dap", "recommended"]   # 6 d > 5 d
+    assert a.loc["ADAT_dap", "level"] == "caution"                                  # 6 d < 10 d
+    # a site property (within-site SD ~1 % of the total): judged against the total SD
+    Y["OCAM"] = np.repeat([1000.0, 5000.0], 50) + rng.normal(0, 20, 100)
+    P["OCAM"] = Y["OCAM"] + rng.normal(0, 300, 100)
+    a = acceptance(Y, P, site)
+    assert a.loc["OCAM", "reference"] == "total SD" and a.loc["OCAM", "recommended"]
+    assert a.loc["HWAM", "reference"] == "total SD"                     # also between-site dominated here
 
 
 def test_classify_cv_and_labels():

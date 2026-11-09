@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from cropemu_bench.dataset import build
+from cropemu_bench.dataset import DERIVED, build, derive
 from cropemu_bench.evaluate import acceptance, classify_cv
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,10 +34,12 @@ def main():
         emu, val = f.stem[:-len("_oof")].rsplit("_", 1)
         P = pd.read_parquet(f)
         P.index = Y.index if len(P) == len(Y) else P.index
+        P = derive(P.drop(columns=[c for c in DERIVED if c in P]))   # with the current DERIVED_FLOOR
         cols = [c for c in P.columns if c in Y]
         a = acceptance(Y[cols], P[cols], info["point"])
         a.to_csv(out / f"acceptance_{emu}_{val}.csv")
         rows.append({"emulator": emu, "validation": val, "outputs": len(a), "recommended": int(a["recommended"].sum()),
+                     "caution": int((a["level"] == "caution").sum()),
                      "dates_recommended": f"{int(a.loc[a.index.str.endswith('_dap'), 'recommended'].sum())}/"
                                           f"{int(a.index.str.endswith('_dap').sum())}",
                      "median_rmse_over_within_sd": a.loc[~a.index.str.endswith("_dap"), "rmse_over_within_sd"].median()})

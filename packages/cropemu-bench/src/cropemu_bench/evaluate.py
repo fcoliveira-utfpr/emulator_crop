@@ -90,6 +90,11 @@ def classify_cv(X: pd.DataFrame, y: pd.Series, groups=None, n_splits: int = 5, s
 #: Acceptance criteria of the plan (4.5.1), fixed before the benchmark.
 DATE_RMSE_DAYS = 5.0          # phase dates: RMSE below the typical field observation error (3-5 d)
 RELATIVE_RMSE = 0.25          # other outputs: RMSE below 25 % of the within-site standard deviation
+#: Outputs whose within-site SD is below this fraction of the total SD are site properties (e.g. soil
+#: organic carbon): there the emulator has to tell sites apart, and the reference is the total SD.
+SITE_DETERMINED_SHARE = 0.1
+#: Upper limit of the intermediate level "use with care" (relative RMSE between RELATIVE_RMSE and this).
+CAUTION_RMSE = 0.5
 
 
 def within_site_sd(y: pd.Series, site) -> float:
@@ -101,20 +106,30 @@ def within_site_sd(y: pd.Series, site) -> float:
 
 
 def acceptance(Y: pd.DataFrame, P: pd.DataFrame, site, date_rmse: float = DATE_RMSE_DAYS,
-               relative: float = RELATIVE_RMSE) -> pd.DataFrame:
-    """Per output: RMSE, within-site SD, their ratio and the "recommended" label (plan, 4.5.1).
+               relative: float = RELATIVE_RMSE, site_share: float = SITE_DETERMINED_SHARE,
+               caution: float = CAUTION_RMSE) -> pd.DataFrame:
+    """Per output: RMSE, within-site and total SD, the relative RMSE and the labels (plan, 4.5.1).
 
-    Dates (``*_dap``): recommended when RMSE <= ``date_rmse`` days. Other outputs:
-    recommended when RMSE < ``relative`` x the within-site SD.
+    Dates (``*_dap``): recommended when RMSE <= ``date_rmse`` days (relative RMSE = RMSE / ``date_rmse``).
+    Other outputs: relative RMSE = RMSE / within-site SD, or RMSE / total SD for site properties
+    (within-site SD < ``site_share`` x total SD); recommended when below ``relative``.
+    ``level``: "recommended", "caution" (relative RMSE below ``caution`` x the limit / ``relative``)
+    or "not recommended".
     """
     m = metrics(Y, P)
     rows = []
     for c in m.index:
-        sd = within_site_sd(Y[c], site)
-        is_date = c.endswith("_dap")
-        ratio = m.loc[c, "rmse"] / sd if sd > 0 else np.nan
-        ok = m.loc[c, "rmse"] <= date_rmse if is_date else bool(ratio < relative)
-        rows.append({"target": c, "rmse": m.loc[c, "rmse"], "r2": m.loc[c, "r2"], "within_site_sd": sd,
-                     "rmse_over_within_sd": ratio, "criterion": f"RMSE <= {date_rmse:g} d" if is_date
-                     else f"RMSE < {relative:g} within-site SD", "recommended": bool(ok)})
+        sd, total = within_site_sd(Y[c], site), float(Y[c].std())
+        rmse = m.loc[c, "rmse"]
+        if c.endswith("_dap"):
+            ref, crit, rel = "days", f"RMSE <= {date_rmse:g} d", rmse / date_rmse * relative
+        elif total > 0 and sd < site_share * total:
+            ref, crit, rel = "total SD", f"RMSE < {relative:g} total SD (site property)", rmse / total
+        else:
+            ref, crit, rel = "within-site SD", f"RMSE < {relative:g} within-site SD", rmse / sd if sd > 0 else np.nan
+        ok = rmse <= date_rmse if ref == "days" else bool(rel < relative)
+        level = "recommended" if ok else "caution" if rel < caution else "not recommended"
+        rows.append({"target": c, "rmse": rmse, "r2": m.loc[c, "r2"], "within_site_sd": sd, "total_sd": total,
+                     "rmse_over_within_sd": rmse / sd if sd > 0 else np.nan, "reference": ref,
+                     "relative_rmse": rel, "criterion": crit, "recommended": bool(ok), "level": level})
     return pd.DataFrame(rows).set_index("target")

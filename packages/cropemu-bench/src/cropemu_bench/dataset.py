@@ -31,8 +31,10 @@ CULTIVAR_FEATURES = ("mg",) + tuple(PERTURBATIONS)
 #: predicted yield/biomass and rain their median error is ~40x smaller (plan, 4.7).
 #: The other ratios (YPEM, HIAM, HWUM...) are emulated better directly.
 DERIVED = {"YPPM": ("HWAM", "PRCP", 1.0), "DMPPM": ("CWAM", "PRCP", 1.0)}
-#: Smallest denominator used for derived ratios (mm of rain).
-DERIVED_FLOOR = 1.0
+#: Smallest denominator of the derived ratios (mm of rain): below it, yield per mm of rain is
+#: not meaningful (DSSAT reports e.g. 73,000 kg/ha/mm for 0.1 mm); the true ratio is censored and
+#: the predicted denominator floored.
+DERIVED_FLOOR = 25.0
 
 
 def _doy_date(v) -> date | None:
@@ -66,6 +68,9 @@ def targets(summary: pd.DataFrame, min_valid: float = 0.5, derived: bool = False
             continue
         out[c] = s[c].astype(float)
     y = pd.DataFrame(out, index=s.index)
+    for name, (_, den, _) in DERIVED.items():
+        if name in y and den in s:
+            y.loc[s[den].to_numpy(float) < DERIVED_FLOOR, name] = np.nan
     if "CRST" in s and "MDAT_dap" in y:
         y.loc[s["CRST"].to_numpy() != 1, "MDAT_dap"] = np.nan
     keep = [c for c in y if y[c].notna().mean() >= min_valid and y[c].std(skipna=True) > 0]

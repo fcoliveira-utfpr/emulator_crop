@@ -301,6 +301,15 @@ Definir **antes** de rodar o benchmark, para não escolher o limiar depois de ve
 - **Demais saídas:** R² e erro relativo reportados. Recebem o rótulo "recomendada" ou "não recomendada" pelo mesmo critério relativo.
 - **Na tarefa (H4):** cobertura dos ICs de 90% entre 85% e 95% na calibração sintética.
 
+**Revisão (09/11/2026), antes do benchmark consolidado.** Ela foi feita depois de ver os resultados do `dssat_v0`/`dssat_v1`, mas as regras dependem só da estrutura das saídas, não do desempenho dos emuladores; os limiares (5 d, 25%) não mudaram:
+- **Propriedades do local:** se o desvio dentro do local for menor que 10% do desvio total (no DSSAT, só OCAM e OCTAM, com 1%), a referência é o desvio total: o emulador precisa distinguir os locais (`SITE_DETERMINED_SHARE`).
+- **Três níveis**, além do rótulo binário: "recomendada" (RMSE relativo < 0,25), "com cuidado" (< 0,5) e "não recomendada". Para as datas, o RMSE relativo é RMSE/5 d × 0,25, de modo que "com cuidado" vai até 10 d.
+- **Razões por mm de chuva (YPPM, DMPPM):** censuradas quando a chuva da safra é menor que 25 mm (1,5% das safras do `dssat_v1`, irrigadas em regiões secas). O DSSAT reporta até 73.000 kg/ha/mm com 0,1 mm, e o RMSE dessas razões era dominado por esses casos (RMSE relativo de 0,99, que cai para 0,52).
+
+Resultado com os emuladores escolhidos (validação por bloco):
+- **DSSAT (`dssat_v1`, 41 saídas):** 5 recomendadas (emergência, floração e maturidade, CO2, água inicial), 27 com cuidado (produtividade 0,33, biomassa 0,27, IAF 0,30, ET 0,39, colheita 7,8 d, carbono do solo 0,42) e 9 não recomendadas (índice de colheita, peso de grão, evaporação do solo, água extraível, escoamento, razões por chuva).
+- **AquaCrop (`aquacrop_v0`, 44 saídas):** 6 recomendadas (emergência, floração, maturidade, CO2, irrigação), 13 com cuidado (formação do grão, produtividade 0,39, biomassa 0,40, transpiração, ET) e 25 não recomendadas (sobretudo os termos de água e os totais da janela inteira de simulação, como escoamento, drenagem, evaporação e graus-dia, e o índice de colheita).
+
 ### 4.6 Alternativa: reimplementar em vez de emular
 
 Fenologia do CROPGRO (PHENOL) em **JAX**:
