@@ -182,9 +182,23 @@ Dois grupos de pontos:
      - na fase de validação local, H4 pode ser testada também com **observações reais**, e não só com cultivares sintéticas;
      - a mesma fase mede o ganho de trocar as entradas globais por dados locais.
 2. **Pontos de preenchimento.** Os sítios experimentais se concentram nos EUA, no Brasil, na Argentina e na China, e quase faltam na África, no Sul da Ásia e em partes da Europa. Só com eles, o emulador não generaliza para o resto do globo. Por isso entram pontos complementares:
-   - amostragem estratificada por zona climática de Köppen-Geiger × faixa de latitude × hemisfério;
+   - amostragem estratificada por zona climática de Köppen-Geiger × faixa de latitude de 10° (o sinal da latitude separa os hemisférios);
    - prioridade para estratos sem sítio experimental (preencher o espaço de clima, não repetir o que já está coberto);
-   - dentro de áreas com soja (SPAM, MIRCA2000 ou EarthStat) e uma parte em terras agrícolas sem soja hoje (áreas de expansão).
+   - dentro de áreas com soja e uma parte em terras agrícolas sem soja hoje (áreas de expansão).
+
+**Implementação** (`cropemu_bench.inputs.points`; bases abertas e sem cadastro):
+- **Grade:** 0,5°, a mesma do NASA POWER e do GGCMI. Um ponto de preenchimento é o centro de uma célula.
+- **Área de soja:** GAEZ+ 2015 (Grogan et al. 2022, Harvard Dataverse 10.7910/DVN/KAGRFI, CC0), 5' somado para 0,5°. A soma global dá 119,8 Mha, o que bate com a área colhida de 2015. O SPAM 2020 foi descartado porque exige formulário de cadastro (guestbook) para baixar.
+- **Áreas de expansão:** células com ≥ 5.000 ha de outras culturas de campo (milho, trigo, sorgo, milheto, algodão, amendoim, leguminosas, girassol) e < 500 ha de soja.
+- **Köppen-Geiger:** Beck et al. 2023 (figshare 10.6084/m9.figshare.21789074, CC BY 4.0), período 1991–2020, mapa de 0,5°. Classes polares (ET, EF) ficam fora.
+- **Alocação:**
+  - por estrato, peso √(área de soja): fica entre o proporcional, que concentraria tudo nos EUA, no Brasil e na Argentina, e o uniforme;
+  - mínimo de 2 pontos por estrato, reduzido automaticamente quando não cabe;
+  - os sítios contam na alocação: cada novo ponto vai ao estrato mais abaixo da sua parte, então estratos já cobertos por sítios recebem menos;
+  - dentro do estrato, sorteio ∝ área de soja (ou de outras culturas, na expansão);
+  - 15% de expansão; semente fixa, para ser reprodutível.
+- **Resultado com 2.000 pontos:** 1.700 de soja e 300 de expansão em 117 estratos e 290 blocos de 5° × 5°. Por região: América do Sul 714, Ásia e Oceania 570, América do Norte 381, África e Oriente Médio 190, Europa 143. Com 1.000 pontos, 117 estratos; com 5.000, 117 estratos e 377 blocos.
+- **Blocos espaciais** de 5° × 5° em cada ponto, para a validação com blocos fora (4.3).
 
 - Meta: de 1.000 a 5.000 pontos no total.
 - Altitude: a do NASA POWER (por célula) ou de MDE global (Copernicus DEM ou SRTM) para o ponto exato.
@@ -209,7 +223,11 @@ Dois grupos de pontos:
 - Alternativa pronta para o DSSAT: base global de perfis a 10 km (Han et al. 2019) e os 27 perfis genéricos HC27.
 
 **Manejo**
-- **Calendário de semeadura:** janela por ponto a partir do calendário do GGCMI Phase 3 (Jägermeyr et al. 2021) ou de Sacks et al. 2010, ampliada nas bordas. A data dentro da janela entra por hipercubo latino.
+- **Calendário de semeadura: GGCMI Phase 3 v1.01** (Jägermeyr et al. 2021, Zenodo 10.5281/zenodo.5062513, CC-BY 4.0), soja de sequeiro (`rf`) e irrigada (`ir`), 0,5° (`cropemu_bench.inputs.calendar`).
+  - A data de semeadura de cada safra é a do GGCMI deslocada de −30 a +30 dias, com o deslocamento sorteado por hipercubo latino. A janela padrão é ±30 dias e ainda pode mudar.
+  - Ponto sem calendário na própria célula: usa a célula com dados mais próxima, até 2 células (1°) de distância.
+  - **Atenção:** o GGCMI preencheu lacunas e tem calendário em quase toda terra, até no Saara. Ele não indica onde há soja; quem indica é a máscara do GAEZ+.
+  - Conferido: Londrina 31/10 (CONAB), Iowa 3/5, Rosário 30/11, Harbin 2/5, Indore 1/7, Lusaka 1/12.
 - **Cultivares:** grupos de maturidade de 000 a X (do Canadá e da China até os trópicos). O espaço de parâmetros de cada modelo é amostrado em faixas que cubram esses grupos.
 - Sequeiro e potencial (irrigado).
 
