@@ -402,6 +402,35 @@ R² por saída, com validação por bloco:
 - **Demais saídas:** quase nenhuma passa no critério "RMSE < 25% do desvio-padrão dentro do local". Na produtividade a razão é 0,37, na biomassa 0,30 e no IAF máximo 0,34.
 - **O critério relativo não serve para saídas determinadas pelo local**, como o carbono orgânico do solo (OCTAM, OCAM): o desvio dentro do local é quase zero e a razão chega a 54. Para elas é preciso outro critério (ex.: R² entre locais). Isso será decidido e registrado antes do benchmark consolidado.
 
+**Benchmark no `dssat_v1`** (1.962 pontos × 60 safras = 117.720 safras; validação por bloco de 5°, 285 blocos; MDAT censurada; YPPM e DMPPM calculadas):
+
+| Emulador | R² mediano (39 saídas) | RMSE R1 (d) | RMSE R7 (d) | RMSE HWAM (kg/ha) | RMSE CWAM (kg/ha) | Treino/dobra | Predição |
+|---|---|---|---|---|---|---|---|
+| Ridge | 0,64 | 7,5 | 8,1 | 1.272 | 2.199 | 4 s | 6 µs/linha |
+| GB (11 saídas) | 0,91 | 3,9 | 4,1 | 635 | 945 | 161 s | 182 µs/linha |
+| MLP (uma rede) | 0,93 | 3,8 | 3,7 | **489** | **753** | 101 s | 7 µs/linha |
+| **MLP por grupos** (fenologia + resto) | 0,93 | **3,0** | **3,1** | 493 | 763 | 180 s | 10 µs/linha |
+| MLP por grupos, validação aleatória | 0,95 | 1,9 | 2,7 | 446 | 681 | | |
+
+- **O caminho para o DSSAT é a MLP por grupos de saídas.** Em relação ao `dssat_v0`, a fenologia melhora ~25% (R7 de 4,2 para 3,1 d), e a produtividade, 7% (532 para 493 kg/ha).
+- **Na produtividade, 3 vezes mais dados ajudam pouco** (razão RMSE/desvio no local de 0,37 para 0,34). O limite está nas entradas: médias por janela não descrevem bem o momento do estresse hídrico. O próximo passo para o DSSAT são entradas de balanço hídrico simples (ex.: déficit P − ETo por fase), calculáveis na biblioteca.
+- **Recomendadas pelo critério de 4.5.1:** emergência, floração e maturidade (RMSE de 3,4, 3,0 e 3,1 d), DWAP e CO2A. A produtividade, a biomassa e o IAF continuam fora (razões de 0,34, 0,29 e 0,32 contra o limite de 0,25).
+- **Classificadores no `dssat_v1`:** maturou ou não, AUC de 0,98 e acurácia balanceada de 0,91. Status da cultura, acurácia balanceada de 0,62; a morte por frio segue sem ser reconhecida (recall de 0,11).
+
+**Primeiro benchmark do AquaCrop** (`aquacrop_v0`, as 39.240 safras do `dssat_v0`, validação por bloco). O AquaCrop é bem mais difícil de emular que o DSSAT:
+
+| | Ridge | MLP | MLP por grupos | MLP por grupos + dias até a soma térmica |
+|---|---|---|---|---|
+| R² mediano (44 saídas) | | 0,82 | 0,82 | 0,84 |
+| RMSE emergência (d) | 9,3 | 7,5 | 7,9 | 7,6 |
+| RMSE floração (d) | 14,8 | 10,8 | 11,6 | 11,4 |
+| RMSE maturidade (d) | 15,0 | 10,5 | 10,7 | **6,7** |
+| R² produtividade | 0,53 | 0,85 | 0,86 | 0,85 |
+
+- **O ciclo do AquaCrop é soma térmica pura** e, em locais frios, chega a 300–470 dias. Médias por janela até 130 dias não bastam. A entrada "dias até acumular os graus-dia de cada fase" (calculada do clima com os parâmetros da cultivar, também na biblioteca: `WeatherSeries.thermal_days`) reduz o erro da maturidade de 10,7 para 6,7 d.
+- **A emergência e a floração não melhoram**, porque o AquaCrop atrasa a germinação quando o solo está seco e empurra o ciclo inteiro. É um efeito em degrau, ligado à chuva depois da semeadura.
+- Maturou ou não: AUC de 0,98 e acurácia balanceada de 0,92. 12% das safras do AquaCrop não maturam na janela.
+
 ### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
 
 **Executável:** o oficial do AquaCrop 7.3 (KU Leuven/FAO, licença BSD-3), baixado das releases do repositório KUL-RSDA/AquaCrop, com uma versão para cada sistema. Na máquina, ele reproduz idênticas as saídas de referência do caso de teste oficial. A cultura padrão vem da base da FAO (`SoybeanGDD.CRO`, ciclo em graus-dia). O CI baixa o executável Linux da mesma release.
