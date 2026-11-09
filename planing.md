@@ -610,7 +610,10 @@ Implementado, ainda sem publicar:
   - documentação de unidades das saídas;
   - reexportar o AquaCrop a partir do `aquacrop_v1`.
 - **Ambiente:** `onnx<1.18`, `onnxruntime<1.20` e `ml-dtypes<0.5` mantêm o numpy 1.26 exigido pelo torch 2.2 neste Mac x86_64.
-- **Observação:** no ponto testado do Paraná (−25,75; −52,25), a água disponível do SoilGrids é de 46 mm, entre os 0,5% menores do treino. Num Latossolo isso parece baixo e merece conferência da função de pedotransferência.
+- **Observação (decisão pendente):** no ponto testado do Paraná (−25,75; −52,25; argila 52–55%), a água disponível é de 46 mm em 2 m, entre os 0,5% menores do treino.
+  - Ela vem dos mapas de retenção do SoilGrids (`wv0033`, `wv1500`), com 0,03–0,04 cm³/cm³ entre 33 e 1500 kPa. Saxton & Rawls daria 0,10–0,12.
+  - Em Latossolos a capacidade de campo costuma ser tomada a 10 kPa (o SoilGrids não traz `wv0010` no que baixamos), e a água a 33 kPa medida fica em ~0,05–0,10.
+  - A escolha (mapas do SoilGrids, Saxton & Rawls, ou 10 kPa em solos tropicais) muda as entradas de todas as bases e exigiria regenerá-las. Fica para decidir antes da validação local.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
