@@ -134,3 +134,15 @@ def test_aquacrop_runs_rainfed_and_irrigated():
     assert r.loc[1, "Y(dry)"] >= r.loc[0, "Y(dry)"] and r.loc[1, "Irri_crop"] > 0 and r.loc[0, "Irri_crop"] == 0
     assert r.loc[2, "MAT_dap"] < r.loc[0, "MAT_dap"] and r.loc[2, "CO2"] == pytest.approx(700, abs=1)
     assert r.loc[3, "error"].startswith("crop cycle") and not r.loc[3, "matured"]
+
+
+def test_dates_count_delayed_germination():
+    """While germination is delayed AquaCrop writes DAP = 0 and restarts DAP later: dates use the calendar."""
+    days = pd.date_range("2020-01-01", periods=40)
+    stage = [0] * 2 + [1] * 20 + [2] * 10 + [0] * 8
+    dap = [-9] * 2 + [0] * 15 + list(range(1, 16)) + [-9] * 8
+    d = pd.DataFrame({"Day": days.day, "Month": days.month, "Year": days.year, "DAP": dap, "Stage": stage,
+                      "Rain": 1.0})
+    p = crop_period_summary(d)
+    assert p["germination_delay"] == 15 and p["EMR_dap"] == 21 and p["MAT_dap"] == 30 and p["matured"]
+    assert p["Rain_crop"] == 30

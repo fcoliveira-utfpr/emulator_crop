@@ -56,16 +56,26 @@ def crop_period_summary(daily: pd.DataFrame) -> dict:
     Stage codes (``run.f90``): 1 sown to emergence, 2 vegetative, 3 flowering, 4 yield
     formation, 0 before/after the crop, -9 no growth stage. ``MAT_dap`` is the last day of
     the crop cycle; ``matured`` is False when the run ended before it (censored season).
+
+    Dates are calendar days from sowing (sowing day = 1). AquaCrop's own ``DAP`` cannot be
+    used: when germination is delayed (dry topsoil) it stays 0 and restarts counting from the
+    day germination becomes possible, which hides the delay (``germination_delay`` days).
+    The crop period, for the totals, runs from sowing (delay included) to the end of the cycle.
     """
-    d = daily[daily["DAP"] > 0]
-    crop = d[d["Stage"].isin([1, 2, 3, 4])]
+    crop = daily[daily["Stage"].isin([1, 2, 3, 4]) & (daily["DAP"] >= 0)]
     # after the crop cycle AquaCrop writes DAP = -9 and Stage 0
     out = {}
-    first = lambda st: float(crop.loc[crop["Stage"] == st, "DAP"].min()) if (crop["Stage"] == st).any() else np.nan
+    if len(crop):
+        date = pd.to_datetime(dict(year=crop["Year"], month=crop["Month"], day=crop["Day"]))
+        dap = (date - date.iloc[0]).dt.days + 1
+    else:
+        dap = pd.Series(dtype=float)
+    first = lambda st: float(dap[crop["Stage"] == st].min()) if (crop["Stage"] == st).any() else np.nan
     out["EMR_dap"] = first(2)
     out["FLO_dap"] = first(3)
     out["YLD_dap"] = first(4)
-    out["MAT_dap"] = float(crop["DAP"].max()) if len(crop) else np.nan
+    out["MAT_dap"] = float(dap.max()) if len(crop) else np.nan
+    out["germination_delay"] = float((crop["DAP"] == 0).sum())
     out["matured"] = bool(len(crop) and (daily.loc[crop.index[-1] + 1:, "Stage"] == 0).any())
     for c in FLUXES:
         if c in crop:

@@ -86,7 +86,7 @@ def labels(summary: pd.DataFrame, model: str = "dssat") -> pd.DataFrame:
 
 
 #: AquaCrop summary columns that are dates of the simulation period, flags or errors.
-AQ_NOT_TARGETS = {"Day1", "Month1", "Year1", "DayN", "MonthN", "YearN", "error", "matured"}
+AQ_NOT_TARGETS = {"Day1", "Month1", "Year1", "DayN", "MonthN", "YearN", "error", "matured", "germination_delay"}
 
 
 def targets_aquacrop(summary: pd.DataFrame, min_valid: float = 0.5) -> pd.DataFrame:
@@ -164,9 +164,11 @@ DELAYED_GERMINATION_DAYS = 10
 AQ_DATES = ("EMR_dap", "FLO_dap", "YLD_dap", "MAT_dap")
 
 
-def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def build(out_dir, cache: bool = True, derived: bool = False,
+          features_file: str = "features.parquet") -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """X (features), Y (targets) and ``info`` (point, block, koppen, kind and the
-    categorical outputs of :func:`labels`) of a dataset, aligned on ``sample``. Features are cached in ``<out_dir>/features.parquet``.
+    categorical outputs of :func:`labels`) of a dataset, aligned on ``sample``. Features are cached in ``<out_dir>/<features_file>``
+    (another file, e.g. an older feature set, is read as is).
     With ``derived``, Y also has the true :data:`DERIVED` ratios (to evaluate :func:`derive`)."""
     out = Path(out_dir)
     model = model_of(out)
@@ -174,7 +176,7 @@ def build(out_dir, cache: bool = True, derived: bool = False) -> tuple[pd.DataFr
     design = t["design"]
     done = t["summary"]["sample"].unique()
     design = design[design["sample"].isin(done)]
-    fpath = out / "features.parquet"
+    fpath = out / features_file
     if cache and fpath.exists():
         X = pd.read_parquet(fpath)
     else:

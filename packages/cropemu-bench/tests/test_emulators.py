@@ -101,3 +101,16 @@ def test_mdat_is_censored_when_crop_did_not_mature():
                       "CRST": [1, 39, 1], "HWAM": [1.0, 2.0, 3.0]})
     y = targets(s)
     assert np.isnan(y.loc[1, "MDAT_dap"]) and y.loc[0, "MDAT_dap"] == 100
+
+
+def test_grouped_offsets():
+    """An output equal to a feature plus a small deviation: the members fit only the deviation."""
+    X, Y, _ = _data()
+    X["td"] = 50 + 30 * np.abs(X.b)
+    Y["date"] = X["td"] + (X.a > 1.5) * 10.0
+    em = GroupedEmulator(groups={"dates": ["date"]}, offsets={"date": "td", "absent": "td"}, hidden=(64, 64),
+                         max_epochs=150, patience=15).fit(X, Y)
+    assert em.offsets_ == {"date": "td"}
+    p = em.predict(X)
+    assert list(p.columns) == list(Y.columns)
+    assert np.sqrt(((p["date"] - Y["date"]) ** 2).mean()) < 1.5
