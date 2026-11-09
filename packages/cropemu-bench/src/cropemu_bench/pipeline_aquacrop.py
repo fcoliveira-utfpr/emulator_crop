@@ -23,8 +23,9 @@ from .models.aquacrop import AquaCrop, AquaSoil, Season
 from .pipeline import WEATHER_END, WEATHER_START
 
 #: Simulation window around the sowing date (days); the climate files go further, since
-#: AquaCrop converts the GDD cycle to calendar days with the temperature record.
-DAYS_BEFORE, DAYS_AFTER, CLIMATE_DAYS_AFTER = 30, 300, 450
+#: AquaCrop converts the GDD cycle to calendar days with the temperature record, and a delayed
+#: germination (dry topsoil) shifts the whole cycle later.
+DAYS_BEFORE, DAYS_AFTER, CLIMATE_DAYS_AFTER = 30, 300, 600
 INITIAL_WATER = 0.5
 
 

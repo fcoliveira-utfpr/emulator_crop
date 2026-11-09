@@ -53,6 +53,10 @@ class Season:
     initial_water: float = 0.5
 
 
+def _complete(path: Path) -> bool:
+    return path.exists() and not read_season(path).empty
+
+
 def cycle_reachable(s: Season) -> bool:
     """Whether the GDD to maturity of the crop accumulate within the climate record."""
     from ...design.aquacrop import gdd
@@ -77,7 +81,7 @@ class AquaCrop(CropModel):
 
     name = "aquacrop"
 
-    def __init__(self, executable=None, crop_dir=None, workdir=None):
+    def __init__(self, executable=None, crop_dir=None, workdir=None, keep_failed=None):
         executable = executable or os.environ.get("CROPEMU_AQUACROP_EXE")
         crop_dir = crop_dir or os.environ.get("CROPEMU_AQUACROP_DATA")
         if not executable:
@@ -90,6 +94,7 @@ class AquaCrop(CropModel):
             raise FileNotFoundError(f"MaunaLoa.CO2 not found in {self.simul}")
         self.crop_dir = Path(crop_dir).resolve() if crop_dir else None
         self.workdir = workdir
+        self.keep_failed = keep_failed          # folder where run folders of failed seasons are copied
 
     def crop(self, name: str = "SoybeanGDD") -> CropFile:
         """A crop of the FAO database (e.g. ``SoybeanGDD``, ``MaizeGDD``)."""
@@ -128,19 +133,39 @@ class AquaCrop(CropModel):
                       co2=co2, co2_dir=co2_dir, irrigation="INET.IRR" if s.irrigated else None,
                       initial=f"{n}.SW0", title=n)
             names.append(n)
-        (folder / "LIST" / "ListProjects.txt").write_text(
-            "\n".join(f"{n}.PRO" for n in names if n not in skipped) + "\n")
-        proc = subprocess.run([str(self.executable)], cwd=folder, capture_output=True, text=True)
+        # AquaCrop runs the projects in order and aborts the whole list on a Fortran error (e.g.
+        # end of a climate file when germination was delayed past the record); the season that
+        # stopped is marked and the projects after it are run again.
+        pending = [n for n in names if n not in skipped]
+        crashed = {}
+        proc = None
+        while pending:
+            (folder / "LIST" / "ListProjects.txt").write_text("\n".join(f"{n}.PRO" for n in pending) + "\n")
+            proc = subprocess.run([str(self.executable)], cwd=folder, capture_output=True, text=True)
+            if proc.returncode == 0:
+                break
+            done = [n for n in pending if _complete(folder / "OUTP" / f"{n}PROseason.OUT")]
+            rest = [n for n in pending if n not in done]
+            if not rest:
+                break
+            msg = (proc.stdout + proc.stderr).strip().splitlines()
+            crashed[rest[0]] = "AquaCrop stopped: " + next((m for m in msg if "error" in m.lower()), "abnormal end")
+            if self.keep_failed:
+                shutil.copytree(folder, Path(self.keep_failed) / f"{rest[0]}_{folder.name}", dirs_exist_ok=True)
+            pending = rest[1:]
         rows, days = [], []
         for k, n in enumerate(names):
             sp, dp = folder / "OUTP" / f"{n}PROseason.OUT", folder / "OUTP" / f"{n}PROday.OUT"
-            if n in skipped:
-                rows.append({"treatment": offset + k, "error": skipped[n], "matured": False})
+            if n in skipped or n in crashed:
+                rows.append({"treatment": offset + k, "error": skipped.get(n) or crashed[n], "matured": False})
                 continue
             if not sp.exists():
                 rows.append({"treatment": offset + k, "error": "no output"})
                 continue
             season = read_season(sp)
+            if season.empty:                       # the run stopped before the end of the season
+                rows.append({"treatment": offset + k, "error": "incomplete output", "matured": False})
+                continue
             rec = {"treatment": offset + k, **season.iloc[0].drop(labels=["RunNr"], errors="ignore").to_dict()}
             if dp.exists():
                 d = read_daily(dp)
@@ -149,7 +174,7 @@ class AquaCrop(CropModel):
                     d.insert(0, "treatment", offset + k)
                     days.append(d)
             rows.append(rec)
-        if len(skipped) < len(names) and not any("error" not in r for r in rows):
+        if proc is not None and not any("error" not in r for r in rows):
             raise AquaCropError(f"AquaCrop produced no output in {folder}:\n{proc.stdout[-2000:]}\n{proc.stderr[-2000:]}")
         return rows, days
 
