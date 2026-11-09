@@ -452,6 +452,24 @@ R² por saída, com validação por bloco:
 - **No DSSAT, o balanço hídrico melhora pouco** a produtividade (−5% no RMSE) e a drenagem. Na fenologia, a diferença de 0,2–0,3 d está dentro da variação entre treinos e precisa de repetições com outras sementes para ser separada do ruído.
 - **Caminho por modelo até aqui:** MLP por grupos nos dois. No AquaCrop, entradas de soma térmica e censura do estabelecimento. No DSSAT, as janelas bastam para a fenologia, e o balanço hídrico ajuda pouco no crescimento.
 
+**Correção das datas do AquaCrop (09/11/2026).** A cauda de erro da fenologia do AquaCrop era, quase toda, erro de leitura nosso:
+- Quando a germinação atrasa (solo seco), o AquaCrop escreve DAP = 0 e recomeça a contagem no dia em que a germinação fica possível. As datas lidas da coluna DAP escondiam atrasos de até 301 dias (ex.: emergência "no dia 20" quando foi no dia 249).
+- Agora as datas são dias de calendário desde a semeadura, e o resumo traz `germination_delay`. A base `aquacrop_v0` foi regenerada com o mesmo desenho; produtividade e balanço são idênticos. A versão antiga ficou em `data/aquacrop_v0_dapbug`.
+- O atraso de mais de 10 d atinge 11,9% das safras, e não 5,3%.
+- **Rede com offset** (`mlp_offset`): as redes de datas preveem só o desvio em relação aos dias de soma térmica (`GroupedEmulator(offsets=AQUACROP_OFFSETS)`).
+
+| AquaCrop, validação por bloco | MLP | MLP por grupos | MLP com offset |
+|---|---|---|---|
+| Emergência, RMSE (medAE) d | 1,40 (0,66) | 1,03 (0,29) | **0,98 (0,05)** |
+| Floração | 1,98 (1,08) | 1,11 (0,43) | **0,95 (0,05)** |
+| Início da formação do grão | 5,47 (1,45) | 5,58 (0,73) | 5,49 (1,41) |
+| Maturidade | 5,52 (2,12) | 4,42 (1,08) | **4,06 (0,20)** |
+| Produtividade, RMSE (R²) | 0,63 t/ha (0,891) | 0,63 (0,890) | igual ao por grupos |
+
+- Floração de 7,3 para 0,95 d. Emergência, floração e maturidade passam no critério (≤ 5 d); o início da formação do grão fica em 5,5 d.
+- Classificadores: maturou ou não, AUC de 0,995 (12% não maturam). Estabelecimento atrasado, AUC de 0,984, acurácia balanceada de 0,93.
+- **Escolha para o AquaCrop:** MLP por grupos com offset de soma térmica.
+
 ### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
 
 **Executável:** o oficial do AquaCrop 7.3 (KU Leuven/FAO, licença BSD-3), baixado das releases do repositório KUL-RSDA/AquaCrop, com uma versão para cada sistema. Na máquina, ele reproduz idênticas as saídas de referência do caso de teste oficial. A cultura padrão vem da base da FAO (`SoybeanGDD.CRO`, ciclo em graus-dia). O CI baixa o executável Linux da mesma release.
