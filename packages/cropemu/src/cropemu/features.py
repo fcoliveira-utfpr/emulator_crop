@@ -193,3 +193,37 @@ def soil_features(profile: pd.DataFrame) -> dict:
 
 def site_features(lat: float, elev: float) -> dict:
     return {"lat": float(lat), "abs_lat": abs(float(lat)), "elev": float(elev)}
+
+
+# ---------------------------------------------------------------------------- one season
+def aquacrop_soybean_thermal(cultivar: dict) -> tuple[dict, float, float]:
+    """Thermal requirements of the AquaCrop soybean (FAO SoybeanGDD scaled to ``gdd_maturity``):
+    GDD of emergence, flowering, start of senescence and maturity; Tbase and Tupper (°C)."""
+    f = float(cultivar["gdd_maturity"]) / 2700.0
+    return ({"td_emergence": 200.0, "td_flowering": 1500.0 * f, "td_senescence": 2200.0 * f,
+             "td_maturity": float(cultivar["gdd_maturity"])}, 5.0, 30.0)
+
+
+#: Thermal-time inputs by name (the name is stored in the emulator card).
+THERMAL = {"aquacrop_soybean": aquacrop_soybean_thermal}
+
+
+def season_inputs(weather: WeatherSeries, soil: dict, sowing, cultivar: dict, irrigated: bool, co2: float,
+                  dt: float = 0.0, rain_factor: float = 1.0, water_balance: bool = True,
+                  initial_water: float = 0.5, thermal: str | None = None) -> dict:
+    """Every emulator input of one season, in the order used in training.
+
+    ``soil``: :func:`soil_features`; ``cultivar``: cultivar parameters (names of the emulator
+    card); ``irrigated``: potential (no water stress) instead of rainfed; ``co2`` in ppm;
+    ``dt``/``rain_factor``: climate perturbation applied to the weather; ``thermal``: name in
+    :data:`THERMAL` (days after sowing to accumulate each thermal requirement).
+    """
+    rec = {**site_features(weather.lat, weather.elev), **soil,
+           **season_features(weather, sowing, dt, rain_factor, paw_mm=soil["paw_mm"] if water_balance else None,
+                             initial_water=initial_water),
+           **{k: float(v) for k, v in cultivar.items()},
+           "water": 0.0 if irrigated else 1.0, "co2": float(co2)}
+    if thermal is not None:
+        req, tb, tu = THERMAL[thermal](cultivar)
+        rec.update(weather.thermal_days(sowing, req, tb, tu, dt=dt))
+    return rec

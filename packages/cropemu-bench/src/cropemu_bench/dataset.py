@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cropemu.features import WeatherSeries, co2_at, season_features, site_features, soil_features
+from cropemu.features import WeatherSeries, aquacrop_soybean_thermal, co2_at, season_inputs, soil_features
 from cropemu.soil import hydraulics, soilgrids
 from cropemu.weather import fetch, fill_gaps
 
@@ -127,39 +127,28 @@ def derive(P: pd.DataFrame) -> pd.DataFrame:
     return P
 
 
-def aquacrop_thermal(r) -> tuple[dict, float, float]:
-    """Thermal requirements of an AquaCrop design row (FAO SoybeanGDD scaled by the cycle):
-    emergence, flowering, start of senescence and maturity (GDD), Tbase, Tupper."""
-    f = float(r["gdd_maturity"]) / 2700.0
-    return ({"td_emergence": 200.0, "td_flowering": 1500.0 * f, "td_senescence": 2200.0 * f,
-             "td_maturity": float(r["gdd_maturity"])}, 5.0, 30.0)
+#: AquaCrop soybean thermal requirements (kept in ``cropemu``, shared with the library).
+aquacrop_thermal = aquacrop_soybean_thermal
 
 
 def features(design: pd.DataFrame, points: pd.DataFrame, cultivar_features=CULTIVAR_FEATURES,
-             thermal=None, water: bool = True, initial_water: float = 0.5) -> pd.DataFrame:
-    """Emulator inputs of every season (index ``sample``): site, soil, weather windows,
-    water balance (window ETo and bucket stress, with ``water``), cultivar, water regime,
-    CO2 and, with ``thermal`` (row -> (requirements, tbase, tupper)), the days after sowing
-    to accumulate each thermal requirement. Weather and soil are read from the cropemu cache."""
+             thermal: str | None = None, water: bool = True, initial_water: float = 0.5) -> pd.DataFrame:
+    """Emulator inputs of every season (index ``sample``), by :func:`cropemu.features.season_inputs`
+    (the same code the library uses to predict). ``thermal``: name of the thermal-time inputs
+    (:data:`cropemu.features.THERMAL`). Weather and soil are read from the cropemu cache."""
     pts = points.set_index("id")
     rows = []
     for pid, seasons in design.groupby("point", sort=False):
         p = pts.loc[pid]
         w = WeatherSeries(fill_gaps(fetch(p["lat"], p["lon"], WEATHER_START, WEATHER_END)), p["lat"], p["elev"])
         soil = soil_features(hydraulics(soilgrids.fetch(p["lat"], p["lon"])))
-        site = site_features(p["lat"], p["elev"])
         for r in seasons.to_dict("records"):          # dicts keep names like "EM-FL"
             # CO2 of the season: the replaced value, or Mauna Loa ~60 days after sowing
             co2 = r["co2"] if r["perturbed"] else co2_at(pd.Timestamp(r["sowing"]) + pd.Timedelta(days=60))
-            rec = {"sample": r["sample"], **site, **soil,
-                   **season_features(w, r["sowing"], r["dt"], r["rain_factor"],
-                                     paw_mm=soil["paw_mm"] if water else None, initial_water=initial_water),
-                   **{c: float(r[c]) for c in cultivar_features},
-                   "water": float(r["water"]), "co2": float(co2)}
-            if thermal is not None:
-                req, tb, tu = thermal(r)
-                rec.update(w.thermal_days(r["sowing"], req, tb, tu, dt=r["dt"]))
-            rows.append(rec)
+            rows.append({"sample": r["sample"],
+                         **season_inputs(w, soil, r["sowing"], {c: r[c] for c in cultivar_features},
+                                         irrigated=not r["water"], co2=co2, dt=r["dt"], rain_factor=r["rain_factor"],
+                                         water_balance=water, initial_water=initial_water, thermal=thermal)})
     return pd.DataFrame(rows).set_index("sample")
 
 
@@ -188,7 +177,7 @@ def build(out_dir, cache: bool = True, derived: bool = False,
         if model == "aquacrop":
             from .design.aquacrop import AQ_PERTURBATIONS
             X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS),
-                         thermal=aquacrop_thermal)
+                         thermal="aquacrop_soybean")
         else:
             X = features(design, t["points"], CULTIVAR_FEATURES)
         X.to_parquet(fpath)

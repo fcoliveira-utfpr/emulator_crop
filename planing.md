@@ -595,6 +595,23 @@ res.avisos                                       # entradas fora do domínio de 
 res.intervalo(0.9)                               # incerteza do emulador
 ```
 
+### 5.2.1 Estado da biblioteca (09/11/2026)
+
+Implementado, ainda sem publicar:
+- **Entradas iguais no treino e na predição:** `cropemu.features.season_inputs` monta todas as entradas de uma safra e é usada pelo pacote de pesquisa (`dataset.features`) e pela biblioteca. Conferido: as entradas recalculadas são idênticas às do treino nas duas bases.
+- **Exportação** (`cropemu_bench.export`, `benchmark/export_emulators.py`): treina o emulador escolhido com todas as safras e grava `model.onnx` e `card.json`. A escala, as redes de cada grupo e os offsets de soma térmica ficam dentro do grafo, e a predição do ONNX é conferida contra a rede.
+  - A ficha (`card.json`) traz as entradas e saídas, os parâmetros de cultivar, o tipo de soma térmica e o domínio de cada entrada (mín., máx., 0,5% e 99,5%). Traz também os níveis de aceitação de cada saída (validação por bloco), as razões derivadas e a descrição do treino.
+- **Biblioteca:** `cropemu.load(pasta)` e `emu.predict(clima, lat, solo, semeadura, cultivar, irrigated, co2)`. A predição devolve as saídas, as entradas, `out_of_domain` (fora do intervalo do treino), `rare_inputs` (fora de 0,5–99,5%) e os níveis; `recommended("caution")` filtra as saídas. Depende só de numpy, pandas e onnxruntime.
+- **Exportados localmente** (`data/zoo/`, ~1,3 MB cada): `dssat-soybean-v1` (MLP por grupos, 117.720 safras, 7,6 min de treino) e `aquacrop-soybean-v0` (MLP por grupos com offset, 39.240 safras). 7 datas de semeadura num ponto do Paraná levam 0,14 s, incluindo o cálculo das entradas.
+- **Falta:**
+  - classificadores (maturou, estabelecimento atrasado) no ONNX;
+  - intervalo de incerteza;
+  - baixar pesos de um repositório (Zenodo/Hugging Face, só com aprovação);
+  - documentação de unidades das saídas;
+  - reexportar o AquaCrop a partir do `aquacrop_v1`.
+- **Ambiente:** `onnx<1.18`, `onnxruntime<1.20` e `ml-dtypes<0.5` mantêm o numpy 1.26 exigido pelo torch 2.2 neste Mac x86_64.
+- **Observação:** no ponto testado do Paraná (−25,75; −52,25), a água disponível do SoilGrids é de 46 mm, entre os 0,5% menores do treino. Num Latossolo isso parece baixo e merece conferência da função de pedotransferência.
+
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
 - Código aberto (GitHub + DOI no Zenodo), licença MIT ou Apache-2.0.
