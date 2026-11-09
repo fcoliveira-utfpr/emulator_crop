@@ -376,6 +376,59 @@ R² por saída, com validação por bloco:
 - O HIAM continua sendo a saída mais difícil (R² 0,76); os outros pontos fracos são ROCM (0,52) e HWUM (0,76).
 - Sobre os números do teste de 100 pontos: com 20 vezes mais dados, o R² mediano da MLP subiu de 0,83 para 0,92 e o RMSE de HWAM caiu de 883 para 532 kg/ha.
 
+**Testes depois do benchmark (09/11/2026, validação por bloco no `dssat_v0`):**
+
+| Variante (só fenologia: R1 = ADAT, R7 = MDAT) | RMSE R1 (d) | RMSE R7 (d) |
+|---|---|---|
+| MLP com as 41 saídas | 3,9 | 4,2 |
+| **MLP só com a fenologia** | **2,8** | **3,1** |
+| Configuração do projeto anterior (sklearn 2 × 128, uma rede por saída), nos mesmos dados | 3,7 | 3,8 |
+| MLP só com a fenologia, metade dos pontos | 4,0 | 4,0 |
+
+- **Uma rede para todas as saídas divide a capacidade:** separar a fenologia reduz o erro em ~25%. Vem daí o `GroupedEmulator` (uma rede por grupo de saídas).
+- **A rede deste projeto é melhor que a do projeto anterior.** A diferença para os erros de lá (~1 d) vem do problema: global, com balanço hídrico, 13 coeficientes e perturbações de clima, e 20 safras por local contra milhares.
+- **Os dados ainda limitam:** com metade dos pontos, o erro sobe ~40%. O `dssat_v1` tem 60 safras por ponto (118 mil safras) nos mesmos 1.962 pontos.
+
+**Correções nos alvos:**
+- **Maturidade censurada.** Quando a cultura termina antes da maturidade (`CRST` = 39, 6% das safras; 32, morte por frio, 0,2%), o DSSAT escreve a data do fim como `MDAT`. O `MDAT_dap` passa a ser NaN nesses casos, e o status vira saída de classificador.
+- **Razões por mm de chuva** (YPPM, DMPPM): passam a ser calculadas a partir das saídas previstas (HWAM/PRCP, CWAM/PRCP), e não emuladas. O erro absoluto mediano cai de 27 para 0,6 kg/ha/mm. O R² delas não serve como medida, porque valores de até 80.000 em locais quase sem chuva dominam a conta. As outras razões (YPEM, HIAM, HWUM...) são melhores emuladas diretamente.
+
+**Classificadores** (gradient boosting, validação por bloco, `dssat_v0`):
+- **Maturou ou não:** acurácia balanceada de 0,89 e AUC de 0,97.
+- **Status da cultura** (maturou, terminou antes, morte por frio): acurácia balanceada de 0,62. A morte por frio é rara (0,2%) e quase não é reconhecida (recall de 0,08).
+
+**Critério de aceitação** (4.5.1, aplicado como foi fixado; MLP de todas as saídas, `dssat_v0`, bloco):
+- **Datas:** emergência, floração e maturidade passam (RMSE de 3,3, 3,9 e 4,2 d, limite de 5 d). A colheita não passa (7,8 d).
+- **Demais saídas:** quase nenhuma passa no critério "RMSE < 25% do desvio-padrão dentro do local". Na produtividade a razão é 0,37, na biomassa 0,30 e no IAF máximo 0,34.
+- **O critério relativo não serve para saídas determinadas pelo local**, como o carbono orgânico do solo (OCTAM, OCAM): o desvio dentro do local é quase zero e a razão chega a 54. Para elas é preciso outro critério (ex.: R² entre locais). Isso será decidido e registrado antes do benchmark consolidado.
+
+### 4.8 Fase 2: adaptador do AquaCrop v7 (implementação)
+
+**Executável:** o oficial do AquaCrop 7.3 (KU Leuven/FAO, licença BSD-3), baixado das releases do repositório KUL-RSDA/AquaCrop, com uma versão para cada sistema. Na máquina, ele reproduz idênticas as saídas de referência do caso de teste oficial. A cultura padrão vem da base da FAO (`SoybeanGDD.CRO`, ciclo em graus-dia). O CI baixa o executável Linux da mesma release.
+
+**Mesmas safras do DSSAT:** pontos, anos, semeadura, regime hídrico e perturbações de clima (ΔT, fator de chuva, CO₂) são os do desenho do DSSAT. Os dois modelos podem ser comparados safra a safra.
+
+**Entradas:**
+- **Clima:** NASA POWER. O ETo é calculado pela FAO-56 Penman-Monteith (`cropemu.weather.eto_fao56`, conferido com o exemplo 18 da FAO-56). Nas perturbações, o ETo é recalculado com as temperaturas alteradas, mantendo a pressão de vapor.
+  - O arquivo de clima de cada safra vai até 450 dias após a semeadura, porque o AquaCrop converte o ciclo em graus-dia para dias de calendário com o registro de temperatura.
+  - Safras em que o ciclo não se completa nesse registro ficam sem maturidade (censuradas) e não rodam. Sem isso, o AquaCrop roda um ciclo indefinido sem avisar.
+- **Solo:** o mesmo perfil do SoilGrids, com as 2 camadas do topo unidas para respeitar o máximo de 5 horizontes. A Ksat é a média harmônica das camadas unidas. O cascalho passa de volume para massa.
+  - CN, REW e os parâmetros de ascensão capilar seguem as regras da v7, conferidas com os 13 solos da FAO: CN pela Ksat do topo; REW = 0,4·(CC − PMP/2); CRa e CRb pela classe do solo.
+- **Água inicial:** 50% da água disponível, por horizonte.
+- **Manejo:** 300 mil plantas/ha (as 30 plantas/m² do DSSAT), sem estresse de fertilidade. Simulação de 30 dias antes a 300 dias depois da semeadura.
+- **Potencial:** necessidade líquida de irrigação (o AquaCrop irriga para não deixar faltar água).
+
+**Cultivar:** a soja do AquaCrop não tem fotoperíodo, então o papel do GM vai para o comprimento do ciclo, como no protocolo do GGCMI.
+- Os graus-dia até a maturidade são os acumulados entre a semeadura e a maturidade do calendário GGCMI (média de 1985–2024), vezes um fator que acompanha o GM sorteado em relação ao GM típico da latitude (GM ±2 → fator de 0,75 a 1,25).
+- Todas as durações depois da emergência são escaladas juntas. CGC e CDC são divididos pelo fator, como faz a interface do AquaCrop, para o dossel manter a forma.
+- Onze parâmetros são perturbados em faixas provisórias, a substituir pela revisão: CCx, CGC, CDC, WP*, HIo, Zmax, KcTr e os limiares p de expansão, estômatos e senescência.
+
+**Saídas:** todas as colunas do arquivo de safra e, da saída diária, as datas de emergência, floração, início do enchimento e maturidade (DAP). Também os totais do período da cultura (chuva, irrigação, infiltração, escoamento, drenagem, ascensão capilar, E, Tr, ET, ETo, graus-dia), as médias dos estresses e os máximos de cobertura do dossel e de raiz. Os totais do arquivo de safra cobrem a janela de simulação inteira, não só o ciclo.
+
+**Custo:** ~30 ms por safra com 4 processos, como o DSSAT.
+
+**Comportamento a registrar:** o AquaCrop não simula morte por geada. Em locais frios, com semeadura tardia e ciclo longo, a cultura atravessa o inverno até o fim da janela. Essas safras ficam sem maturidade.
+
 ## 5. Biblioteca
 
 **Linguagem: Python.** O tempo de execução está nos executáveis dos modelos e nas bibliotecas de ML. Rust/PyO3 só entraria num gargalo específico.
@@ -496,13 +549,13 @@ Cronograma em meses: a definir.
 - **Literatura escassa:** algumas regiões ou grupos de maturidade podem ter poucos coeficientes publicados, sobretudo no AquaCrop. Nesses casos, ampliar as faixas em torno das cultivares padrão e marcar a região como de menor confiança.
 - **NASA POWER:** resolução grosseira (0,5°) e revisões da base. Mitigar com o registro da versão e a publicação do recorte.
 - **Saídas completas:** o volume de dados é grande, há saídas degeneradas ou censuradas, e emular trajetórias diárias é mais difícil. Mitigar com subamostragem das séries e reportando a cobertura por saída.
-- **Volume global:** de 1.000 a 5.000 pontos × 40 anos de clima diário × várias variáveis cabe em disco. O que pesa é a simulação e as saídas diárias. No DSSAT, a ~35 ms por safra, 10⁷ safras dão ~100 h de CPU (algumas horas num servidor de 32 núcleos). O custo do AquaCrop ainda precisa ser medido.
+- **Volume global:** de 1.000 a 5.000 pontos × 40 anos de clima diário × várias variáveis cabe em disco. O que pesa é a simulação e as saídas diárias. No DSSAT, a ~35 ms por safra, 10⁷ safras dão ~100 h de CPU (algumas horas num servidor de 32 núcleos). O AquaCrop custa o mesmo (~30 ms por safra com 4 processos).
 - **Autocorrelação espacial:** validar com blocos espaciais, não com pontos isolados, para não reportar generalização otimista.
 - **Domínio de validade da biblioteca:** o usuário vai pedir pontos e climas fora do treino. Checagem de domínio obrigatória e ficha clara.
 - **Coerência das parametrizações no mundo:** grupos de maturidade e calendários variam muito entre regiões. Documentar as faixas amostradas.
 - **Custo do simulador verdadeiro em H4:** conjuntos sintéticos pequenos e o JAX como simulador exato.
 - **Harmonização:** DSSAT e AquaCrop têm estruturas muito diferentes (N, fotoperíodo, fenologia). As saídas harmonizadas são poucas e bem definidas; o foco é o emulador.
-- **Licenças:** conferir a licença do executável oficial do AquaCrop v7 e das bases (NASA POWER, SoilGrids, GDHY, calendários) para redistribuir dados e emuladores.
+- **Licenças:** o AquaCrop v7 é BSD-3 (a cultura padrão da FAO vai nos dados de teste com a licença). Falta conferir as bases (NASA POWER, SoilGrids, GDHY, calendários) para redistribuir dados e emuladores.
 - **Concorrência:** Wageningen (diffWOFOST, DeepCGM) e IIASA (CROMES).
 - **Vazamento:** divisões de locais, anos e solos de verdade, inclusive nas normalizações.
 
