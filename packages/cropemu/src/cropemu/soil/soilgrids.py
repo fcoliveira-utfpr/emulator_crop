@@ -53,9 +53,12 @@ def _sample_file(path: str, lats, lons, radius: int, retries: int = 4) -> tuple[
     import time
 
     import rasterio
-    from rasterio.errors import RasterioIOError
     from rasterio.warp import transform
     from rasterio.windows import Window
+
+    # GDAL network/decoding errors surface as several classes (RasterioIOError,
+    # CPLE_AppDefinedError...): any exception of a read is treated as a failed read.
+    RasterioIOError = Exception
 
     out = np.full(len(lats), np.nan)
     failed = np.zeros(len(lats), bool)
@@ -71,9 +74,13 @@ def _sample_file(path: str, lats, lons, radius: int, retries: int = 4) -> tuple[
                 xs, ys = transform("EPSG:4326", src.crs, [lons[i] for i in pending], [lats[i] for i in pending])
                 for i, x, y in zip(pending, xs, ys):
                     row, col = src.index(x, y)
-                    win = Window(col - radius, row - radius, 2 * radius + 1, 2 * radius + 1)
+                    # clip the window to the map instead of boundless reads (which build a VRT per read)
+                    r0, c0 = max(row - radius, 0), max(col - radius, 0)
+                    r1, c1 = min(row + radius + 1, src.height), min(col + radius + 1, src.width)
+                    if r1 <= r0 or c1 <= c0:
+                        continue                                  # outside the map: no data
                     try:
-                        a = src.read(1, window=win, boundless=True, fill_value=NODATA).astype(float)
+                        a = src.read(1, window=Window(c0, r0, c1 - c0, r1 - r0)).astype(float)
                     except RasterioIOError:
                         still.append(i)
                         continue
