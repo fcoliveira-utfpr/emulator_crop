@@ -244,7 +244,13 @@ Dois grupos de pontos:
 - **SoilGrids 2.0, mapas agregados a 1 km** (ISRIC, CC-BY 4.0): 11 propriedades × 6 profundidades até 200 cm (argila, areia, silte, C orgânico, densidade, fragmentos grossos, N, pH, CTC, água a −33 e −1500 kPa).
   - **Como ler:** a API REST não serve (deu 504 depois de 3 min em 08/11/2026). Os GeoTIFFs de 1 km são lidos remotamente (rasterio/GDAL) só nos blocos em torno dos pontos (`cropemu.soil.soilgrids`). Cada arquivo tem ~190 MB e baixar tudo daria ~12,5 GB. 1 km basta, porque o clima é de 0,5°.
   - **Representatividade:** mediana numa janela de 3 × 3 km, para não cair num pixel de cidade ou de água. Pontos sem solo (oceano, cidade) voltam como NaN e são descartados ou deslocados.
-- **Parâmetros hídricos:** LL e DUL dos mapas de retenção do próprio SoilGrids (wv1500, wv0033). A saturação vem da densidade e a Ksat de Saxton & Rawls (2006). Saxton & Rawls também é a alternativa para LL e DUL e a reserva das camadas sem dado.
+- **Parâmetros hídricos (decisão de 09/11/2026, método `hybrid`):**
+  - Até 30° de latitude: LL (1500 kPa) e DUL da função de pedotransferência de Reichert et al. (2009, RBCS 33:1547; 725 amostras do RS), com DUL a 10 kPa, como se usa em solos tropicais bem estruturados. Entradas: argila, silte, MO (limitada a 10%) e densidade.
+  - A partir de 40°: Saxton & Rawls (2006), com ajuste de densidade e MO limitada a 8%. Entre 30° e 40°, média ponderada linear (sem salto nas entradas).
+  - Saturação e Ksat sempre de Saxton & Rawls.
+  - Os mapas de retenção do SoilGrids (`wv0033`, `wv1500`) ficam como opção (`method="soilgrids"`). Eles davam pouca água em solos argilosos tropicais e não se correlacionam com Saxton & Rawls (r = −0,02).
+  - Nos 1.962 pontos, a água disponível no perfil tem mediana de 281 mm (Saxton & Rawls puro: 264 mm; correlação 0,82). Nos trópicos: 281 contra 254 mm.
+  - Reichert et al. (2020, Geoderma Regional) traz funções mais precisas (R² > 0,85, 85 horizontes de SC e RS), mas o texto não está em acesso aberto. Comparar se o PDF for obtido.
 - **A decidir:** parâmetros de superfície do DSSAT (albedo, SLU1, drenagem, curva-número) por textura e declividade. Hoje são constantes (0,13; 6 mm; 0,6/d; 73). Também falta a profundidade efetiva de raízes (hoje 200 cm, o limite do SoilGrids).
 - Alternativa pronta para o DSSAT: base global de perfis a 10 km (Han et al. 2019) e os 27 perfis genéricos HC27.
 
@@ -620,18 +626,30 @@ Implementado, ainda sem publicar:
 - **Exportação** (`cropemu_bench.export`, `benchmark/export_emulators.py`): treina o emulador escolhido com todas as safras e grava `model.onnx` e `card.json`. A escala, as redes de cada grupo e os offsets de soma térmica ficam dentro do grafo, e a predição do ONNX é conferida contra a rede.
   - A ficha (`card.json`) traz as entradas e saídas, os parâmetros de cultivar, o tipo de soma térmica e o domínio de cada entrada (mín., máx., 0,5% e 99,5%). Traz também os níveis de aceitação de cada saída (validação por bloco), as razões derivadas e a descrição do treino.
 - **Biblioteca:** `cropemu.load(pasta)` e `emu.predict(clima, lat, solo, semeadura, cultivar, irrigated, co2)`. A predição devolve as saídas, as entradas, `out_of_domain` (fora do intervalo do treino), `rare_inputs` (fora de 0,5–99,5%) e os níveis; `recommended("caution")` filtra as saídas. Depende só de numpy, pandas e onnxruntime.
-- **Exportados localmente** (`data/zoo/`, ~1,3 MB cada): `dssat-soybean-v1` (MLP por grupos, 117.720 safras, 7,6 min de treino) e `aquacrop-soybean-v0` (MLP por grupos com offset, 39.240 safras). 7 datas de semeadura num ponto do Paraná levam 0,14 s, incluindo o cálculo das entradas.
+- **Exportados localmente** (`data/zoo/`, ~1,3 MB cada, solo `hybrid`): `dssat-soybean-v1` (MLP por grupos, 117.720 safras, 3 min de treino) e `aquacrop-soybean-v1` (MLP por grupos com offset, 117.720 safras, 2 min). A ficha registra o método de retenção de água (`hydraulics`) e a biblioteca o aplica a perfis brutos do SoilGrids. 7 datas de semeadura num ponto do Paraná levam 0,14 s, incluindo o cálculo das entradas.
 - **Falta:**
   - classificadores (maturou, estabelecimento atrasado) no ONNX;
   - intervalo de incerteza;
   - baixar pesos de um repositório (Zenodo/Hugging Face, só com aprovação);
-  - documentação de unidades das saídas;
-  - reexportar o AquaCrop a partir do `aquacrop_v1`.
+  - documentação de unidades das saídas.
 - **Ambiente:** `onnx<1.18`, `onnxruntime<1.20` e `ml-dtypes<0.5` mantêm o numpy 1.26 exigido pelo torch 2.2 neste Mac x86_64.
-- **Observação (decisão pendente):** no ponto testado do Paraná (−25,75; −52,25; argila 52–55%), a água disponível é de 46 mm em 2 m, entre os 0,5% menores do treino.
-  - Ela vem dos mapas de retenção do SoilGrids (`wv0033`, `wv1500`), com 0,03–0,04 cm³/cm³ entre 33 e 1500 kPa. Saxton & Rawls daria 0,10–0,12.
-  - Em Latossolos a capacidade de campo costuma ser tomada a 10 kPa (o SoilGrids não traz `wv0010` no que baixamos), e a água a 33 kPa medida fica em ~0,05–0,10.
-  - A escolha (mapas do SoilGrids, Saxton & Rawls, ou 10 kPa em solos tropicais) muda as entradas de todas as bases e exigiria regenerá-las. Fica para decidir antes da validação local.
+- **Água disponível no solo (decidido em 09/11/2026):** no ponto do Paraná (−25,75; −52,25; argila 52–55%), os mapas de retenção do SoilGrids davam 46 mm em 2 m (0,03–0,04 cm³/cm³), entre os 0,5% menores do treino. O método `hybrid` (seção de entradas de solo) dá ~0,15 cm³/cm³ entre 10 e 1500 kPa. As bases `dssat_v1` e `aquacrop_v1` foram regeneradas com ele (mesmo sorteio de safras); as anteriores ficaram em `data/*_sgwr`.
+
+  | Validação por bloco | solo antigo (mapas SoilGrids) | solo `hybrid` |
+  |---|---|---|
+  | DSSAT, produtividade (RMSE, R²) | 469 kg/ha; 0,936 | 454 kg/ha; 0,944 |
+  | DSSAT, maturação (RMSE) | 3,38 d | 3,29 d |
+  | DSSAT, níveis (recomendado/cautela/não) | 5/27/9 | 5/29/7 |
+  | AquaCrop, produtividade (RMSE, R²) | 0,575 t/ha; 0,907 | 0,581 t/ha; 0,906 |
+  | AquaCrop, níveis | 7/15/22 | 6/16/22 (YLD_dap passou a cautela) |
+
+- **Notebook de aplicação e comparação** (`examples/compare_emulator_simulator.ipynb`): 7 sítios fora do treino (Londrina, Rio Verde, Sorriso, Passo Fundo, Pergamino, Ames, Harbin), 25 safras cada, sem perturbações climáticas. Roda o DSSAT e o AquaCrop oficiais e prevê as mesmas safras pela API pública da biblioteca.
+  - As entradas da biblioteca são idênticas às do pipeline de treino (diferença máxima 0).
+  - DSSAT: datas com RMSE de 1,1–1,9 d; produtividade 330 kg/ha (R² 0,95); ET 19 mm. AquaCrop: datas 0,9–1,4 d; produtividade 0,34 t/ha (R² 0,92); ET 28 mm.
+  - O erro nos sítios novos ficou abaixo do da validação por bloco (razão mediana 0,6 nas duas bases). Os sítios ficam em regiões produtoras bem amostradas, enquanto os blocos de 5° da validação incluem regiões marginais.
+  - O erro de produtividade é maior nas safras de sequeiro com pouca chuva no ciclo. A diferença DSSAT − AquaCrop emulada acompanha a simulada (r = 0,94).
+  - Aplicação: janela de semeadura com 9.310 safras emuladas (±45 dias, 1990–2024) em ~7 s.
+  - Entradas raras: em Pergamino a água disponível (351 mm) passa do 99,5% do treino; nos outros sítios são parâmetros de cultivar na borda do sorteio.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
