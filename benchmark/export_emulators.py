@@ -17,6 +17,7 @@ import pandas as pd
 
 from cropemu_bench.dataset import CULTIVAR_FEATURES, DERIVED, DERIVED_FLOOR, build, model_of
 from cropemu_bench.design.aquacrop import AQ_PERTURBATIONS
+from cropemu_bench.design.cultivars import _MG_BY_LAT, MG_MAX, MG_MIN, MGTable
 from cropemu_bench.emulators import GroupedEmulator, MLPEmulator
 from cropemu_bench.emulators.grouped import AQUACROP_OFFSETS
 from cropemu.soil.ptf import DEFAULT_METHOD
@@ -25,6 +26,32 @@ from cropemu_bench.export import export
 ROOT = Path(__file__).resolve().parents[1]
 FACTORIES = {"mlp": lambda: MLPEmulator(), "mlp_grouped": lambda: GroupedEmulator(),
              "mlp_offset": lambda: GroupedEmulator(offsets=AQUACROP_OFFSETS)}
+
+
+def cultivar_info(aquacrop: bool) -> dict:
+    """Card entries that let library users build a typical cultivar (``Emulator.cultivar``).
+
+    DSSAT: the default coefficients of the maturity groups (CROPGRO-Soybean cultivar file,
+    interpolated on a 0.25 MG grid; needs ``CROPEMU_DSSAT_HOME``). AquaCrop: the middle of the
+    sampled range of every crop parameter (the cycle length, ``gdd_maturity``, is site specific).
+    Both: the typical maturity group by latitude used to centre the design.
+    """
+    out = {"mg_by_lat": [list(r) for r in _MG_BY_LAT]}
+    if aquacrop:
+        mid = {k: (lo + hi) / 2 for k, (_, lo, hi) in AQ_PERTURBATIONS.items()}
+        out["cultivar_defaults"] = {"cycle_factor": 1.0, **mid}
+    else:
+        import os
+        import numpy as np
+        from cropemu_bench.design.cultivars import COEFFICIENTS
+
+        table = MGTable(os.environ["CROPEMU_DSSAT_HOME"])
+        mgs = np.arange(MG_MIN, MG_MAX + 1e-9, 0.25)
+        rows = np.array([table.baseline(m) for m in mgs])
+        out["cultivar_by_mg"] = {"mg": [float(m) for m in mgs],
+                                 **{c: [float(v) for v in rows[:, COEFFICIENTS.index(c)]]
+                                    for c in CULTIVAR_FEATURES if c != "mg"}}
+    return out
 
 
 def main():
@@ -49,7 +76,7 @@ def main():
         "name": args.zoo_name, "model": meta.get("model") or "DSSAT 4.8 CROPGRO-Soybean (official executable)", "crop": "soybean",
         "cultivar": ["cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS] if aquacrop else list(CULTIVAR_FEATURES),
         "thermal": "aquacrop_soybean" if aquacrop else None, "water_balance": True, "initial_water": 0.5,
-        "hydraulics": DEFAULT_METHOD,
+        "hydraulics": DEFAULT_METHOD, **cultivar_info(aquacrop),
         "derived": {k: [n, d, f, DERIVED_FLOOR] for k, (n, d, f) in DERIVED.items() if n in Y and d in Y},
         "acceptance": {c: {"level": r["level"], "rmse": r["rmse"], "r2": r["r2"], "relative_rmse": r["relative_rmse"],
                            "criterion": r["criterion"]} for c, r in acc.iterrows()},
