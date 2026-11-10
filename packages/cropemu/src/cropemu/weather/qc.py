@@ -48,3 +48,30 @@ def fill_gaps(df: pd.DataFrame, max_gap: int = 5) -> pd.DataFrame:
             out.loc[short, c] = filled[short]
     out.attrs = dict(df.attrs)
     return out
+
+
+def fill_from(df: pd.DataFrame, other: pd.DataFrame, columns=None) -> pd.DataFrame:
+    """Complete ``df`` (e.g. a weather station) with ``other`` (e.g. NASA POWER at the same point).
+
+    The result covers the days of both; every missing value of ``df`` in ``columns`` (default:
+    the columns of ``other``) is taken from ``other`` on the same day. ``df`` keeps its values
+    and attrs; ``attrs["filled_from"]`` counts the values taken per column. No bias correction:
+    check the agreement of the two sources on the common days first.
+    """
+    cols = list(other.columns if columns is None else columns)
+    idx = pd.DatetimeIndex(df.index).union(pd.DatetimeIndex(other.index))
+    out = df.reindex(idx)
+    out.index.name = df.index.name or "date"
+    o = other.reindex(idx)
+    filled = {}
+    for c in cols:
+        if c not in o:
+            continue
+        if c not in out:
+            out[c] = float("nan")
+        miss = out[c].isna() & o[c].notna()
+        out.loc[miss, c] = o.loc[miss, c]
+        if miss.any():
+            filled[c] = int(miss.sum())
+    out.attrs = {**dict(df.attrs), "filled_from": {"source": other.attrs.get("source", "other"), **filled}}
+    return out

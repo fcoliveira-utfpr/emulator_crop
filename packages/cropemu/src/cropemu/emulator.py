@@ -122,6 +122,60 @@ class Emulator:
             raise KeyError(f"missing cultivar parameters: {missing}")
         return {k: out[k] for k in self.cultivar_}
 
+    def mg_from_csdl(self, csdl: float) -> float:
+        """DSSAT: the maturity group whose default critical short day length is ``csdl``
+        (inverse of the default coefficients; the emulator takes the MG as an input)."""
+        t = self.card["cultivar_by_mg"]
+        return float(np.interp(-float(csdl), -np.asarray(t["CSDL"], float), t["mg"]))
+
+    def cultivar_from_dssat(self, coefficients: dict, mg: float | None = None) -> dict:
+        """DSSAT: the emulator cultivar from the coefficients of a DSSAT cultivar (e.g.
+        :func:`cropemu.io.read_cul`). ``mg`` is the maturity group if known, else estimated from
+        CSDL (:meth:`mg_from_csdl`). Check :meth:`cultivar_domain`: calibrated cultivars often
+        have coefficients outside the training range."""
+        if self.family != "dssat":
+            raise ValueError("only for DSSAT emulators")
+        mg = self.mg_from_csdl(coefficients["CSDL"]) if mg is None else float(mg)
+        return {"mg": mg, **{k: float(coefficients[k]) for k in self.cultivar_ if k != "mg"}}
+
+    def cultivar_domain(self, cultivar: dict) -> pd.DataFrame:
+        """Each cultivar parameter against its training range: value, min, max, position in the
+        range (0-1; outside it below 0 or above 1) and status ("ok", "rare", "out of domain")."""
+        d = self.card["domain"]
+        rows = []
+        for k in self.cultivar_:
+            v, lo, hi = float(cultivar[k]), d[k]["min"], d[k]["max"]
+            status = ("out of domain" if v < lo or v > hi else "rare" if v < d[k]["q005"] or v > d[k]["q995"]
+                      else "ok")
+            rows.append({"parameter": k, "value": v, "min": lo, "max": hi,
+                         "position": (v - lo) / (hi - lo) if hi > lo else 0.5, "status": status})
+        return pd.DataFrame(rows).set_index("parameter")
+
+    def fixed_inputs(self) -> dict:
+        """Inputs that had one value in training (e.g. ``depth_cm``: every training profile was
+        2 m deep). The network learned nothing about them, so they are always set to that value."""
+        d = self.card["domain"]
+        return {c: d[c]["min"] for c in self.inputs_ if c in d and d[c]["min"] == d[c]["max"]}
+
+    def training_soil(self, profile: pd.DataFrame, lat: float | None = None) -> pd.DataFrame:
+        """A soil profile as in training: cut at the training depth (``depth_cm``, 2 m), and with
+        water retention from the training method (``card["hydraulics"]``) unless it already
+        has ``ll`` and ``dul`` (e.g. measured; a shallower profile keeps its smaller water capacity)."""
+        p = profile
+        depth = self.fixed_inputs().get("depth_cm")
+        if depth is not None and p["bottom"].max() > depth:
+            p = p[p["top"] < depth].copy()
+            p["bottom"] = p["bottom"].clip(upper=depth)
+            p.attrs = dict(profile.attrs)
+        if not {"ll", "dul"} <= set(p) or p[["ll", "dul"]].isna().any().any():
+            h = hydraulics(p, method=self.card.get("hydraulics", "saxton_rawls"), lat=lat)
+            for c in ("ll", "dul", "sat", "ksat"):               # measured values win where present
+                if c in p:
+                    h[c] = p[c].where(p[c].notna(), h[c])
+            h["dul"] = np.maximum(h["dul"], h["ll"] + 0.02)
+            p = h
+        return p
+
     @property
     def levels(self) -> pd.Series:
         a = self.card.get("acceptance", {})
@@ -145,6 +199,7 @@ class Emulator:
         missing = [c for c in self.inputs_ if c not in X]
         if missing:
             raise KeyError(f"missing inputs: {missing}")
+        X = X.assign(**self.fixed_inputs())
         a = X[self.inputs_].to_numpy("float32")
         ok = np.isfinite(a).all(axis=1)
         out = np.full((len(X), len(self.outputs_)), np.nan)
@@ -176,8 +231,8 @@ class Emulator:
         if lost:
             raise KeyError(f"missing cultivar parameters: {lost}")
         w = weather if isinstance(weather, WeatherSeries) else WeatherSeries(weather, lat, elev)
-        if not isinstance(soil, dict) and not {"ll", "dul"} <= set(soil):
-            soil = hydraulics(soil, method=self.card.get("hydraulics", "saxton_rawls"), lat=lat)
+        if not isinstance(soil, dict):
+            soil = self.training_soil(soil, lat)
         s = soil if isinstance(soil, dict) else soil_features(soil)
         dates = [sowing] if isinstance(sowing, (str, pd.Timestamp)) or not hasattr(sowing, "__iter__") else sowing
         rows = []
@@ -188,7 +243,8 @@ class Emulator:
                                       dt=dt, rain_factor=rain_factor, water_balance=self.card.get("water_balance", True),
                                       initial_water=self.card.get("initial_water", 0.5),
                                       thermal=self.card.get("thermal")))
-        return pd.DataFrame(rows, index=pd.DatetimeIndex(dates, name="sowing"))
+        # inputs with one value in training keep it (the water balance above used the real soil)
+        return pd.DataFrame(rows, index=pd.DatetimeIndex(dates, name="sowing")).assign(**self.fixed_inputs())
 
     def predict(self, weather, lat: float, soil, sowing, cultivar: dict, elev: float | None = None,
                 irrigated: bool = False, co2: float | None = None, dt: float = 0.0,
@@ -213,6 +269,15 @@ def season_gdd(weather, sowing, days: int, tbase: float = 5.0, tupper: float = 3
     if not sums:
         raise ValueError("weather does not cover any complete season")
     return float(np.mean(sums))
+
+
+def gdd_between(weather, start, end, tbase: float = 5.0, tupper: float = 30.0) -> float:
+    """Growing degrees (AquaCrop method 3) from ``start`` to ``end`` (inclusive) of a daily weather
+    table: e.g. the ``gdd_maturity`` of an AquaCrop cultivar from an observed sowing and maturity."""
+    w = weather.loc[pd.Timestamp(start):pd.Timestamp(end)]
+    if len(w) != (pd.Timestamp(end) - pd.Timestamp(start)).days + 1:
+        raise ValueError("weather does not cover the whole period")
+    return float(gdd(w["tmax"].to_numpy(float), w["tmin"].to_numpy(float), tbase, tupper).sum())
 
 
 def available() -> list[str]:

@@ -626,12 +626,11 @@ Implementado, ainda sem publicar:
 - **Exportação** (`cropemu_bench.export`, `benchmark/export_emulators.py`): treina o emulador escolhido com todas as safras e grava `model.onnx` e `card.json`. A escala, as redes de cada grupo e os offsets de soma térmica ficam dentro do grafo, e a predição do ONNX é conferida contra a rede.
   - A ficha (`card.json`) traz as entradas e saídas, os parâmetros de cultivar, o tipo de soma térmica e o domínio de cada entrada (mín., máx., 0,5% e 99,5%). Traz também os níveis de aceitação de cada saída (validação por bloco), as razões derivadas e a descrição do treino.
 - **Biblioteca:** `cropemu.load(pasta)` e `emu.predict(clima, lat, solo, semeadura, cultivar, irrigated, co2)`. A predição devolve as saídas, as entradas, `out_of_domain` (fora do intervalo do treino), `rare_inputs` (fora de 0,5–99,5%) e os níveis; `recommended("caution")` filtra as saídas. Depende só de numpy, pandas e onnxruntime.
-- **Exportados localmente** (`data/zoo/`, ~1,3 MB cada, solo `hybrid`): `dssat-soybean-v1` (MLP por grupos, 117.720 safras, 3 min de treino) e `aquacrop-soybean-v1` (MLP por grupos com offset, 117.720 safras, 2 min). A ficha registra o método de retenção de água (`hydraulics`) e a biblioteca o aplica a perfis brutos do SoilGrids. 7 datas de semeadura num ponto do Paraná levam 0,14 s, incluindo o cálculo das entradas.
+- **Exportados** (`data/zoo/`, embutidos no pacote, ~1,3 MB cada, solo `hybrid`): `dssat-soybean-v1` (MLP por grupos, 117.720 safras, 3 min de treino) e `aquacrop-soybean-v1` (MLP por grupos com offset, 117.720 safras, 2 min). A ficha registra o método de retenção de água (`hydraulics`) e a biblioteca o aplica a perfis brutos do SoilGrids. 7 datas de semeadura num ponto do Paraná levam 0,14 s, incluindo o cálculo das entradas.
 - **Falta:**
   - classificadores (maturou, estabelecimento atrasado) no ONNX;
   - intervalo de incerteza;
-  - baixar pesos de um repositório (Zenodo/Hugging Face, só com aprovação);
-  - documentação de unidades das saídas.
+  - baixar pesos de um repositório (Zenodo/Hugging Face, só com aprovação), se o pacote crescer.
 - **Ambiente:** `onnx<1.18`, `onnxruntime<1.20` e `ml-dtypes<0.5` mantêm o numpy 1.26 exigido pelo torch 2.2 neste Mac x86_64.
 - **Água disponível no solo (decidido em 09/11/2026):** no ponto do Paraná (−25,75; −52,25; argila 52–55%), os mapas de retenção do SoilGrids davam 46 mm em 2 m (0,03–0,04 cm³/cm³), entre os 0,5% menores do treino. O método `hybrid` (seção de entradas de solo) dá ~0,15 cm³/cm³ entre 10 e 1500 kPa. As bases `dssat_v1` e `aquacrop_v1` foram regeneradas com ele (mesmo sorteio de safras); as anteriores ficaram em `data/*_sgwr`.
 
@@ -650,6 +649,23 @@ Implementado, ainda sem publicar:
   - O erro de produtividade é maior nas safras de sequeiro com pouca chuva no ciclo. A diferença DSSAT − AquaCrop emulada acompanha a simulada (r = 0,94).
   - Aplicação: janela de semeadura com 9.310 safras emuladas (±45 dias, 1990–2024) em ~7 s.
   - Entradas raras: em Pergamino a água disponível (351 mm) passa do 99,5% do treino; nos outros sítios são parâmetros de cultivar na borda do sorteio.
+- **Publicado no PyPI (10/11/2026):** `cropemu` 0.1.0, com os dois emuladores dentro do pacote. Os notebooks rodam com a versão instalada do PyPI.
+- **Dados próprios (0.2.0, ainda não publicada, 10/11/2026):**
+  - `cropemu.io`: leitores dos arquivos DSSAT (clima, solo, cultivar, FileX, FileA).
+  - `weather.fill_from` (completa a estação com o NASA POWER) e `soil.fill_from` (completa o perfil com o SoilGrids).
+  - `emu.cultivar_from_dssat`, `emu.mg_from_csdl`, `emu.cultivar_domain` e `cropemu.gdd_between`.
+  - Seção 11 dos dois notebooks de modelo, ilustrada com ensaios publicados dos dados de exemplo do DSSAT (dssat-csm-data, baixados num commit fixo e não redistribuídos): Gainesville 1978, Ames 1988/1990, Paragominas 2018/2019 (calibração/avaliação) e Piracicaba 2017–2019.
+  - **Correções que os dados reais revelaram:**
+    - **Profundidade do solo:** `depth_cm` foi constante no treino (200 cm) e a escala de coluna constante ficou 1. Um perfil de 300 cm entrava na rede com +100 e a maturação saía com 224 d contra 87 observados. Agora as entradas constantes no treino ficam fixas no valor do treino, o perfil é cortado em 2 m e o balanço hídrico usa o solo real.
+    - **Umidade:** passou a ser tratada dia a dia; um dia sem ponto de orvalho deixava a média do VPD sem valor.
+    - **Clima:** séries com dias faltando agora são reindexadas.
+  - **Resultados contra observações, DSSAT** (cultivares dos estudos):
+    - antese com RMSE de 3 d e maturação de 8 d;
+    - produtividade com RMSE de 969 kg/ha (n = 41).
+  - **Fora do domínio:** os coeficientes calibrados nos estudos caem com frequência fora da faixa do treino (FL-LF, LFMAX, SFDUR, SIZLF), e o solo arenoso de Gainesville também (argila de 2%).
+  - **Calibração rápida dentro do domínio em Paragominas** (2018 para calibrar, 2019 para avaliar):
+    - DSSAT: a produtividade caiu de 1.239 para 675 kg/ha de RMSE; a maturação caiu de 12,5 para 7,8 d.
+    - AquaCrop: a produtividade caiu de 1.371 para 739 kg/ha, com `hio` e `wp` no máximo do treino.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 

@@ -19,9 +19,9 @@ Site information goes in ``df.attrs`` (``lat``, ``lon``, ``elev`` in m, ``source
 
 from .eto import eto_fao56
 from .nasa_power import fetch, fetch_many
-from .qc import check, fill_gaps
+from .qc import check, fill_from, fill_gaps
 
 COLUMNS = ("srad", "tmax", "tmin", "rain", "rhum", "wind", "dewp")
 REQUIRED = ("srad", "tmax", "tmin", "rain")
 
-__all__ = ["COLUMNS", "REQUIRED", "eto_fao56", "fetch", "fetch_many", "check", "fill_gaps"]
+__all__ = ["COLUMNS", "REQUIRED", "eto_fao56", "fetch", "fetch_many", "check", "fill_from", "fill_gaps"]

@@ -80,6 +80,25 @@ Validation, by spatial blocks:
 - **Fixed in training:** 30 plants/m², 50 cm rows, no nitrogen stress, 50 % of the available
   water at the start of the simulation (30 days before sowing).
 
+## Your own data
+
+- **Weather station:** any daily table with the columns `srad`, `tmax`, `tmin`, `rain` (and
+  optionally `dewp`, `rhum`, `wind`) and `attrs` `lat`, `lon`, `elev`. Check it with
+  `cropemu.weather.check` and complete missing days or columns from NASA POWER with
+  `cropemu.weather.fill_from(station, power)`.
+- **Measured soil:** a profile with your `ll` and `dul` is used as it is (cut at 2 m, the depth of
+  the training profiles); missing properties can be taken from SoilGrids with
+  `cropemu.soil.fill_from(profile, soilgrids.fetch(lat, lon))`.
+- **DSSAT files:** `cropemu.io` reads weather (`read_wth`), soil (`read_sol`), cultivar
+  (`read_cul`), experiment (`read_experiment`) and observed data (`read_observed`).
+  `emu.cultivar_from_dssat(read_cul(...))` gives the emulator cultivar, and
+  `emu.cultivar_domain(cultivar)` shows which coefficients fall outside the training range.
+- **AquaCrop cycle from an observation:** `emu.cultivar(gdd_maturity=cropemu.gdd_between(weather, sowing, maturity))`.
+- **Calibration:** compute the inputs once (`emu.inputs`), change the cultivar columns and call
+  `emu.predict_inputs`: thousands of candidate cultivars × seasons per second, inside the domain.
+
+The example notebooks show all of this with published field trials from the DSSAT example data.
+
 ## Limitations
 
 - An emulator reproduces its crop model, not the field: model errors are inherited.

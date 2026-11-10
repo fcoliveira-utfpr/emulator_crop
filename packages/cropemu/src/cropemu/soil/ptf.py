@@ -143,3 +143,27 @@ def texture_class(sand, clay) -> np.ndarray:
     ]
     codes = ["S", "LS", "SL", "L", "SIL", "SI", "SCL", "CL", "SICL", "SC", "SIC", "C"]
     return np.select(conds, codes, default="-99")
+
+
+def fill_from(profile: pd.DataFrame, other: pd.DataFrame, columns=None) -> pd.DataFrame:
+    """Complete the missing values of ``profile`` (e.g. a measured profile without organic carbon)
+    with ``other`` (e.g. :func:`cropemu.soil.soilgrids.fetch` at the same point): each missing
+    value takes the value of the ``other`` layer that contains the middle of the layer (the
+    deepest layer of ``other`` below its bottom). ``attrs["filled_from"]`` counts the values taken."""
+    cols = [c for c in (other.columns if columns is None else columns) if c not in ("top", "bottom")]
+    out = profile.copy()
+    mid = ((out["top"] + out["bottom"]) / 2).to_numpy(float)
+    k = np.clip(np.searchsorted(other["bottom"].to_numpy(float), mid, side="left"), 0, len(other) - 1)
+    filled = {}
+    for c in cols:
+        if c not in other:
+            continue
+        if c not in out:
+            out[c] = np.nan
+        src = other[c].to_numpy(float)[k]
+        miss = out[c].isna().to_numpy() & np.isfinite(src)
+        if miss.any():
+            out.loc[miss, c] = src[miss]
+            filled[c] = int(miss.sum())
+    out.attrs = {**dict(profile.attrs), "filled_from": {"source": other.attrs.get("source", "other"), **filled}}
+    return out

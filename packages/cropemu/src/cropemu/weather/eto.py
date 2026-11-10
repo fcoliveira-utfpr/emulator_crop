@@ -25,13 +25,18 @@ def extraterrestrial_radiation(lat: float, doy):
 
 
 def actual_vapour_pressure(df: pd.DataFrame):
-    """ea in kPa: from the dew point, else from the mean relative humidity, else ea = e°(Tmin)."""
-    if "dewp" in df and df["dewp"].notna().all():
-        return saturation_vapour_pressure(df["dewp"].to_numpy(float))
-    es = (saturation_vapour_pressure(df["tmax"].to_numpy(float)) + saturation_vapour_pressure(df["tmin"].to_numpy(float))) / 2
-    if "rhum" in df and df["rhum"].notna().all():
-        return df["rhum"].to_numpy(float) / 100 * es
-    return saturation_vapour_pressure(df["tmin"].to_numpy(float))
+    """ea in kPa, day by day: from the dew point, else from the mean relative humidity, else
+    ea = e°(Tmin) (FAO-56 when humidity is missing)."""
+    tmin = df["tmin"].to_numpy(float)
+    es = (saturation_vapour_pressure(df["tmax"].to_numpy(float)) + saturation_vapour_pressure(tmin)) / 2
+    ea = saturation_vapour_pressure(tmin)
+    if "rhum" in df:
+        rh = df["rhum"].to_numpy(float)
+        ea = np.where(np.isfinite(rh), rh / 100 * es, ea)
+    if "dewp" in df:
+        td = df["dewp"].to_numpy(float)
+        ea = np.where(np.isfinite(td), saturation_vapour_pressure(td), ea)
+    return ea
 
 
 def eto_fao56(df: pd.DataFrame, lat: float, elev: float, ea=None, albedo: float = 0.23) -> pd.Series:

@@ -60,16 +60,13 @@ def gdd(tmax, tmin, tbase: float, tupper: float) -> np.ndarray:
 
 
 def _vpd(df: pd.DataFrame) -> np.ndarray:
-    """Mean daily vapour pressure deficit (kPa) from tmax/tmin and dewp or rhum."""
+    """Mean daily vapour pressure deficit (kPa) from tmax/tmin and, day by day, dewp, else rhum,
+    else dew point = tmin."""
+    from .weather.eto import actual_vapour_pressure
+
     es = lambda t: 0.6108 * np.exp(17.27 * t / (t + 237.3))
-    es_mean = (es(df["tmax"]) + es(df["tmin"])) / 2
-    if "dewp" in df:
-        ea = es(df["dewp"])
-    elif "rhum" in df:
-        ea = es_mean * df["rhum"] / 100
-    else:                                  # no humidity: assume dew point = tmin
-        ea = es(df["tmin"])
-    return np.clip(es_mean - ea, 0, None).to_numpy()
+    es_mean = ((es(df["tmax"]) + es(df["tmin"])) / 2).to_numpy(float)
+    return np.clip(es_mean - actual_vapour_pressure(df), 0, None)
 
 
 class WeatherSeries:
@@ -79,6 +76,10 @@ class WeatherSeries:
         from .weather.eto import actual_vapour_pressure, eto_fao56
 
         idx = pd.DatetimeIndex(df.index)
+        full = pd.date_range(idx.min(), idx.max(), freq="D")
+        if len(idx) != len(full) or not idx.equals(full):      # missing days become NaN days
+            df = df[~idx.duplicated()].reindex(full)
+            idx = full
         self.df = df
         self.elev = float(df.attrs.get("elev", 0.0) if elev is None else elev)
         self.ea = actual_vapour_pressure(df)

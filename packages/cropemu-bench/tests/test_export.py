@@ -58,7 +58,11 @@ def test_export_and_library_prediction(tmp_path):
     r2 = emu.predict(_weather(), lat=-24.0, elev=500, soil=raw, sowing=sow[0], cultivar=cult[0], co2=400)
     expected = season_inputs(w, soil_features(hydraulics(raw, method="hybrid", lat=-24.0)), sow[0], cult[0],
                              irrigated=False, co2=400, thermal="aquacrop_soybean")
-    assert r2.inputs.iloc[0].to_dict() == pytest.approx(expected)
+    # inputs with a single value in training keep it (here one site, one soil and one CO2)
+    assert {"paw_mm", "paw30_mm", "clay30", "depth_cm", "lat", "co2"} <= set(emu.fixed_inputs())
+    assert r2.inputs.iloc[0].to_dict() == pytest.approx(expected | emu.fixed_inputs())
+    deep = SOIL.assign(bottom=[15, 30, 300])                     # cut at the training depth (100 cm)
+    assert emu.training_soil(deep)["bottom"].max() == 100
     assert r.out_of_domain.iloc[0] == []
     far = emu.predict_inputs(X.iloc[:1].assign(mg=20.0))
     assert far.out_of_domain.iloc[0] == ["mg"] and far.rare_inputs.iloc[0] == ["mg"]
