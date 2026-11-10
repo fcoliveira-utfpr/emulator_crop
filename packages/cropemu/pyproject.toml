@@ -5,11 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "cropemu"
 version = "0.3.0"
-description = "Fast, validated emulators of process-based crop models"
+description = "Validated neural-network emulators of DSSAT and AquaCrop: crop model seasons in microseconds, anywhere, with your own data"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Fabrício Correia de Oliveira" }]
+keywords = ["crop model", "emulator", "surrogate model", "DSSAT", "AquaCrop", "soybean", "agriculture",
+            "climate change", "yield", "machine learning", "ONNX", "NASA POWER", "SoilGrids"]
 dependencies = [
     "numpy>=1.24",
     # the last onnxruntime wheels for Intel Macs are built against numpy 1
@@ -18,10 +20,18 @@ dependencies = [
     "onnxruntime>=1.16",
 ]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: Hydrology",
 ]
 
 [project.optional-dependencies]
