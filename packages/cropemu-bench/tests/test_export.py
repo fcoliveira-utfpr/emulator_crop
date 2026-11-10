@@ -38,7 +38,7 @@ def test_export_and_library_prediction(tmp_path):
                          max_epochs=60, patience=10).fit(X, Y)
     card = {"name": "test", "model": "synthetic", "crop": "soybean", "cultivar": ["mg", "gdd_maturity"],
             "thermal": "aquacrop_soybean", "water_balance": True, "initial_water": 0.5,
-            "acceptance": {"MAT_dap": {"level": "recommended"}, "yield": {"level": "caution"}}}
+            "hydraulics": "hybrid", "acceptance": {"MAT_dap": {"level": "recommended"}, "yield": {"level": "caution"}}}
     export(em, X, tmp_path / "emu", card)
 
     emu = cropemu.load(tmp_path / "emu")
@@ -52,6 +52,13 @@ def test_export_and_library_prediction(tmp_path):
     assert r.inputs.iloc[0].to_dict() == pytest.approx(
         season_inputs(w, soil, sow[0], cult[0], irrigated=False, co2=400, thermal="aquacrop_soybean"))
     assert list(r.recommended("recommended").columns) == ["MAT_dap"]
+    # a raw profile (no LL/DUL): the water retention of the card is applied at the given latitude
+    from cropemu.soil import hydraulics
+    raw = SOIL.drop(columns=["ll", "dul"])
+    r2 = emu.predict(_weather(), lat=-24.0, elev=500, soil=raw, sowing=sow[0], cultivar=cult[0], co2=400)
+    expected = season_inputs(w, soil_features(hydraulics(raw, method="hybrid", lat=-24.0)), sow[0], cult[0],
+                             irrigated=False, co2=400, thermal="aquacrop_soybean")
+    assert r2.inputs.iloc[0].to_dict() == pytest.approx(expected)
     assert r.out_of_domain.iloc[0] == []
     far = emu.predict_inputs(X.iloc[:1].assign(mg=20.0))
     assert far.out_of_domain.iloc[0] == ["mg"] and far.rare_inputs.iloc[0] == ["mg"]

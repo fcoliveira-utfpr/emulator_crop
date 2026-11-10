@@ -19,6 +19,7 @@ from cropemu_bench.dataset import CULTIVAR_FEATURES, DERIVED, DERIVED_FLOOR, bui
 from cropemu_bench.design.aquacrop import AQ_PERTURBATIONS
 from cropemu_bench.emulators import GroupedEmulator, MLPEmulator
 from cropemu_bench.emulators.grouped import AQUACROP_OFFSETS
+from cropemu.soil.ptf import DEFAULT_METHOD
 from cropemu_bench.export import export
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,7 @@ def main():
         "name": args.zoo_name, "model": meta.get("model") or "DSSAT 4.8 CROPGRO-Soybean (official executable)", "crop": "soybean",
         "cultivar": ["cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS] if aquacrop else list(CULTIVAR_FEATURES),
         "thermal": "aquacrop_soybean" if aquacrop else None, "water_balance": True, "initial_water": 0.5,
+        "hydraulics": DEFAULT_METHOD,
         "derived": {k: [n, d, f, DERIVED_FLOOR] for k, (n, d, f) in DERIVED.items() if n in Y and d in Y},
         "acceptance": {c: {"level": r["level"], "rmse": r["rmse"], "r2": r["r2"], "relative_rmse": r["relative_rmse"],
                            "criterion": r["criterion"]} for c, r in acc.iterrows()},

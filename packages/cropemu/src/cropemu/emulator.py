@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .features import WeatherSeries, co2_at, season_inputs, soil_features
+from .soil.ptf import hydraulics
 
 #: Days of weather needed after sowing for the input windows (the thermal-time inputs may need more).
 WEATHER_DAYS_AFTER = 130
@@ -105,8 +106,10 @@ class Emulator:
         """Inputs of the seasons sown on ``sowing`` (a date or a list of dates).
 
         ``weather``: daily table (``cropemu.weather.fetch`` columns, filled) covering 30 days
-        before to at least 130 days after each sowing; ``soil``: standard profile with hydraulics
-        (``cropemu.soil.hydraulics``) or the dict of :func:`cropemu.features.soil_features`;
+        before to at least 130 days after each sowing; ``soil``: standard profile (e.g.
+        ``cropemu.soil.soilgrids.fetch``; the water retention is computed with the method used in
+        training, ``card["hydraulics"]``, unless it already has ``ll``/``dul``) or the dict of
+        :func:`cropemu.features.soil_features`;
         ``cultivar``: the parameters in ``card["cultivar"]``; ``co2``: ppm (default: Mauna Loa
         ~60 days after sowing, as in training).
         """
@@ -114,6 +117,8 @@ class Emulator:
         if lost:
             raise KeyError(f"missing cultivar parameters: {lost}")
         w = weather if isinstance(weather, WeatherSeries) else WeatherSeries(weather, lat, elev)
+        if not isinstance(soil, dict) and not {"ll", "dul"} <= set(soil):
+            soil = hydraulics(soil, method=self.card.get("hydraulics", "saxton_rawls"), lat=lat)
         s = soil if isinstance(soil, dict) else soil_features(soil)
         dates = [sowing] if isinstance(sowing, (str, pd.Timestamp)) or not hasattr(sowing, "__iter__") else sowing
         rows = []
