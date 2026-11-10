@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cropemu"
-version = "0.2.0"
+version = "0.3.0"
 description = "Fast, validated emulators of process-based crop models"
 readme = "README.md"
 license = "MIT"

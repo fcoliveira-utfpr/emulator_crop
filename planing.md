@@ -666,6 +666,12 @@ Implementado, ainda sem publicar:
   - **Calibração rápida dentro do domínio em Paragominas** (2018 para calibrar, 2019 para avaliar):
     - DSSAT: a produtividade caiu de 1.239 para 675 kg/ha de RMSE; a maturação caiu de 12,5 para 7,8 d.
     - AquaCrop: a produtividade caiu de 1.371 para 739 kg/ha, com `hio` e `wp` no máximo do treino.
+- **Publicado no PyPI (10/11/2026):** `cropemu` 0.2.0.
+- **Planilhas (0.3.0, ainda não publicada):**
+  - `cropemu.io.tables` lê locais, clima, solo e safras de CSV ou Excel, com nomes de coluna em inglês ou português e checagem de unidades; `write_templates` grava os modelos.
+  - Notebook `examples/your_data.ipynb` com dados sintéticos de um gerador simples: 8 fazendas fictícias, 1993–2024 e 4.800 safras. As observações vêm do próprio emulador com uma cultivar escondida mais ruído.
+    - **Resultado:** a calibração (1994–2013) recupera o grupo de maturação escondido. Na avaliação (2014–2023), o RMSE caiu de 640 para 449 kg/ha na produtividade e de 6,4 para 2,5 d na maturação.
+    - **Desempenho:** 886 mil safras emuladas em 17 s.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 

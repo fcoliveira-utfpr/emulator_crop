@@ -82,6 +82,11 @@ Validation, by spatial blocks:
 
 ## Your own data
 
+- **Spreadsheets** (CSV or Excel, English or Portuguese headers, units in parentheses):
+  `cropemu.io.write_templates("my_data", lang="pt")` writes examples of the four sheets (sites,
+  weather, soil, seasons); `read_sites`, `read_weather`, `read_soils` and `read_seasons` read them
+  into the standard tables, converting common unit mistakes (W/m², fractions, g/kg, organic
+  matter) with a warning.
 - **Weather station:** any daily table with the columns `srad`, `tmax`, `tmin`, `rain` (and
   optionally `dewp`, `rhum`, `wind`) and `attrs` `lat`, `lon`, `elev`. Check it with
   `cropemu.weather.check` and complete missing days or columns from NASA POWER with
