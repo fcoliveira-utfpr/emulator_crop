@@ -40,6 +40,8 @@ cultivars and climate). They ship inside the package (~1.3 MB each) and need onl
   candidates in seconds.
 - **Sensitivity analysis and screening** before running the full crop model where it matters.
 
+Source, example notebooks and issues: <https://github.com/fcoliveira-utfpr/emulator_crop>.
+
 ## Install
 
 ```bash

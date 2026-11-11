@@ -34,6 +34,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 
+[project.urls]
+Homepage = "https://github.com/fcoliveira-utfpr/emulator_crop"
+Repository = "https://github.com/fcoliveira-utfpr/emulator_crop"
+Examples = "https://github.com/fcoliveira-utfpr/emulator_crop/tree/main/examples"
+Issues = "https://github.com/fcoliveira-utfpr/emulator_crop/issues"
+
 [project.optional-dependencies]
 soil = ["rasterio>=1.3"]
 test = ["pytest>=7"]
