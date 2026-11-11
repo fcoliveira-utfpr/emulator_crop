@@ -26,14 +26,14 @@ Column names may be in English or Portuguese, with units in parentheses; common 
 (radiation in W/m², humidity as a fraction, texture in g/kg, organic matter instead of carbon) are
 converted with a warning.
 
-**The data here are synthetic.** Section 2 creates them with a simple generator (8 fictitious farms
-in the Brazilian soybean belt, 1993-2024, 20 fields each) only to show the workflow with a large,
-coherent data set. The "observations" are made with the emulator itself and a hidden cultivar, plus
+**The data here are synthetic.** Section 2 downloads them from the GitHub repository; a simple
+generator made them (8 fictitious farms in the Brazilian soybean belt, 1993-2024, 20 fields each)
+only to show the workflow with a large, coherent data set. The "observations" are made with the emulator itself and a hidden cultivar, plus
 noise, so that the calibration can be checked against a known answer. **To use your data, replace the
 files in `my_data/` and skip section 2.**
 
 1. the spreadsheet templates;
-2. illustrative data (synthetic);
+2. example data (synthetic, downloaded from GitHub);
 3. reading and checking the data;
 4. predicting every season;
 5. comparison with the observations;
@@ -55,7 +55,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from cropemu.io import write_templates, read_sites, read_weather, read_soils, read_seasons
 from cropemu.weather import check
-from cropemu.weather.eto import extraterrestrial_radiation
 
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 plt.rcParams.update({"axes.spines.top": False, "axes.spines.right": False, "axes.grid": True,
@@ -73,144 +72,49 @@ code("""templates = write_templates("templates", lang="pt")
 for p in templates:
     print(f"--- {p.name}")
     print(p.read_text())"""),
-md("""## 2. Illustrative data (synthetic)
+md("""## 2. Example data (synthetic)
 
-*Skip this section with your own data.* A weather generator, simple but coherent:
+*With your own data, skip this section and put your files in `my_data/`.*
 
-- **rain:** wet or dry days from a two-state Markov chain (rain persists), with a wet-day
-  probability and amount that follow the season; in the tropics the winter is dry, in the south
-  the rain is spread over the year; amounts from a gamma distribution;
-- **temperature:** mean annual temperature falling with latitude and elevation, a seasonal cycle
-  growing with latitude, day-to-day anomalies that persist (AR(1)); wet days are cooler and have a
-  smaller daily range;
-- **radiation:** a fraction of the extraterrestrial radiation, lower on wet days;
-- **humidity and wind:** higher humidity on wet days and in the rainy season; wind around 2 m/s.
+The example spreadsheets are in the GitHub repository
+([`examples/data/your_data`](https://github.com/fcoliveira-utfpr/emulator_crop/tree/main/examples/data/your_data))
+and are downloaded here from their raw links. They were made by
+[`make_example_data.py`](https://github.com/fcoliveira-utfpr/emulator_crop/blob/main/examples/data/make_example_data.py),
+a simple, coherent generator, only to illustrate:
 
-Soils: clay, sand, organic carbon and density by layer, with clay increasing and carbon decreasing
-with depth; one farm has measured water limits. Seasons: 20 fields per farm, one cultivar of two
-per field and year, sowing spread over the farm's window, two irrigated fields."""),
-code("""rng = np.random.default_rng(2024)
+- **weather** (1993-2024): rain from a two-state Markov chain (wet days persist) with a seasonal
+  wet-day probability and amount, dry winter in the tropics and rain spread over the year in the
+  south; temperature falling with latitude and elevation, a seasonal cycle growing with latitude
+  and persistent day-to-day anomalies, cooler wet days; radiation as a fraction of the
+  extraterrestrial radiation, lower on wet days; humidity and wind;
+- **soil**: clay increasing and carbon decreasing with depth; farm E has laboratory water limits;
+- **seasons**: 20 fields per farm, one of two cultivars per field and year, sowing spread over the
+  farm's window, two irrigated fields;
+- **observations**: the DSSAT emulator with hidden "true" cultivars (`hidden_cultivars.csv`: a
+  little later and with longer seed filling than the defaults of their maturity group), times a
+  field effect and a farm-year effect, plus measurement noise; some observations are missing.
+
+Farm H's weather is written like a station logger (radiation in W/m², dates day first, `;` and
+decimal comma) to show the unit checks."""),
+code("""import os, urllib.request
+RAW = "https://raw.githubusercontent.com/fcoliveira-utfpr/emulator_crop/main/examples/data/your_data"
+SOURCE = os.environ.get("CROPEMU_EXAMPLE_DATA", RAW)          # a local folder also works
+FILES = ["locais.csv", "solo.csv", "safras.csv", "hidden_cultivars.csv"] + [f"clima_{c}.csv" for c in "ABCDEFGH"]
 DATA = Path("my_data"); DATA.mkdir(exist_ok=True)
-FARMS = pd.DataFrame([
-    # farm,        lat,    lon,  elev, clay %, sowing window starts
-    ("Fazenda A", -12.6, -56.0, 380, 38, "10-01"),
-    ("Fazenda B", -15.6, -54.3, 600, 48, "10-05"),
-    ("Fazenda C", -17.8, -51.0, 750, 55, "10-10"),
-    ("Fazenda D", -20.5, -54.8, 480, 26, "10-10"),
-    ("Fazenda E", -23.3, -51.2, 600, 65, "10-01"),
-    ("Fazenda F", -24.9, -53.4, 700, 70, "09-25"),
-    ("Fazenda G", -28.3, -52.4, 680, 45, "10-20"),
-    ("Fazenda H", -29.7, -55.5, 120, 20, "11-01"),
-], columns=["fazenda", "lat", "lon", "altitude (m)", "clay", "window"])
-FARMS[["fazenda", "lat", "lon", "altitude (m)"]].to_csv(DATA / "locais.csv", index=False)
-
-def generate_weather(lat, elev, start="1993-01-01", end="2024-12-31", rng=rng):
-    \"\"\"Daily weather from a simple stochastic generator (illustration only).\"\"\"
-    idx = pd.date_range(start, end)
-    doy, n, a = idx.dayofyear.to_numpy(), len(idx), abs(lat)
-    summer = np.cos(2 * np.pi * (doy - (15 if lat < 0 else 196)) / 365.25)        # +1 mid-summer
-    tropical = np.clip((30 - a) / 15, 0, 1)                                        # 1 below 15°, 0 above 30°
-    p_wet = np.clip(0.33 + 0.27 * tropical * summer, 0.03, 0.75)
-    p11 = np.clip(p_wet + 0.25, 0, 0.95)                                           # persistence
-    p01 = p_wet * (1 - p11) / (1 - p_wet)
-    wet = np.zeros(n, bool)
-    u = rng.random(n)
-    for i in range(1, n):
-        wet[i] = u[i] < (p11[i] if wet[i - 1] else p01[i])
-    mean_amount = 11 + 5 * tropical * summer
-    rain = np.where(wet, rng.gamma(0.75, mean_amount / 0.75), 0.0)
-    anom = np.zeros(n)
-    e = rng.normal(0, 1.4, n)
-    for i in range(1, n):
-        anom[i] = 0.75 * anom[i - 1] + e[i]
-    tmean = 27.5 - 0.28 * max(a - 10, 0) - 0.0055 * elev + (0.6 + 0.25 * max(a - 10, 0)) * summer + anom - 0.8 * wet
-    dtr = np.where(wet, 7.0, 11.0 + 2.5 * (1 - tropical * np.clip(summer, 0, 1))) + rng.normal(0, 1, n)
-    ra = extraterrestrial_radiation(lat, doy)
-    kt = np.clip(np.where(wet, 0.40, 0.62) + rng.normal(0, 0.06, n), 0.15, 0.78)
-    rh = np.clip(np.where(wet, 86, 62 + 12 * tropical * summer - 8 * tropical * (summer < 0)) + rng.normal(0, 5, n), 25, 99)
-    return pd.DataFrame({"data": idx.strftime("%Y-%m-%d"), "radiacao (MJ/m2/d)": np.round(kt * ra, 1),
-                         "tmax (C)": np.round(tmean + dtr / 2, 1), "tmin (C)": np.round(tmean - dtr / 2, 1),
-                         "chuva (mm)": np.round(rain, 1), "umidade (%)": np.round(rh, 0),
-                         "vento (m/s)": np.round(rng.gamma(4, 0.5, n), 1)})
-
-for f in FARMS.itertuples():
-    w = generate_weather(f.lat, f._4)
-    name = DATA / f"clima_{f.fazenda.split()[-1]}.csv"
-    if f.fazenda == "Fazenda H":       # a station logger: radiation in W/m², dates day first, ';' and decimal ','
-        w["radiacao (MJ/m2/d)"] = np.round(w["radiacao (MJ/m2/d)"] / 0.0864, 0)
-        w = w.rename(columns={"radiacao (MJ/m2/d)": "radiacao (W/m2)"})
-        w["data"] = pd.to_datetime(w["data"]).dt.strftime("%d/%m/%Y")
-        w.to_csv(name, index=False, sep=";", decimal=",")
-    else:
-        w.to_csv(name, index=False)
-print(sorted(p.name for p in DATA.iterdir()))"""),
-code("""rows = []
-LAYERS = [(0, 20), (20, 40), (40, 60), (60, 100), (100, 200)]
-for f in FARMS.itertuples():
-    for k, (top, bot) in enumerate(LAYERS):
-        clay = min(f.clay + 4 * k + rng.normal(0, 2), 80)
-        sand = max(100 - clay - (18 + rng.normal(0, 3)), 3) if f.clay > 30 else 100 - clay - 12
-        soc = max(1.9 * np.exp(-k / 1.6) * (0.8 + f.clay / 150) + rng.normal(0, 0.05), 0.2)
-        bd = 1.55 - 0.004 * clay + 0.03 * k + rng.normal(0, 0.02)
-        row = {"perfil": f.fazenda, "topo (cm)": top, "base (cm)": bot, "argila (%)": round(clay, 1),
-               "areia (%)": round(sand, 1), "silte (%)": round(100 - clay - sand, 1),
-               "carbono (%)": round(soc, 2), "densidade (g/cm3)": round(bd, 2), "pmp (cm3/cm3)": None, "cc (cm3/cm3)": None}
-        if f.fazenda == "Fazenda E":   # laboratory water limits for one farm
-            row["pmp (cm3/cm3)"], row["cc (cm3/cm3)"] = round(0.27 + 0.01 * k, 3), round(0.40 + 0.005 * k, 3)
-        rows.append(row)
-pd.DataFrame(rows).to_csv(DATA / "solo.csv", index=False)
-pd.read_csv(DATA / "solo.csv").head(7)"""),
-md("""**Seasons and synthetic observations.** Each farm grows the two cultivars of the catalogue closest to
-the typical maturity group of its latitude. The "true" cultivars of the farms are not the default
-coefficients of their maturity group: they mature a little later and fill seeds longer (hidden
-values below). The observed yield is the emulated yield of the true cultivar times a field effect
-and a farm-year effect, plus measurement noise; the observed dates are emulated dates plus noise.
-Some observations are missing, as in real records."""),
+for name in FILES:
+    if not (DATA / name).exists():
+        src = f"{SOURCE}/{name}"
+        if src.startswith("http"):
+            urllib.request.urlretrieve(src, DATA / name)
+        else:
+            (DATA / name).write_bytes(Path(src).read_bytes())
+print(sorted(p.name for p in DATA.iterdir()))
+print((DATA / "clima_H.csv").read_text().splitlines()[:3])"""),
 code("""emu = cropemu.load("dssat-soybean-v1")
 CATALOGUE = {"Cultivar 5.5": 5.5, "Cultivar 6.4": 6.4, "Cultivar 7.4": 7.4, "Cultivar 8.3": 8.3}
-TRUE = {name: emu.cultivar(mg=mg + 0.4, LFMAX=1.10, SFDUR=24.5, SDPDV=2.2)   # hidden "true" cultivars
-        for name, mg in CATALOGUE.items()}
-YEARS = range(1994, 2024)                                     # sowing years (harvest the year after)
-rows = []
-for f in FARMS.itertuples():
-    typ = emu.typical_mg(f.lat)
-    names = sorted(CATALOGUE, key=lambda c: abs(CATALOGUE[c] - typ))[:2]
-    for field in range(1, 21):
-        for y in YEARS:
-            start = pd.Timestamp(f"{y}-{f.window}")
-            rows.append({"fazenda": f.fazenda, "talhao": f"T{field:02d}", "semeadura": start + pd.Timedelta(days=int(rng.integers(0, 50))),
-                         "cultivar": names[int(rng.integers(0, 2))], "irrigado": "sim" if field <= 2 and f.fazenda == "Fazenda C" else "nao"})
-plan = pd.DataFrame(rows)
-plan["gm"] = plan["cultivar"].map(CATALOGUE)
-
-# "observations": the emulator with the true cultivar (only to create synthetic data)
-sites = FARMS.set_index("fazenda")
-true_out = []
-for (farm, cv, irr), g in plan.groupby(["fazenda", "cultivar", "irrigado"]):
-    s = sites.loc[farm]
-    w = read_weather(DATA / f"clima_{farm.split()[-1]}.csv", lat=s.lat, lon=s.lon, elev=s["altitude (m)"]) \\
-        if farm != "Fazenda H" else None
-    if w is None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            w = read_weather(DATA / "clima_H.csv", lat=s.lat, lon=s.lon, elev=s["altitude (m)"])
-    soil = read_soils(DATA / "solo.csv")[farm]
-    p = emu.predict(w, lat=s.lat, elev=s["altitude (m)"], soil=soil, sowing=list(g["semeadura"]),
-                    cultivar=TRUE[cv], irrigated=irr == "sim").outputs
-    true_out.append(p.set_index(g.index))
-true_out = pd.concat(true_out).loc[plan.index]
-field_eff = plan.groupby(["fazenda", "talhao"])["fazenda"].transform(lambda s: rng.normal(1, 0.06))
-farm_year = plan.groupby(["fazenda", plan["semeadura"].dt.year])["fazenda"].transform(lambda s: rng.normal(1, 0.05))
-plan["produtividade (kg/ha)"] = np.round(np.clip(true_out["HWAM"] * field_eff * farm_year + rng.normal(0, 150, len(plan)), 0, None), 0)
-plan["florescimento"] = plan["semeadura"] + pd.to_timedelta(np.round(true_out["ADAT_dap"] + rng.normal(0, 2, len(plan))), unit="D")
-plan["maturacao"] = plan["semeadura"] + pd.to_timedelta(np.round(true_out["MDAT_dap"] + rng.normal(0, 2.5, len(plan))), unit="D")
-plan.loc[rng.random(len(plan)) < 0.6, "florescimento"] = pd.NaT          # flowering rarely recorded
-plan.loc[rng.random(len(plan)) < 0.2, "maturacao"] = pd.NaT
-plan.loc[rng.random(len(plan)) < 0.03, "produtividade (kg/ha)"] = np.nan
-for c in ("semeadura", "florescimento", "maturacao"):
-    plan[c] = plan[c].dt.strftime("%d/%m/%Y")
-plan.drop(columns="gm").assign(gm=plan["gm"]).to_csv(DATA / "safras.csv", index=False)
-print(len(plan), "seasons written;", pd.DataFrame(TRUE).T.loc[:, ["mg", "LFMAX", "SFDUR", "SDPDV"]].round(2).to_dict("index"))"""),
+TRUE = pd.read_csv(DATA / "hidden_cultivars.csv", index_col="cultivar").T.to_dict()   # only to check the calibration
+YEARS = range(1994, 2024)                                     # sowing years of the example
+pd.DataFrame(TRUE).T[["mg", "LFMAX", "SFDUR", "SDPDV"]].round(2)"""),
 md("""## 3. Reading and checking the data
 
 From here on, the notebook only uses the files in `my_data/`: **this is where your data come in.**"""),

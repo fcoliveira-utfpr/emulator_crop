@@ -35,7 +35,7 @@ pip install "cropemu[soil]"
 |---|---|
 | [`examples/dssat_soybean.ipynb`](examples/dssat_soybean.ipynb) | Tour of the DSSAT emulator: outputs and validation, one site, 35 years, sowing window, cultivars and sensitivity, water, climate scenarios, regional map, speed; own data with published field trials (station weather, measured soils, calibration). |
 | [`examples/aquacrop_soybean.ipynb`](examples/aquacrop_soybean.ipynb) | The same tour with the AquaCrop emulator. |
-| [`examples/your_data.ipynb`](examples/your_data.ipynb) | From spreadsheets (sites, weather, soil, seasons) to predictions, comparison with observations, calibration, sowing window and scenarios per farm; synthetic data from a simple generator. |
+| [`examples/your_data.ipynb`](examples/your_data.ipynb) | From spreadsheets (sites, weather, soil, seasons) to predictions, comparison with observations, calibration, sowing window and scenarios per farm; synthetic example spreadsheets in [`examples/data/your_data`](examples/data/your_data), downloaded by the notebook from GitHub (made by [`make_example_data.py`](examples/data/make_example_data.py)). |
 | [`examples/compare_emulator_simulator.ipynb`](examples/compare_emulator_simulator.ipynb) | Emulators vs. the crop models at 7 sites outside the training data (needs the DSSAT and AquaCrop executables). |
 
 The notebooks are written by the scripts in [`tools/notebooks`](tools/notebooks).

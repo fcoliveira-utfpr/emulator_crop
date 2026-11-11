@@ -71,7 +71,7 @@ TRIALS = """ + trial_list + """
 for t in TRIALS:
     get(f"Soybean/{t}.SBX"); get(f"Soybean/{t}.SBA")
 CUL = get("SBGRO048.CUL", DSSAT_CUL)
-print("files in", FILES)"""),
+print(len([p for p in FILES.rglob("*") if p.is_file()]), "files of the DSSAT example data (downloaded once, cached)")"""),
 md("""### 11.1 Station weather
 
 `cropemu.io.read_wth` reads DSSAT weather files (one or several years) into the standard daily table:
