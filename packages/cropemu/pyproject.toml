@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cropemu"
-version = "0.3.0"
+version = "0.3.1"
 description = "Validated neural-network emulators of DSSAT and AquaCrop: crop model seasons in microseconds, anywhere, with your own data"
 readme = "README.md"
 license = "MIT"

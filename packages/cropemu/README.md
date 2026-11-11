@@ -1,5 +1,11 @@
 # cropemu
 
+[![PyPI](https://img.shields.io/pypi/v/cropemu)](https://pypi.org/project/cropemu/)
+[![Python](https://img.shields.io/pypi/pyversions/cropemu)](https://pypi.org/project/cropemu/)
+[![Downloads](https://img.shields.io/pepy/dt/cropemu?label=downloads)](https://pepy.tech/projects/cropemu)
+[![Downloads/month](https://img.shields.io/pypi/dm/cropemu?label=downloads%2Fmonth)](https://pypistats.org/packages/cropemu)
+[![License: MIT](https://img.shields.io/pypi/l/cropemu)](https://opensource.org/licenses/MIT)
+
 **Crop model simulations in microseconds, anywhere on the globe, without installing the crop models.**
 
 `cropemu` ships validated neural-network emulators of two widely used process-based crop models,
