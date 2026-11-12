@@ -17,3 +17,6 @@ htmlcov/
 examples/results/
 examples/my_data/
 examples/templates/
+artigo/
+analises/logs/
+analises/__pycache__/
