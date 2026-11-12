@@ -143,12 +143,14 @@ for k, (m, cfg) in enumerate(MODELS.items()):
     w["sd_ratio"] = w["sd_emu"] / w["sd_sim"]
     w["model"] = m
     rows.append(w)
-    axes[0].hist(w["r"].dropna(), bins=np.linspace(0, 1, 41), alpha=0.6, color=SERIES[k], label=f"{cfg['label'].split()[0]} (median {w['r'].median():.2f})")
-    axes[1].hist(w["sd_ratio"].dropna().clip(0, 2), bins=np.linspace(0.3, 1.7, 41), alpha=0.6, color=SERIES[k],
-                 label=f"{cfg['label'].split()[0]} (median {w['sd_ratio'].median():.2f})")
-axes[0].set(xlabel="correlation between simulated and emulated yield within a point", ylabel="points"); axes[0].legend()
-axes[1].set(xlabel="emulated / simulated standard deviation of yield within a point"); axes[1].axvline(1, color="0.3", lw=0.8); axes[1].legend()
-fig.tight_layout()
+    name = cfg["label"].split()[0]
+    axes[0].hist(w["r"].dropna(), bins=np.linspace(0, 1, 41), alpha=0.6, color=SERIES[k],
+                 label=f"{name}: median r {w['r'].median():.2f}, SD ratio {w['sd_ratio'].median():.2f}")
+    axes[1].hist(w["sd_ratio"].dropna().clip(0, 2), bins=np.linspace(0.3, 1.7, 41), alpha=0.6, color=SERIES[k])
+axes[0].set(xlabel="correlation between simulated and emulated\nyield within a point", ylabel="points")
+axes[1].set(xlabel="emulated / simulated standard deviation\nof yield within a point"); axes[1].axvline(1, color="0.3", lw=0.8)
+fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.01))
+fig.tight_layout(rect=(0, 0.09, 1, 1))
 save(fig, "fig_within_site")
 within = pd.concat(rows)
 within.to_csv(TAB / "within_site_variability.csv")

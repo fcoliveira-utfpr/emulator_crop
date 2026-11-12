@@ -70,6 +70,6 @@ for k, (m, cfg) in enumerate(MODELS.items()):
                             ["RMSE of yield (t ha$^{-1}$)", "RMSE of maturity (d)", "median R² of all outputs"]):
         ax.plot(d["points"], d[col], marker="o", ms=3.5, color=SERIES[k], label=cfg["label"])
         ax.set(xscale="log", xlabel="training points (60 seasons each)", ylabel=lab)
-axes[0].legend()
-fig.tight_layout()
+fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.01))
+fig.tight_layout(rect=(0, 0.1, 1, 1))
 save(fig, "fig_learning_curve")
