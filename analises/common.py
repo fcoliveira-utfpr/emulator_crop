@@ -60,7 +60,6 @@ def r2(y, p):
 
 
 def save(fig, name):
-    fig.savefig(FIG / f"{name}.pdf")
     fig.savefig(FIG / f"{name}.png")
     plt.close(fig)
     print("figure:", name)

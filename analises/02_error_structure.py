@@ -33,10 +33,9 @@ for ax, (m, cfg) in zip(axes, MODELS.items()):
     ax.set_yticks(range(len(t)), t.index, fontsize=6)
     ax.set(xlim=(0, 1.02), xlabel="R² (spatial block validation)", title=cfg["label"])
     ax.grid(axis="y", visible=False)
-for lev, col in LEVEL_COLOR.items():
-    axes[1].scatter([], [], color=col, s=22, label=lev)
-axes[1].legend(loc="lower right")
-fig.tight_layout()
+handles = [plt.Line2D([], [], marker="o", ls="", color=col, ms=5, label=lev) for lev, col in LEVEL_COLOR.items()]
+fig.legend(handles=handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.01), title="acceptance level")
+fig.tight_layout(rect=(0, 0.06, 1, 1))
 save(fig, "fig_outputs_r2")
 
 # ---------------------------------------------------------------- 2. simulated vs emulated (key outputs)
