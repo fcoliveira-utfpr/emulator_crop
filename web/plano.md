@@ -121,8 +121,11 @@ A aplicação é uma ferramenta de **determinação/estimativa**: recebe ou comp
 ## Progresso de desenvolvimento
 
 - **Iniciado:** criado o esqueleto Vite em `web/`, com formulário inicial, seleção DSSAT/AquaCrop, carregamento dos dois cartões e sessões ONNX Runtime Web no navegador. Modelos copiados para `web/public/models/` (hashes conferidos contra os arquivos do pacote).
-- **Limite atual:** ainda não gera estimativa; o envio do formulário carrega o modelo e exibe seus metadados. Importação dos CSVs, obtenção automática, mesclagem dos dados, preparo das features e inferência com entradas de safra ainda precisam ser implementados.
-- **Próxima tarefa:** fechar os contratos e fixtures de referência e então implementar os módulos de entrada climática/perfil de solo, com validação da equivalência numérica antes de habilitar o botão de estimativa.
+- **Progresso atual:** formulário executa estimativas sem arquivos, buscando clima ausente na NASA POWER e solo no SoilGrids via WCS; arquivos do usuário continuam tendo precedência. AquaCrop estima o GDD de maturidade a partir do clima quando o usuário não informa um valor. Inferência ONNX e montagem das features rodam no navegador.
+- **Verificação inicial concluída:** caso Fazenda A, semeadura 1994-10-02, coordenadas e perfil de `examples/data/your_data/`. Comparamos todos os 79 vetores DSSAT e 82 AquaCrop com `cropemu`; a maior diferença absoluta foi `1.3e-5` e `8.6e-5`, respectivamente. As 41 saídas DSSAT (incluindo derivadas) e 44 AquaCrop tiveram erro relativo máximo de `2.3e-7` e `1.15e-5`. O build Vite também passou. Esta verificação cobre um caso e não substitui fixtures para vários perfis e datas.
+- **Correções feitas durante a comparação:** AquaCrop precisa da série meteorológica até 600 dias depois da semeadura para calcular datas térmicas; a busca agora cobre esse período. A página também usa a série mensal de CO₂ distribuída pelo pacote Python. SoilGrids REST está pausado; a implementação usa WCS para solicitar recortes dos mapas, conforme a documentação oficial.
+- **Limite atual:** a comparação numérica com o pacote Python cobre um caso de referência. O cliente SoilGrids amostra os mapas 250 m por WCS e usa mediana local 3×3; essa resolução difere da série agregada 1 km usada pelo fetch Python. Proveniência por campo, avisos de entradas raras e exportação ainda faltam.
+- **Próxima tarefa:** ampliar as fixtures de referência para diferentes climas, datas e perfis, e completar a apresentação da proveniência e das entradas raras.
 
 ### Continuação — ingestão inicial
 
@@ -131,3 +134,11 @@ A aplicação é uma ferramenta de **determinação/estimativa**: recebe ou comp
 - A integração **ainda não calcula estimativa**: os valores de clima validados ainda não foram transformados nas features ONNX; o perfil de solo é apenas lido/validado e ainda não é completado remotamente.
 - **Bloqueio de fonte de solo para investigação:** a página oficial do SoilGrids informa que o REST API está temporariamente pausado. A documentação de entrada também pede limitar o uso a cinco chamadas por minuto. A rota REST simples não deve ser tratada como fonte garantida; investigar alternativa compatível com browser antes de implementar a complementação automática de solo.
 - Ambiente atual não tem Node.js/npm disponível, portanto ainda não foi possível instalar dependências nem abrir o Vite localmente.
+
+## Revisão de 2026-11-14 — app completo e estático
+
+- **Viabilidade estática confirmada.** NASA POWER (`access-control-allow-origin: *`; 42 anos diários ≈ 1,8 MB em ~3 s) e SoilGrids (arquivos de 1 km em `files.isric.org` com CORS e HTTP Range; WCS e REST também liberados) funcionam direto do navegador. A inferência WASM leva ~40 µs por safra. Nenhum proxy ou servidor é necessário.
+- **Solo igual ao treino.** O cliente agora lê os mesmos GeoTIFFs de 1 km do `cropemu` (projeção Goode Homolosine portada e conferida contra `rasterio` com erro 0), com mediana 3×3; o perfil coincide com o Python. O WCS 250 m ficou como reserva.
+- **Motor reescrito** em `src/engine/` como port direto de `cropemu` (WeatherSeries, ΔT e fator de chuva, balde hídrico, tempo térmico do AquaCrop, cultivares, domínio). 64 casos de referência conferidos (`npm test`).
+- **Interface** com todas as configurações (cultivar completo, manejo, CO₂, cenário) e as análises dos notebooks: uma safra, série de anos, janela de semeadura, cultivares e sensibilidade, cenários climáticos, local, validação do modelo. Exportação CSV em todas as abas. Ajuda com a estrutura de cada planilha e modelo para download.
+- **Fora do escopo** (como antes): comparação com observações e calibração. **Pendente:** mapa regional (exige ~25 leituras de solo e 1 de clima por ponto; viável para grades pequenas).
