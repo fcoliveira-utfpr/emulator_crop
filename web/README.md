@@ -1,6 +1,6 @@
 # CropEmu web
 
-Página estática que executa os emuladores do `cropemu` (DSSAT CROPGRO-Soybean e AquaCrop) no navegador:
+Página estática, em inglês (padrão) e português (seletor EN/PT no topo ou `?lang=pt` no link), que executa os emuladores do `cropemu` (DSSAT CROPGRO-Soybean e AquaCrop) no navegador:
 nenhum servidor próprio, nenhum executável. Hospedável no GitHub Pages, Vercel ou qualquer servidor de arquivos.
 
 ```sh

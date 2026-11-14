@@ -2,6 +2,7 @@
 // the templates shown in the page and CSV export.
 
 import { tableFromRecords, SRC } from './weather.js';
+import { getLang, t } from '../i18n.js';
 
 const WEATHER = {
   srad: ['srad', 'rs', 'rad', 'radiation', 'solar_radiation', 'radiacao', 'radiacao_solar', 'rg'],
@@ -58,7 +59,7 @@ export function parseCsv(text) {
     } else value += ch;
   }
   row.push(value); if (row.some((v) => v.trim())) rows.push(row);
-  if (rows.length < 2) throw new Error('a planilha precisa de um cabeçalho e pelo menos uma linha');
+  if (rows.length < 2) throw new Error(t('the spreadsheet needs a header and at least one row', 'a planilha precisa de um cabeçalho e pelo menos uma linha'));
   const headers = rows[0].map((h) => h.trim());
   return { headers, decimalComma: sep === ';', rows: rows.slice(1).map((cells) => Object.fromEntries(headers.map((h, i) => [h, (cells[i] ?? '').trim()]))) };
 }
@@ -87,7 +88,7 @@ export function readWeather(text) {
   const { headers, rows, decimalComma } = parseCsv(text);
   const m = match(headers, WEATHER);
   const missing = ['srad', 'tmax', 'tmin', 'rain'].filter((c) => !m[c]);
-  if (missing.length) throw new Error(`clima: não encontrei as colunas ${missing.join(', ')} (colunas: ${headers.join(', ')})`);
+  if (missing.length) throw new Error(t(`weather: columns not found: ${missing.join(', ')} (columns: ${headers.join(', ')})`, `clima: não encontrei as colunas ${missing.join(', ')} (colunas: ${headers.join(', ')})`));
   let dates;
   const ymd = match(headers, YMD), d = match(headers, DATE);
   if (ymd.year && ymd.doy) dates = rows.map((r) => { const t = new Date(Date.UTC(+r[ymd.year], 0, +r[ymd.doy])); return t.toISOString().slice(0, 10); });
@@ -95,7 +96,7 @@ export function readWeather(text) {
   else if (d.date) {
     const dayFirst = rows.every((r) => /^\d{1,2}[/.-]\d{1,2}[/.-]\d{4}$/.test(r[d.date]));
     dates = rows.map((r) => parseDate(r[d.date], dayFirst));
-  } else throw new Error('clima: inclua uma coluna de data (data/date) ou ano + dia do ano');
+  } else throw new Error(t('weather: include a date column (date/data) or year + day of year', 'clima: inclua uma coluna de data (data/date) ou ano + dia do ano'));
   const cols = Object.fromEntries(Object.entries(m).map(([std, c]) => [std, rows.map((r) => num(r[c], decimalComma))]));
   const conversions = [], convert = (c, cond, f, off, msg) => {
     if (cols[c] && cols[c].some(Number.isFinite) && cond(cols[c])) { cols[c] = cols[c].map((v) => v * f + off); conversions.push(`${c}: ${msg}`); }
@@ -103,9 +104,9 @@ export function readWeather(text) {
   convert('srad', (v) => median(v) > 1000, 1e-3, 0, 'kJ/m²/d → MJ/m²/d');
   convert('srad', (v) => median(v) > 60, 0.0864, 0, 'W/m² → MJ/m²/d');
   for (const c of ['tmax', 'tmin', 'dewp']) convert(c, (v) => median(v) > 150, 1, -273.15, 'K → °C');
-  convert('rhum', (v) => max(v) <= 1.5, 100, 0, 'fração → %');
+  convert('rhum', (v) => max(v) <= 1.5, 100, 0, t('fraction → %', 'fração → %'));
   const records = dates.map((date, i) => date && Object.fromEntries([['date', date], ...Object.keys(cols).map((c) => [c, cols[c][i]])])).filter(Boolean);
-  if (!records.length) throw new Error('clima: nenhuma data válida');
+  if (!records.length) throw new Error(t('weather: no valid date', 'clima: nenhuma data válida'));
   return { table: tableFromRecords(records, SRC.user), rows: records.length, conversions, columns: Object.keys(cols) };
 }
 
@@ -113,16 +114,16 @@ export function readWeather(text) {
 export function readSoils(text) {
   const { headers, rows, decimalComma } = parseCsv(text);
   const m = match(headers, SOIL);
-  if (!m.bottom) throw new Error('solo: falta a profundidade das camadas (base/profundidade)');
+  if (!m.bottom) throw new Error(t('soil: the layer depth is missing (bottom/depth)', 'solo: falta a profundidade das camadas (base/profundidade)'));
   const cols = Object.fromEntries(Object.entries(m).filter(([s]) => s !== 'profile').map(([s, c]) => [s, rows.map((r) => num(r[c], decimalComma))]));
   const conversions = [], convert = (c, cond, f, msg) => {
     if (cols[c] && cols[c].some(Number.isFinite) && cond(cols[c])) { cols[c] = cols[c].map((v) => v * f); conversions.push(`${c}: ${msg}`); }
   };
-  for (const c of ['clay', 'sand', 'silt']) { convert(c, (v) => max(v) <= 1, 100, 'fração → %'); convert(c, (v) => max(v) > 100, 0.1, 'g/kg → %'); }
+  for (const c of ['clay', 'sand', 'silt']) { convert(c, (v) => max(v) <= 1, 100, t('fraction → %', 'fração → %')); convert(c, (v) => max(v) > 100, 0.1, 'g/kg → %'); }
   convert('soc', (v) => max(v) > 15, 0.1, 'g/kg → %');
   if (cols.om) {
     convert('om', (v) => max(v) > 25, 0.1, 'g/kg → %');
-    if (!cols.soc || !cols.soc.some(Number.isFinite)) { cols.soc = cols.om.map((v) => v / 1.724); conversions.push('matéria orgânica → carbono orgânico (÷1,724)'); }
+    if (!cols.soc || !cols.soc.some(Number.isFinite)) { cols.soc = cols.om.map((v) => v / 1.724); conversions.push(t('organic matter → organic carbon (÷1.724)', 'matéria orgânica → carbono orgânico (÷1,724)')); }
     delete cols.om;
   }
   convert('bdod', (v) => median(v) > 100, 1e-3, 'kg/m³ → g/cm³');
@@ -131,7 +132,7 @@ export function readSoils(text) {
   if (!cols.silt && cols.clay && cols.sand) cols.silt = cols.clay.map((c, i) => 100 - c - cols.sand[i]);
   const profiles = {};
   rows.forEach((r, i) => {
-    const name = m.profile ? r[m.profile] || 'perfil' : 'perfil';
+    const name = m.profile ? r[m.profile] || t('profile', 'perfil') : t('profile', 'perfil');
     const layer = Object.fromEntries(Object.keys(cols).map((c) => [c, cols[c][i]]));
     if (Number.isFinite(layer.bottom)) (profiles[name] ??= []).push(layer);
   });
@@ -139,31 +140,32 @@ export function readSoils(text) {
     layers.sort((a, b) => a.bottom - b.bottom);
     layers.forEach((l, i) => { if (!Number.isFinite(l.top)) l.top = i ? layers[i - 1].bottom : 0; });
     const lack = ['clay', 'sand', 'soc', 'bdod'].filter((c) => layers.some((l) => !Number.isFinite(l[c])));
-    if (lack.length) throw new Error(`solo (${name}): faltam valores de ${lack.join(', ')} em alguma camada`);
-    if (layers.some((l) => l.bottom <= l.top)) throw new Error(`solo (${name}): confira as profundidades das camadas`);
+    if (lack.length) throw new Error(t(`soil (${name}): missing ${lack.join(', ')} in some layer`, `solo (${name}): faltam valores de ${lack.join(', ')} em alguma camada`));
+    if (layers.some((l) => l.bottom <= l.top)) throw new Error(t(`soil (${name}): check the layer depths`, `solo (${name}): confira as profundidades das camadas`));
   }
-  if (!Object.keys(profiles).length) throw new Error('solo: nenhuma camada válida');
+  if (!Object.keys(profiles).length) throw new Error(t('soil: no valid layer', 'solo: nenhuma camada válida'));
   return { profiles, conversions };
 }
 
-// ------------------------------------------------------------ templates (same as cropemu.io.write_templates(lang="pt"))
-export const TEMPLATES = {
-  clima: {
-    file: 'clima.csv',
-    title: 'Clima diário',
-    note: 'Uma linha por dia. Obrigatórias: data, radiação, Tmax, Tmin e chuva. Opcionais: umidade, vento (a 2 m) ou ponto de orvalho. Dias e colunas que faltarem são completados pela NASA POWER; seus valores têm sempre precedência. Aceita vírgula ou ponto e vírgula, decimal com ponto ou vírgula, data AAAA-MM-DD ou DD/MM/AAAA.',
-    header: ['data', 'radiacao (MJ/m2/d)', 'tmax (C)', 'tmin (C)', 'chuva (mm)', 'umidade (%)', 'vento (m/s)'],
+// ------------------------------------------------------------ templates (cropemu.io.write_templates, lang "en" / "pt")
+const TEMPLATE_TEXT = {
+  weather: {
+    en: { file: 'weather.csv', title: 'Daily weather', header: ['date', 'srad (MJ/m2/d)', 'tmax (C)', 'tmin (C)', 'rain (mm)', 'rhum (%)', 'wind (m/s)'],
+      note: 'One row per day. Required: date, solar radiation, Tmax, Tmin and rain. Optional: relative humidity, wind (at 2 m) or dew point. Missing days and columns are completed with NASA POWER; your values always take precedence. Comma or semicolon separated, decimal point or comma, dates as YYYY-MM-DD or DD/MM/YYYY. Portuguese headers are accepted too.' },
+    pt: { file: 'clima.csv', title: 'Clima diário', header: ['data', 'radiacao (MJ/m2/d)', 'tmax (C)', 'tmin (C)', 'chuva (mm)', 'umidade (%)', 'vento (m/s)'],
+      note: 'Uma linha por dia. Obrigatórias: data, radiação, Tmax, Tmin e chuva. Opcionais: umidade, vento (a 2 m) ou ponto de orvalho. Dias e colunas que faltarem são completados pela NASA POWER; seus valores têm sempre precedência. Aceita vírgula ou ponto e vírgula, decimal com ponto ou vírgula, data AAAA-MM-DD ou DD/MM/AAAA. Cabeçalhos em inglês também são aceitos.' },
     rows: [['2023-10-01', '22.5', '31.2', '18.4', '0.0', '65', '2.1'], ['2023-10-02', '18.1', '29.0', '19.2', '12.4', '78', '1.8'], ['2023-10-03', '24.9', '32.5', '18.9', '0.0', '61', '2.4']],
   },
-  solo: {
-    file: 'solo.csv',
-    title: 'Perfil de solo',
-    note: 'Uma linha por camada (até 2 m). Obrigatórias: base da camada (cm), argila e areia (%), carbono orgânico (%) ou matéria orgânica, densidade (g/cm³). Ponto de murcha (pmp) e capacidade de campo (cc) em cm³/cm³ são opcionais: sem eles, são estimados como no treino. Vários perfis na mesma planilha: use a coluna perfil.',
-    header: ['perfil', 'topo (cm)', 'base (cm)', 'argila (%)', 'areia (%)', 'silte (%)', 'carbono (%)', 'densidade (g/cm3)', 'pmp (cm3/cm3)', 'cc (cm3/cm3)'],
+  soil: {
+    en: { file: 'soil.csv', title: 'Soil profile', header: ['profile', 'top (cm)', 'bottom (cm)', 'clay (%)', 'sand (%)', 'silt (%)', 'soc (%)', 'bdod (g/cm3)', 'll (cm3/cm3)', 'dul (cm3/cm3)'],
+      note: 'One row per layer (down to 2 m). Required: layer bottom (cm), clay and sand (%), organic carbon (%) or organic matter, bulk density (g/cm³). Wilting point (ll) and field capacity (dul) in cm³/cm³ are optional: without them they are estimated as in training. Several profiles in one sheet: use the profile column.' },
+    pt: { file: 'solo.csv', title: 'Perfil de solo', header: ['perfil', 'topo (cm)', 'base (cm)', 'argila (%)', 'areia (%)', 'silte (%)', 'carbono (%)', 'densidade (g/cm3)', 'pmp (cm3/cm3)', 'cc (cm3/cm3)'],
+      note: 'Uma linha por camada (até 2 m). Obrigatórias: base da camada (cm), argila e areia (%), carbono orgânico (%) ou matéria orgânica, densidade (g/cm³). Ponto de murcha (pmp) e capacidade de campo (cc) em cm³/cm³ são opcionais: sem eles, são estimados como no treino. Vários perfis na mesma planilha: use a coluna perfil.' },
     rows: [['A', '0', '20', '55', '25', '20', '1.6', '1.2', '', ''], ['A', '20', '60', '60', '20', '20', '0.9', '1.25', '', ''], ['A', '60', '200', '62', '18', '20', '0.4', '1.3', '', '']],
   },
 };
-
+/** Template of a spreadsheet ('weather' or 'soil') in the interface language. */
+export const template = (name) => ({ ...TEMPLATE_TEXT[name][getLang()], rows: TEMPLATE_TEXT[name].rows });
 export const templateCsv = (t) => [t.header, ...t.rows].map((r) => r.join(',')).join('\n') + '\n';
 
 // ------------------------------------------------------------ export

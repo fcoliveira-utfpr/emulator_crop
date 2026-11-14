@@ -6,6 +6,7 @@
 // pixels in a 3 x 3 km window. Fallback: the 250 m maps through the WCS service (3 x 3 median).
 
 import { fromUrl, fromArrayBuffer } from 'geotiff';
+import { t } from '../i18n.js';
 
 const FILES = 'https://files.isric.org/soilgrids/latest/data_aggregated/1000m';
 const WCS = 'https://maps.isric.org/mapserv';
@@ -76,7 +77,7 @@ async function sampleWcs(property, top, bottom, lon, lat) {
   url.searchParams.append('SUBSET', `Lat(${lat - 0.01},${lat + 0.01})`);
   url.searchParams.append('SUBSET', `Long(${lon - 0.01},${lon + 0.01})`);
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`WCS respondeu ${response.status}`);
+  if (!response.ok) throw new Error(`WCS ${response.status}`);
   const image = await (await fromArrayBuffer(await response.arrayBuffer())).getImage();
   const [ox, oy] = image.getOrigin(), [rx, ry] = image.getResolution();
   const col = Math.round((lon - ox) / rx - 0.5), row = Math.round((lat - oy) / ry - 0.5);
@@ -97,7 +98,7 @@ async function profileFrom(sampler, lat, lon, onProgress) {
     }));
   }
   if (layers.some((l) => Object.keys(FACTORS).some((p) => !Number.isFinite(l[p])))) {
-    throw new Error('o SoilGrids não tem dados de solo neste ponto (água, área urbana ou fora dos mapas)');
+    throw Object.assign(new Error(t('SoilGrids has no soil data at this point (water, urban area or outside the maps)', 'o SoilGrids não tem dados de solo neste ponto (água, área urbana ou fora dos mapas)')), { noData: true });
   }
   for (const l of layers) l.silt = 100 - l.clay - l.sand;
   return layers;
@@ -110,11 +111,11 @@ export async function fetchSoilGrids(lat, lon, onProgress = () => {}) {
   if (cache.has(key)) return structuredClone(cache.get(key));
   let result;
   try {
-    result = { layers: await profileFrom(sample1km, lat, lon, onProgress), source: 'SoilGrids 2.0, mapas de 1 km (mediana 3×3 km, como no treino)' };
+    result = { layers: await profileFrom(sample1km, lat, lon, onProgress), source: { en: 'SoilGrids 2.0, 1 km maps (3×3 km median, as in training)', pt: 'SoilGrids 2.0, mapas de 1 km (mediana 3×3 km, como no treino)' } };
   } catch (error) {
-    if (/não tem dados/.test(error.message)) throw error;
+    if (error.noData) throw error;
     console.warn('SoilGrids 1 km falhou; usando o WCS 250 m', error);
-    result = { layers: await profileFrom(sampleWcs, lat, lon, onProgress), source: 'SoilGrids 2.0, mapas de 250 m via WCS (reserva; difere um pouco do treino)' };
+    result = { layers: await profileFrom(sampleWcs, lat, lon, onProgress), source: { en: 'SoilGrids 2.0, 250 m maps via WCS (fallback; differs slightly from training)', pt: 'SoilGrids 2.0, mapas de 250 m via WCS (reserva; difere um pouco do treino)' } };
   }
   cache.set(key, result);
   return structuredClone(result);

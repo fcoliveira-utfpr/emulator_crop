@@ -2,6 +2,7 @@
 // Port of cropemu.weather (nasa_power, qc, eto) and cropemu.features.WeatherSeries.
 
 import { dayNumber, dayOfYear, isoDate } from './dates.js';
+import { t } from '../i18n.js';
 
 export const COLUMNS = ['tmax', 'tmin', 'srad', 'rain', 'rhum', 'wind', 'dewp'];
 export const REQUIRED = ['tmax', 'tmin', 'srad', 'rain'];
@@ -101,7 +102,7 @@ async function cachedJson(url) {
   let cache = null;
   try { cache = await caches.open('cropemu-power-v1'); const hit = await cache.match(url); if (hit) return hit.json(); } catch { cache = null; }
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`a NASA POWER respondeu ${response.status}`);
+  if (!response.ok) throw new Error(t(`NASA POWER answered ${response.status}`, `a NASA POWER respondeu ${response.status}`));
   const text = await response.text();
   try { await cache?.put(url, new Response(text, { headers: { 'content-type': 'application/json' } })); } catch { /* cache is optional */ }
   return JSON.parse(text);
@@ -118,7 +119,7 @@ export async function fetchPower(lat, lon, first, last) {
   });
   const payload = await cachedJson(url.toString());
   const params = payload?.properties?.parameter;
-  if (!params) throw new Error('resposta da NASA POWER sem dados diários');
+  if (!params) throw new Error(t('NASA POWER response without daily data', 'resposta da NASA POWER sem dados diários'));
   const fill = payload.header?.fill_value ?? -999;
   const records = Object.keys(Object.values(params)[0] ?? {}).map((k) => {
     const r = { date: `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}` };
@@ -248,7 +249,7 @@ export class WeatherSeries {
       for (let d = s; d <= e; d++) { const i = d - this.t0, g = gdd(this.tmax[i], this.tmin[i], tbase, tupper); if (Number.isFinite(g)) sum += g; }
       sums.push(sum);
     }
-    if (!sums.length) throw new Error('o clima não cobre nenhuma safra completa para estimar o ciclo');
+    if (!sums.length) throw new Error(t('the weather does not cover a complete season to estimate the cycle', 'o clima não cobre nenhuma safra completa para estimar o ciclo'));
     return sums.reduce((a, b) => a + b, 0) / sums.length;
   }
 

@@ -1,59 +1,59 @@
 // Pieces shared by the analysis tabs.
 
 import { download, toCsv } from '../engine/io.js';
-import { LEVELS } from '../engine/units.js';
-import { h, auto } from './dom.js';
+import { GROUP_ORDER, groupLabel, LEVEL_COLORS, levelLabel } from '../engine/units.js';
+import { t } from '../i18n.js';
+import { h, auto, fmt } from './dom.js';
 
-const GROUP_ORDER = ['produção', 'fenologia', 'água', 'estresses', 'eficiência', 'nitrogênio e carbono', 'clima do ciclo', 'outros'];
-
-/** <select> of every output of the emulator, grouped; the key outputs first. */
+/** <select> of every output of the emulator, grouped. */
 export function variableSelect(ctx, onChange = (v) => ctx.setVariable(v)) {
   const { emu } = ctx, groups = {};
   for (const m of Object.values(emu.meta)) (groups[m.group] ??= []).push(m);
-  const sel = h('select.variable', { 'aria-label': 'Variável analisada', onchange: (e) => onChange(e.target.value) },
-    GROUP_ORDER.filter((g) => groups[g]).map((g) => h('optgroup', { label: g[0].toUpperCase() + g.slice(1) },
+  const sel = h('select.variable', { 'aria-label': t('Output analysed', 'Variável analisada'), onchange: (e) => onChange(e.target.value) },
+    GROUP_ORDER.filter((g) => groups[g]).map((g) => h('optgroup', { label: groupLabel(g) },
       groups[g].map((m) => h('option', { value: m.name }, `${m.label} (${m.unit})${m.level === 'not recommended' ? ' ⚠' : ''}`)))));
   sel.value = ctx.variable;
-  return h('label.inline', h('span', 'Variável'), sel);
+  return h('label.inline', h('span', t('Output', 'Variável')), sel);
 }
 
 /** Panel header: title, lead text, controls and the CSV export. */
 export function header(title, lead, controls = [], exportFn = null) {
   return h('header.panel-head',
     h('div.titles', h('h1', title), lead ? h('p.lead', lead) : null),
-    h('div.controls', controls, exportFn ? h('button.secondary.export', { type: 'button', onclick: exportFn }, 'Baixar CSV') : null));
+    h('div.controls', controls, exportFn ? h('button.secondary.export', { type: 'button', onclick: exportFn }, t('Download CSV', 'Baixar CSV')) : null));
 }
 
 export const exporter = (name, rows, columns) => () => download(name, toCsv(rows, columns));
 
 /** Level badge of an output. */
 export function levelBadge(level) {
-  const l = LEVELS[level] ?? LEVELS.unknown;
-  return h('span.badge', { style: { '--c': l.color }, title: 'Nível de aceitação na validação por blocos espaciais de 5°' }, h('i'), l.label);
+  return h('span.badge', { style: { '--c': LEVEL_COLORS[level] ?? LEVEL_COLORS.unknown }, title: t('Acceptance level in the 5° spatial block validation', 'Nível de aceitação na validação por blocos espaciais de 5°') }, h('i'), levelLabel(level));
 }
 
 /** Warning when the analysed output is not reliable. */
 export function levelNote(ctx, name) {
   const m = ctx.emu.meta[name];
-  if (m.level === 'not recommended') return h('p.note.warn', `“${m.label}” tem nível de aceitação não recomendado na validação (R² ${auto(m.r2)}): use apenas como indicação grosseira.`);
-  if (m.level === 'caution') return h('p.note', `“${m.label}” tem nível de aceitação “com cautela” na validação (RMSE ${auto(m.rmse * m.scale)} ${m.unit}).`);
+  if (m.level === 'not recommended') return h('p.note.warn', t(`“${m.label}” is “not recommended” in the validation (R² ${fmt(m.r2, 2)}): use it only as a rough indication.`, `“${m.label}” tem nível de aceitação não recomendado na validação (R² ${fmt(m.r2, 2)}): use apenas como indicação grosseira.`));
+  if (m.level === 'caution') return h('p.note', t(`“${m.label}” has the acceptance level “caution” in the validation (RMSE ${auto(m.rmse * m.scale)} ${m.unit}).`, `“${m.label}” tem nível de aceitação “com cautela” na validação (RMSE ${auto(m.rmse * m.scale)} ${m.unit}).`));
   return null;
 }
 
 /** Domain flags of a set of predicted seasons. */
-export function domainSummary(rows, what = 'safras') {
+export function domainSummary(rows) {
   const out = rows.filter((r) => r.outOfDomain?.length), rare = rows.filter((r) => !r.outOfDomain?.length && r.rare?.length), bad = rows.filter((r) => !r.ok);
+  const list = (names) => `${names.slice(0, 6).join(', ')}${names.length > 6 ? '…' : ''}`;
   const items = [];
-  if (bad.length) items.push(h('li.err', `${bad.length} ${what} sem cálculo: ${bad[0].reason}.`));
+  if (bad.length) items.push(h('li.err', t(`${bad.length} season(s) not computed: ${bad[0].reason}.`, `${bad.length} safra(s) sem cálculo: ${bad[0].reason}.`)));
   if (out.length) {
     const names = [...new Set(out.flatMap((r) => r.outOfDomain))];
-    items.push(h('li.err', `${out.length} ${what} com entradas fora do domínio de treino (${names.slice(0, 6).join(', ')}${names.length > 6 ? '…' : ''}): extrapolação, marcadas nos gráficos.`));
+    items.push(h('li.err', t(`${out.length} season(s) with inputs outside the training domain (${list(names)}): extrapolation, marked in the charts.`, `${out.length} safra(s) com entradas fora do domínio de treino (${list(names)}): extrapolação, marcadas nos gráficos.`)));
   }
   if (rare.length) {
     const names = [...new Set(rare.flatMap((r) => r.rare))];
-    items.push(h('li.warn', `${rare.length} ${what} com entradas raras no treino (fora de 0,5–99,5 %: ${names.slice(0, 6).join(', ')}${names.length > 6 ? '…' : ''}).`));
+    items.push(h('li.warn', t(`${rare.length} season(s) with inputs rare in training (outside 0.5–99.5 %: ${list(names)}).`, `${rare.length} safra(s) com entradas raras no treino (fora de 0,5–99,5 %: ${list(names)}).`)));
   }
-  return items.length ? h('ul.flags', items) : h('ul.flags', h('li.ok', rows.length === 1 ? 'Safra dentro do domínio de treino.' : `Todas as ${rows.length} ${what} dentro do domínio de treino.`));
+  if (items.length) return h('ul.flags', items);
+  return h('ul.flags', h('li.ok', rows.length === 1 ? t('Season inside the training domain.', 'Safra dentro do domínio de treino.') : t(`All ${rows.length} seasons inside the training domain.`, `Todas as ${rows.length} safras dentro do domínio de treino.`)));
 }
 
 /** Simple data table. `cols`: [[label, fn | key, align?]] */

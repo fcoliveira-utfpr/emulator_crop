@@ -186,7 +186,7 @@ table.data tr:hover td { background: var(--surface-2); }
 h3.group { font-size: 13px; color: var(--brand); margin: 14px 0 2px; }
 .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; white-space: nowrap; }
 .badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
-.st { font-size: 11.5px; } .st.fora { color: var(--err); font-weight: 600; } .st.rara { color: var(--warn); font-weight: 600; } .st.fixa { color: var(--muted); }
+.st { font-size: 11.5px; } .st.out { color: var(--err); font-weight: 600; } .st.rare { color: var(--warn); font-weight: 600; } .st.fixed { color: var(--muted); }
 
 .flags { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 4px; font-size: 12.5px; }
 .flags li { padding: 6px 10px; border-radius: 8px; }
@@ -254,3 +254,10 @@ ul.plain { margin: 6px 0; padding-left: 18px; color: var(--text-2); }
 .table-wrap.scroll { max-height: 420px; overflow-y: auto; }
 .table-wrap.scroll thead th { position: sticky; top: 0; background: var(--surface); }
 details > summary + .table-wrap { margin-top: 8px; }
+
+/* language switch */
+.top-right { display: flex; align-items: center; gap: 14px; }
+.lang { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px; background: var(--surface-2); }
+.lang button { border: 0; background: none; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; cursor: pointer; color: var(--muted); }
+.lang button.active { background: var(--navy); color: var(--surface); }
+@media (max-width: 600px) { .local-badge { display: none; } }

@@ -1,40 +1,46 @@
 ﻿<!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Emuladores dos modelos DSSAT CROPGRO-Soybean e AquaCrop executados no navegador: safra única, séries de anos, janela de semeadura, cultivares e cenários climáticos." />
-  <title>CropEmu · simulação de culturas</title>
+  <meta name="description" content="Emulators of the DSSAT CROPGRO-Soybean and AquaCrop crop models running in the browser: one season, many years, sowing window, cultivars and climate scenarios." />
+  <title>CropEmu · crop simulation</title>
   <link rel="icon" type="image/png" href="./brand/favicon.png" />
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="./"><img src="./brand/emblem.png" alt="" width="40" height="40" /><span class="wordmark"><b>Crop</b><em>Emu</em><small>Simulação de Culturas · soja</small></span></a>
-    <span class="local-badge"><i></i> cálculo no seu navegador</span>
+    <a class="brand" href="./"><img src="./brand/emblem.png" alt="" width="40" height="40" /><span class="wordmark"><b>Crop</b><em>Emu</em><small data-pt="Simulação de Culturas · soja">Crop Simulation · soybean</small></span></a>
+    <div class="top-right">
+      <span class="local-badge"><i></i> <span data-pt="cálculo no seu navegador">runs in your browser</span></span>
+      <div class="lang" role="group" aria-label="Language / Idioma">
+        <button type="button" data-lang="en" title="English">EN</button>
+        <button type="button" data-lang="pt" title="Português">PT</button>
+      </div>
+    </div>
   </header>
 
   <div class="app">
-    <aside class="sidebar" aria-label="Configuração">
+    <aside class="sidebar" aria-label="Settings" data-pt-aria-label="Configuração">
       <section class="block">
-        <h2><span class="step-n">1</span> Modelo</h2>
-        <div class="segmented" role="radiogroup" aria-label="Modelo">
+        <h2><span class="step-n">1</span> <span data-pt="Modelo">Model</span></h2>
+        <div class="segmented" role="radiogroup" aria-label="Model" data-pt-aria-label="Modelo">
           <label><input type="radio" name="model" value="dssat-soybean-v1" checked /><span>DSSAT<small>CROPGRO-Soybean</small></span></label>
           <label><input type="radio" name="model" value="aquacrop-soybean-v1" /><span>AquaCrop<small>FAO 7.3</small></span></label>
         </div>
       </section>
 
       <section class="block">
-        <h2><span class="step-n">2</span> Local e dados</h2>
-        <label class="field"><span>Local de exemplo</span>
+        <h2><span class="step-n">2</span> <span data-pt="Local e dados">Site and data</span></h2>
+        <label class="field"><span data-pt="Local de exemplo">Example site</span>
           <select id="preset">
-            <option value="">— escolher —</option>
-            <option value="-23.19,-51.18">Londrina, PR</option>
-            <option value="-17.80,-50.93">Rio Verde, GO</option>
-            <option value="-12.55,-55.71">Sorriso, MT</option>
-            <option value="-28.26,-52.41">Passo Fundo, RS</option>
-            <option value="-12.10,-45.80">Luís Eduardo Magalhães, BA</option>
-            <option value="-32.95,-60.65">Rosário, Argentina</option>
-            <option value="42.03,-93.62">Ames, Iowa (EUA)</option>
+            <option value="" data-pt="— escolher —">— choose —</option>
+            <option value="-23.19,-51.18" data-pt="Londrina, PR (Brasil)">Londrina, PR (Brazil)</option>
+            <option value="-17.80,-50.93" data-pt="Rio Verde, GO (Brasil)">Rio Verde, GO (Brazil)</option>
+            <option value="-12.55,-55.71" data-pt="Sorriso, MT (Brasil)">Sorriso, MT (Brazil)</option>
+            <option value="-28.26,-52.41" data-pt="Passo Fundo, RS (Brasil)">Passo Fundo, RS (Brazil)</option>
+            <option value="-12.10,-45.80" data-pt="Luís Eduardo Magalhães, BA (Brasil)">Luís Eduardo Magalhães, BA (Brazil)</option>
+            <option value="-32.95,-60.65" data-pt="Rosário, Argentina">Rosario, Argentina</option>
+            <option value="42.03,-93.62" data-pt="Ames, Iowa (EUA)">Ames, Iowa (USA)</option>
             <option value="45.75,126.65">Harbin, China</option>
           </select>
         </label>
@@ -43,76 +49,76 @@
           <label class="field"><span>Longitude</span><input id="lon" type="number" step="any" min="-180" max="180" placeholder="-51.18" /></label>
         </div>
         <div class="loc-actions">
-          <button type="button" class="secondary map-btn" id="open-map"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Escolher no mapa</button>
-          <button type="button" class="link" id="geolocate">usar minha localização</button>
+          <button type="button" class="secondary map-btn" id="open-map"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span data-pt="Escolher no mapa">Pick on the map</span></button>
+          <button type="button" class="link" id="geolocate" data-pt="usar minha localização">use my location</button>
         </div>
 
         <details class="userdata">
-          <summary>Usar meus dados <small>(opcional)</small></summary>
-          <p class="hint">Sem arquivos, o clima vem da NASA POWER e o solo do SoilGrids, as mesmas fontes do treino dos emuladores.</p>
-          <div class="upload-row" data-template="clima">
-            <label class="upload"><input id="weather-file" type="file" accept=".csv,.txt,text/csv" /><span class="upload-icon">+</span><span><strong>Clima diário (CSV)</strong><small id="weather-name">data, radiação, Tmax, Tmin, chuva…</small></span></label>
-            <button type="button" class="help" aria-label="Como organizar a planilha de clima" data-help="clima">?</button>
+          <summary><span data-pt="Usar meus dados">Use my data</span> <small data-pt="(opcional)">(optional)</small></summary>
+          <p class="hint" data-pt="Sem arquivos, o clima vem da NASA POWER e o solo do SoilGrids, as mesmas fontes do treino dos emuladores.">Without files, the weather comes from NASA POWER and the soil from SoilGrids, the same sources used to train the emulators.</p>
+          <div class="upload-row" data-template="weather">
+            <label class="upload"><input id="weather-file" type="file" accept=".csv,.txt,text/csv" /><span class="upload-icon">+</span><span><strong data-pt="Clima diário (CSV)">Daily weather (CSV)</strong><small id="weather-name"></small></span></label>
+            <button type="button" class="help" aria-label="How to organise the weather spreadsheet" data-pt-aria-label="Como organizar a planilha de clima">?</button>
           </div>
-          <div class="upload-row" data-template="solo">
-            <label class="upload"><input id="soil-file" type="file" accept=".csv,.txt,text/csv" /><span class="upload-icon">+</span><span><strong>Perfil de solo (CSV)</strong><small id="soil-name">camadas com argila, areia, carbono…</small></span></label>
-            <button type="button" class="help" aria-label="Como organizar a planilha de solo" data-help="solo">?</button>
+          <div class="upload-row" data-template="soil">
+            <label class="upload"><input id="soil-file" type="file" accept=".csv,.txt,text/csv" /><span class="upload-icon">+</span><span><strong data-pt="Perfil de solo (CSV)">Soil profile (CSV)</strong><small id="soil-name"></small></span></label>
+            <button type="button" class="help" aria-label="How to organise the soil spreadsheet" data-pt-aria-label="Como organizar a planilha de solo">?</button>
           </div>
-          <label class="field" id="profile-field" hidden><span>Perfil</span><select id="profile"></select></label>
-          <label class="field"><span>Altitude (m) <b class="opt">opcional</b></span><input id="elev" type="number" step="any" placeholder="da NASA POWER" /></label>
+          <label class="field" id="profile-field" hidden><span data-pt="Perfil">Profile</span><select id="profile"></select></label>
+          <label class="field"><span><span data-pt="Altitude (m)">Elevation (m)</span> <b class="opt" data-pt="opcional">optional</b></span><input id="elev" type="number" step="any" placeholder="from NASA POWER" data-pt-placeholder="da NASA POWER" /></label>
         </details>
 
-        <button class="primary" type="button" id="load">Carregar clima e solo</button>
+        <button class="primary" type="button" id="load" data-pt="Carregar clima e solo">Load weather and soil</button>
         <div class="status" id="status" role="status" aria-live="polite"></div>
       </section>
 
       <section class="block">
-        <h2><span class="step-n">3</span> Semeadura e período</h2>
+        <h2><span class="step-n">3</span> <span data-pt="Semeadura e período">Sowing and period</span></h2>
         <div class="two">
-          <label class="field"><span>Dia</span><select id="sow-day"></select></label>
-          <label class="field"><span>Mês</span><select id="sow-month"></select></label>
+          <label class="field"><span data-pt="Dia">Day</span><select id="sow-day"></select></label>
+          <label class="field"><span data-pt="Mês">Month</span><select id="sow-month"></select></label>
         </div>
-        <label class="field"><span>Ano da safra <b class="opt">uma safra</b></span><select id="year"></select></label>
+        <label class="field"><span><span data-pt="Ano da safra">Season year</span> <b class="opt" data-pt="uma safra">one season</b></span><select id="year"></select></label>
         <div class="two">
-          <label class="field"><span>De <b class="opt">vários anos</b></span><select id="year-from"></select></label>
-          <label class="field"><span>Até</span><select id="year-to"></select></label>
+          <label class="field"><span><span data-pt="De">From</span> <b class="opt" data-pt="vários anos">many years</b></span><select id="year-from"></select></label>
+          <label class="field"><span data-pt="Até">To</span><select id="year-to"></select></label>
         </div>
       </section>
 
       <section class="block">
         <h2><span class="step-n">4</span> Cultivar</h2>
         <div data-family="dssat">
-          <label class="field"><span>Grupo de maturidade (GM)</span><input id="mg" type="number" step="0.1" min="-2" max="10" /></label>
+          <label class="field"><span data-pt="Grupo de maturidade (GM)">Maturity group (MG)</span><input id="mg" type="number" step="0.1" min="-2" max="10" /></label>
           <p class="hint" id="mg-hint"></p>
         </div>
         <div data-family="aquacrop" hidden>
           <div class="two">
-            <label class="field"><span>Ciclo (dias)</span><input id="cycle-days" type="number" min="60" max="220" step="1" value="120" /></label>
-            <label class="field"><span>Fator de ciclo</span><input id="cycle-factor" type="number" min="0.75" max="1.25" step="0.05" value="1" /></label>
+            <label class="field"><span data-pt="Ciclo (dias)">Cycle (days)</span><input id="cycle-days" type="number" min="60" max="220" step="1" value="120" /></label>
+            <label class="field"><span data-pt="Fator de ciclo">Cycle factor</span><input id="cycle-factor" type="number" min="0.75" max="1.25" step="0.05" value="1" /></label>
           </div>
-          <label class="field"><span>Graus-dia até a maturidade <b class="opt">opcional</b></span><input id="gdd" type="number" min="500" step="10" /></label>
+          <label class="field"><span><span data-pt="Graus-dia até a maturidade">Growing degrees to maturity</span> <b class="opt" data-pt="opcional">optional</b></span><input id="gdd" type="number" min="500" step="10" /></label>
           <p class="hint" id="gdd-hint"></p>
         </div>
         <details class="coef">
-          <summary>Todos os parâmetros do cultivar</summary>
-          <p class="hint">Em branco: valor padrão. Faixa de treino do emulador ao lado; valores fora dela são extrapolação.</p>
+          <summary data-pt="Todos os parâmetros do cultivar">All cultivar parameters</summary>
+          <p class="hint" data-pt="Em branco: valor padrão. Faixa de treino do emulador ao lado; valores fora dela são extrapolação.">Blank: default value. The emulator's training range is shown on the right; values outside it are extrapolation.</p>
           <div id="coefficients"></div>
-          <button type="button" class="link" id="reset-coef">restaurar padrões</button>
+          <button type="button" class="link" id="reset-coef" data-pt="restaurar padrões">restore defaults</button>
         </details>
       </section>
 
       <section class="block">
-        <h2><span class="step-n">5</span> Manejo e cenário</h2>
-        <div class="segmented small" role="radiogroup" aria-label="Água">
-          <label><input type="radio" name="water" value="rainfed" checked /><span>Sequeiro</span></label>
-          <label><input type="radio" name="water" value="irrigated" /><span>Sem estresse hídrico</span></label>
+        <h2><span class="step-n">5</span> <span data-pt="Manejo e cenário">Management and scenario</span></h2>
+        <div class="segmented small" role="radiogroup" aria-label="Water" data-pt-aria-label="Água">
+          <label><input type="radio" name="water" value="rainfed" checked /><span data-pt="Sequeiro">Rainfed</span></label>
+          <label><input type="radio" name="water" value="irrigated" /><span data-pt="Sem estresse hídrico">No water stress</span></label>
         </div>
-        <label class="field"><span>CO₂ (ppm) <b class="opt">vazio: Mauna Loa</b></span><input id="co2" type="number" min="300" max="900" step="10" placeholder="observado na safra" /></label>
+        <label class="field"><span>CO₂ (ppm) <b class="opt" data-pt="vazio: Mauna Loa">blank: Mauna Loa</b></span><input id="co2" type="number" min="300" max="900" step="10" placeholder="observed in the season" data-pt-placeholder="observado na safra" /></label>
         <div class="two">
           <label class="field"><span>ΔT (°C)</span><input id="dt" type="number" min="-1" max="4" step="0.5" value="0" /></label>
-          <label class="field"><span>Chuva ×</span><input id="rain-factor" type="number" min="0.7" max="1.3" step="0.05" value="1" /></label>
+          <label class="field"><span data-pt="Chuva ×">Rain ×</span><input id="rain-factor" type="number" min="0.7" max="1.3" step="0.05" value="1" /></label>
         </div>
-        <p class="hint">Faixas do treino: ΔT −1 a +4 °C nas temperaturas, chuva ×0,7 a ×1,3, CO₂ 350–800 ppm. Fixos no treino: 30 plantas/m², 50 cm entre linhas, sem estresse de nitrogênio.</p>
+        <p class="hint" data-pt="Faixas do treino: ΔT −1 a +4 °C nas temperaturas, chuva ×0,7 a ×1,3, CO₂ 350–800 ppm. Fixos no treino: 30 plantas/m², 50 cm entre linhas, sem estresse de nitrogênio.">Training ranges: ΔT −1 to +4 °C on the temperatures, rain ×0.7 to ×1.3, CO₂ 350–800 ppm. Fixed in training: 30 plants/m², 50 cm rows, no nitrogen stress.</p>
       </section>
     </aside>
 
@@ -127,18 +133,18 @@
   <div class="modal" id="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-title" hidden>
     <div class="modal-box">
       <div class="modal-head">
-        <div><h2 id="map-title">Escolha o local no mapa</h2><p class="hint">Clique no mapa ou busque uma cidade. Funciona em qualquer lugar do mundo; o treino cobriu as áreas de soja entre 44° S e 63° N.</p></div>
-        <button type="button" class="close" id="map-close" aria-label="Fechar">×</button>
+        <div><h2 id="map-title" data-pt="Escolha o local no mapa">Pick the site on the map</h2><p class="hint" data-pt="Clique no mapa ou busque uma cidade. Funciona em qualquer lugar do mundo; o treino cobriu as áreas de soja entre 44° S e 63° N.">Click on the map or search a place. It works anywhere in the world; training covered the soybean areas between 44° S and 63° N.</p></div>
+        <button type="button" class="close" id="map-close" aria-label="Close" data-pt-aria-label="Fechar">×</button>
       </div>
       <form class="map-search" id="map-search">
-        <input type="search" id="map-query" placeholder="Buscar cidade ou região (ex.: Cascavel, PR)" autocomplete="off" />
-        <button type="submit" class="secondary">Buscar</button>
+        <input type="search" id="map-query" placeholder="Search a city or region (e.g. Des Moines, Iowa)" data-pt-placeholder="Buscar cidade ou região (ex.: Cascavel, PR)" autocomplete="off" />
+        <button type="submit" class="secondary" data-pt="Buscar">Search</button>
       </form>
       <ul class="map-results" id="map-results" hidden></ul>
       <div id="map" class="map"></div>
       <div class="modal-foot">
-        <span id="map-picked" class="picked">Nenhum ponto escolhido.</span>
-        <button type="button" class="primary" id="map-use" disabled>Usar este local</button>
+        <span id="map-picked" class="picked"></span>
+        <button type="button" class="primary" id="map-use" disabled data-pt="Usar este local">Use this site</button>
       </div>
     </div>
   </div>

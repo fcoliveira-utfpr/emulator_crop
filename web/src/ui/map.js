@@ -2,6 +2,7 @@
 // are loaded only when the map is first opened.
 
 import { $, h, fmt } from './dom.js';
+import { getLang, t } from '../i18n.js';
 
 let L = null, map = null, marker = null, picked = null, onPick = null;
 
@@ -29,19 +30,19 @@ function pick(lat, lon, label = null) {
   else marker.setLatLng([lat, lon]);
   const outside = lat < -43.75 || lat > 62.75;
   $('map-picked').replaceChildren(...[h('strong', `${fmt(lat, 4)}°, ${fmt(lon, 4)}°`), label ? h('span', ` · ${label}`) : null,
-    outside ? h('span.warn-text', ' · fora das latitudes do treino') : null].filter(Boolean));
+    outside ? h('span.warn-text', t(' · outside the training latitudes', ' · fora das latitudes do treino')) : null].filter(Boolean));
   $('map-use').disabled = false;
 }
 
 async function search(query) {
   const list = $('map-results');
   list.hidden = false;
-  list.replaceChildren(h('li.muted', 'Buscando…'));
+  list.replaceChildren(h('li.muted', t('Searching…', 'Buscando…')));
   try {
     const url = new URL('https://nominatim.openstreetmap.org/search');
-    url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: 6, 'accept-language': 'pt-BR' });
+    url.search = new URLSearchParams({ q: query, format: 'jsonv2', limit: 6, 'accept-language': getLang() === 'pt' ? 'pt-BR' : 'en' });
     const results = await (await fetch(url)).json();
-    if (!results.length) { list.replaceChildren(h('li.muted', 'Nada encontrado.')); return; }
+    if (!results.length) { list.replaceChildren(h('li.muted', t('Nothing found.', 'Nada encontrado.'))); return; }
     list.replaceChildren(...results.map((r) => h('li', h('button', { type: 'button', onclick: () => {
       const lat = +r.lat, lon = +r.lon;
       map.setView([lat, lon], 9);
@@ -49,7 +50,7 @@ async function search(query) {
       list.hidden = true;
     } }, r.display_name))));
   } catch (error) {
-    list.replaceChildren(h('li.muted', `Busca indisponível (${error.message}). Clique direto no mapa.`));
+    list.replaceChildren(h('li.muted', t(`Search unavailable (${error.message}). Click on the map instead.`, `Busca indisponível (${error.message}). Clique direto no mapa.`)));
   }
 }
 
@@ -59,7 +60,8 @@ export function setupMap(handler) {
   const close = () => { modal.hidden = true; };
   $('open-map').addEventListener('click', async () => {
     modal.hidden = false;
-    try { await ensureMap(); } catch (error) { $('map-picked').textContent = `Não foi possível abrir o mapa: ${error.message}`; return; }
+    if (!picked) $('map-picked').textContent = t('No point chosen.', 'Nenhum ponto escolhido.');
+    try { await ensureMap(); } catch (error) { $('map-picked').textContent = t(`Could not open the map: ${error.message}`, `Não foi possível abrir o mapa: ${error.message}`); return; }
     map.invalidateSize();
     const lat = Number($('lat').value), lon = Number($('lon').value);
     if ($('lat').value !== '' && $('lon').value !== '' && Number.isFinite(lat) && Number.isFinite(lon)) { map.setView([lat, lon], 7); pick(lat, lon); }

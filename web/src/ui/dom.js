@@ -1,5 +1,7 @@
 // Small DOM and formatting helpers.
 
+import { locale } from '../i18n.js';
+
 export const $ = (id) => document.getElementById(id);
 
 /** h('div.card#id', {attrs}, ...children) */
@@ -20,11 +22,12 @@ export function h(tag, attrs = {}, ...children) {
 }
 
 const nf = new Map();
-/** Number in pt-BR with `d` decimals ('—' when not finite). */
+/** Number in the interface locale with `d` decimals ('—' when not finite). */
 export function fmt(x, d = 1) {
   if (!Number.isFinite(x)) return '—';
-  if (!nf.has(d)) nf.set(d, new Intl.NumberFormat('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
-  return nf.get(d).format(x);
+  const k = `${locale()}:${d}`;
+  if (!nf.has(k)) nf.set(k, new Intl.NumberFormat(locale(), { minimumFractionDigits: d, maximumFractionDigits: d }));
+  return nf.get(k).format(x);
 }
 /** Sensible decimals for a value of this magnitude. */
 export const auto = (x) => fmt(x, !Number.isFinite(x) ? 0 : Math.abs(x) >= 100 ? 0 : Math.abs(x) >= 10 ? 1 : Math.abs(x) >= 1 ? 2 : 3);

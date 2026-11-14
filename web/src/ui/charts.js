@@ -3,6 +3,8 @@
 
 import * as Plot from '@observablehq/plot';
 import { h } from './dom.js';
+import { monthName } from '../engine/dates.js';
+import { locale } from '../i18n.js';
 
 export { Plot };
 
@@ -18,15 +20,13 @@ export function figure(title, note, { wide = false, legend = null } = {}) {
   return { card, body };
 }
 
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
-/** Default tick labels in Portuguese: dates as months (year on January), numbers with pt-BR separators. */
+/** Tick labels in the interface language: dates as months (year on January), numbers with local separators. */
 export const ptTick = (v) => {
   if (v instanceof Date) {
-    const m = v.getUTCMonth(), d = v.getUTCDate();
-    return d === 1 || d <= 7 ? (m === 0 ? `jan\n${v.getUTCFullYear()}` : MONTHS[m]) : `${d} ${MONTHS[m]}`;
+    const m = v.getUTCMonth() + 1, d = v.getUTCDate();
+    return d <= 7 ? (m === 1 ? `${monthName(1)}\n${v.getUTCFullYear()}` : monthName(m)) : `${d} ${monthName(m)}`;
   }
-  return typeof v === 'number' ? nf.format(v) : v;
+  return typeof v === 'number' ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 }).format(v) : v;
 };
 
 /** Render a Plot into `el`, sized to its width. */

@@ -4,13 +4,14 @@ import * as ort from 'onnxruntime-web/wasm';
 import { co2At } from './co2.js';
 import { seasonInputs } from './season.js';
 import { KEYS, outputMeta } from './units.js';
+import { getLang, t } from '../i18n.js';
 
 ort.env.wasm.numThreads = 1;              // no cross-origin isolation needed (GitHub Pages)
 const BATCH = 8192;
 
 export const EMULATORS = {
   'dssat-soybean-v1': 'DSSAT CROPGRO-Soybean',
-  'aquacrop-soybean-v1': 'AquaCrop · soja',
+  'aquacrop-soybean-v1': 'AquaCrop soybean',
 };
 
 export class Emulator {
@@ -18,11 +19,17 @@ export class Emulator {
     this.card = card; this.session = session;
     this.family = String(card.model).toLowerCase().includes('aquacrop') ? 'aquacrop' : 'dssat';
     this.keys = KEYS[this.family];
-    this.meta = outputMeta(card, this.family);
-    this.outputs = Object.keys(this.meta);
+    this.outputs = Object.keys(outputMeta(card, this.family));
     this.fixed = Object.fromEntries(card.inputs.filter((k) => card.domain[k]?.min === card.domain[k]?.max).map((k) => [k, card.domain[k].min]));
     this.lo = card.inputs.map((k) => card.domain[k].min); this.hi = card.inputs.map((k) => card.domain[k].max);
     this.qlo = card.inputs.map((k) => card.domain[k].q005); this.qhi = card.inputs.map((k) => card.domain[k].q995);
+  }
+
+  /** Output metadata in the current interface language. */
+  get meta() {
+    const lang = getLang();
+    if (this._metaLang !== lang) { this._meta = outputMeta(this.card, this.family); this._metaLang = lang; }
+    return this._meta;
   }
 
   static async load(name, base = import.meta.env?.BASE_URL ?? '/', fetcher = fetch) {
@@ -47,7 +54,7 @@ export class Emulator {
   async predict(records) {
     const n = this.card.inputs.length;
     const rows = records.map((rec) => {
-      if (!rec) return { ok: false, outputs: {}, outOfDomain: [], rare: [], reason: 'clima insuficiente para a safra' };
+      if (!rec) return { ok: false, outputs: {}, outOfDomain: [], rare: [], reason: t('not enough weather for the season', 'clima insuficiente para a safra') };
       const x = this.card.inputs.map((k) => rec[k]);
       const outOfDomain = [], rare = [];
       x.forEach((v, j) => {
@@ -55,7 +62,7 @@ export class Emulator {
         else if (v < this.qlo[j] || v > this.qhi[j]) rare.push(this.card.inputs[j]);
       });
       const ok = x.every(Number.isFinite);
-      return { ok, x, outputs: {}, outOfDomain, rare, reason: ok ? null : 'entradas incompletas (falta clima)' };
+      return { ok, x, outputs: {}, outOfDomain, rare, reason: ok ? null : t('incomplete inputs (missing weather)', 'entradas incompletas (falta clima)') };
     });
     const good = rows.filter((r) => r.ok);
     for (let k = 0; k < good.length; k += BATCH) {
