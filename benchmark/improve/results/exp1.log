@@ -1,0 +1,6 @@
+  1_phases: fold 1/5 (1.1 min)
+  1_phases: fold 2/5 (3.5 min)
+  1_phases: fold 3/5 (4.9 min)
+  1_phases: fold 4/5 (6.5 min)
+  1_phases: fold 5/5 (9.4 min)
+[1_phases] yield RMSE 389.8 kg/ha (R² 0.9583, rel 0.271); maturity 3.29 d; median R² 0.9560

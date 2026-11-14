@@ -5,6 +5,11 @@
 >>> res = emu.predict(weather, lat=-24.0, elev=500, soil=profile, sowing="2023-10-15",
 ...                   cultivar=emu.cultivar(mg=6.2))
 >>> res.outputs, res.out_of_domain, res.rare_inputs, res.levels
+
+Emulators with a ``sequence`` entry in the card (v2) also read the daily weather of the season
+(:func:`cropemu.features.season_sequence`). :meth:`Emulator.inputs` then adds a ``sequence_id``
+column that points to the sequence kept by the emulator, so the table can be copied, edited
+(e.g. other cultivar values) and concatenated before :meth:`Emulator.predict_inputs`.
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from . import units
-from .features import WeatherSeries, co2_at, gdd, season_inputs, soil_features
+from .features import WeatherSeries, co2_at, gdd, season_inputs, season_sequence, soil_features
 from .soil.ptf import hydraulics
 
 #: Folder of the emulators shipped with the package.
@@ -25,6 +30,8 @@ ZOO = Path(__file__).parent / "zoo"
 
 #: Days of weather needed after sowing for the input windows (the thermal-time inputs may need more).
 WEATHER_DAYS_AFTER = 130
+#: Column of :meth:`Emulator.inputs` that identifies the daily sequence of a season (v2 emulators).
+SEQUENCE_ID = "sequence_id"
 
 
 @dataclass
@@ -56,6 +63,18 @@ class Emulator:
         self.outputs_ = list(self.card["outputs"])
         self.cultivar_ = list(self.card.get("cultivar", []))
         self._session = None
+        self._sequences: dict[int, np.ndarray] = {}
+
+    @property
+    def uses_sequence(self) -> bool:
+        """True when the network also reads the daily weather of the season (v2 emulators)."""
+        return "sequence" in self.card
+
+    @property
+    def weather_days_after(self) -> int:
+        """Days of weather needed after sowing (130 for the input windows; the daily sequence of v2
+        emulators reads up to day 170, and days past the end of the weather are zeros)."""
+        return max(WEATHER_DAYS_AFTER, self.card["sequence"]["days"][1] if self.uses_sequence else 0)
 
     def __repr__(self):
         c = self.card
@@ -194,8 +213,19 @@ class Emulator:
         names = np.array(self.inputs_)
         return pd.Series([list(names[b]) for b in bad], index=X.index, name="rare_inputs" if rare else "out_of_domain")
 
-    def predict_inputs(self, X: pd.DataFrame) -> Prediction:
-        """Predict from a table of inputs (columns: :attr:`inputs_`)."""
+    def sequence_of(self, X: pd.DataFrame) -> np.ndarray:
+        """The daily sequences of the rows of an input table of :meth:`inputs` (``sequence_id``)."""
+        if SEQUENCE_ID not in X:
+            raise KeyError(f"this emulator also reads the daily weather: build the table with emu.inputs() "
+                           f"(it has a {SEQUENCE_ID!r} column), or pass sequence= to predict_inputs")
+        try:
+            return np.stack([self._sequences[int(k)] for k in X[SEQUENCE_ID]])
+        except KeyError as e:
+            raise KeyError(f"unknown {SEQUENCE_ID} {e}: the table comes from another emulator object") from None
+
+    def predict_inputs(self, X: pd.DataFrame, sequence: np.ndarray | None = None) -> Prediction:
+        """Predict from a table of inputs (columns: :attr:`inputs_`; for v2 emulators also the
+        ``sequence_id`` of :meth:`inputs`, or the daily sequences in ``sequence``: rows x channels x days)."""
         missing = [c for c in self.inputs_ if c not in X]
         if missing:
             raise KeyError(f"missing inputs: {missing}")
@@ -205,7 +235,13 @@ class Emulator:
         out = np.full((len(X), len(self.outputs_)), np.nan)
         if ok.any():
             o = self.card["onnx"]
-            out[ok] = self.session.run([o["output"]], {o["input"]: a[ok]})[0]
+            feed = {o["input"]: a[ok]}
+            if self.uses_sequence:
+                s = self.sequence_of(X) if sequence is None else np.asarray(sequence)
+                feed[o["sequence_input"]] = s[ok].astype("float32")
+            for i in range(0, int(ok.sum()), 4096):               # bounded memory for large grids
+                rows = np.flatnonzero(ok)[i:i + 4096]
+                out[rows] = self.session.run([o["output"]], {k: v[i:i + 4096] for k, v in feed.items()})[0]
         P = pd.DataFrame(out, index=X.index, columns=self.outputs_)
         # ratios computed from predicted outputs: name -> [numerator, denominator, factor, floor]
         for name, (num, den, f, floor) in self.card.get("derived", {}).items():
@@ -218,7 +254,8 @@ class Emulator:
         """Inputs of the seasons sown on ``sowing`` (a date or a list of dates).
 
         ``weather``: daily table (``cropemu.weather.fetch`` columns, filled) covering 30 days
-        before to at least 130 days after each sowing; ``soil``: standard profile (e.g.
+        before to at least 130 days after each sowing (v2 emulators read the daily weather up to
+        day 170: give it when available; :attr:`weather_days_after`); ``soil``: standard profile (e.g.
         ``cropemu.soil.soilgrids.fetch``; the water retention is computed with the method used in
         training, ``card["hydraulics"]``, unless it already has ``ll``/``dul``) or the dict of
         :func:`cropemu.features.soil_features`;
@@ -239,10 +276,16 @@ class Emulator:
         for d in dates:
             d = pd.Timestamp(d)
             c = co2_at(d + pd.Timedelta(days=60)) if co2 is None else co2
-            rows.append(season_inputs(w, s, d, {k: cultivar[k] for k in self.cultivar_}, irrigated=irrigated, co2=c,
-                                      dt=dt, rain_factor=rain_factor, water_balance=self.card.get("water_balance", True),
-                                      initial_water=self.card.get("initial_water", 0.5),
-                                      thermal=self.card.get("thermal")))
+            rec = season_inputs(w, s, d, {k: cultivar[k] for k in self.cultivar_}, irrigated=irrigated, co2=c,
+                                dt=dt, rain_factor=rain_factor, water_balance=self.card.get("water_balance", True),
+                                initial_water=self.card.get("initial_water", 0.5), thermal=self.card.get("thermal"))
+            if self.uses_sequence:
+                key = len(self._sequences)
+                self._sequences[key] = season_sequence(w, d, s["paw_mm"], dt, rain_factor,
+                                                       self.card.get("initial_water", 0.5),
+                                                       tuple(self.card["sequence"]["days"]))
+                rec[SEQUENCE_ID] = key
+            rows.append(rec)
         # inputs with one value in training keep it (the water balance above used the real soil)
         return pd.DataFrame(rows, index=pd.DatetimeIndex(dates, name="sowing")).assign(**self.fixed_inputs())
 

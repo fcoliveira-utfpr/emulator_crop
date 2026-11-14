@@ -11,7 +11,7 @@ md, code = nbf.v4.new_markdown_cell, nbf.v4.new_code_cell
 
 CFG = {
     "dssat": dict(
-        file="dssat_soybean.ipynb", emu="dssat-soybean-v1", title="DSSAT CROPGRO-Soybean emulator",
+        file="dssat_soybean.ipynb", emu="dssat-soybean-v2", title="DSSAT CROPGRO-Soybean emulator",
         model="DSSAT 4.8 CROPGRO-Soybean", yld="HWAM", yscale="1e-3", mat="MDAT_dap", flo="ADAT_dap",
         et="ETCM", rain="PRCM", bio="CWAM", bscale="1e-3",
         cultivar_doc="""In DSSAT the cultivar is a set of 14 coefficients. `emu.cultivar(mg=...)` returns the
@@ -30,7 +30,7 @@ later (photoperiod), which changes the yield and its year-to-year variability.""
               ("SFDUR", "seed filling duration (photothermal d)"), ("WTPSD", "max. seed weight (g)")],
     ),
     "aquacrop": dict(
-        file="aquacrop_soybean.ipynb", emu="aquacrop-soybean-v1", title="AquaCrop soybean emulator",
+        file="aquacrop_soybean.ipynb", emu="aquacrop-soybean-v2", title="AquaCrop soybean emulator",
         model="FAO AquaCrop 7.3", yld="Y(dry)", yscale="1.0", mat="MAT_dap", flo="FLO_dap",
         et="ET_crop", rain="Rain_crop", bio="BioMass", bscale="1.0",
         cultivar_doc="""AquaCrop's soybean has no photoperiod response: the cycle is a thermal time,
@@ -64,11 +64,14 @@ def notebook(key):
     cells = [
 md(f"""# {c['title']}: what it does and how to use it
 
-`cropemu` ships an emulator of **{c['model']}**: a neural network trained on ~118,000 simulated
+`cropemu` ships an emulator of **{c['model']}**: neural networks trained on ~118,000 simulated
 seasons at ~2,000 points of the world soybean area (NASA POWER weather, SoilGrids soil, GGCMI
 calendar). It predicts the phenology, yield, biomass and water balance of a season from the
-weather, the soil, the sowing date and the cultivar, in microseconds instead of the
-0.1-1 s of the crop model, and without installing it.
+weather, the soil, the sowing date and the cultivar, in a fraction of a millisecond instead of the
+0.1-1 s of the crop model, and without installing it. The development dates come from the mean of
+four networks on season summaries (30-day weather windows, soil, cultivar); the other outputs from
+a convolutional network that also reads the daily weather from 30 days before to 170 days after
+sowing, so it sees *when* heat, drought or rain fall in the cycle.
 
 This notebook is a tour of the library with one site (Londrina, Brazil) and one region:
 

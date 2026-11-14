@@ -21,3 +21,7 @@ examples/templates/
 artigo/
 analises/logs/
 analises/__pycache__/
+
+# large intermediate files and training logs
+benchmark/improve/results/*.npy
+benchmark/logs/

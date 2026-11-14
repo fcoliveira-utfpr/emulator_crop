@@ -16,7 +16,7 @@ translateDom();
 
 // ------------------------------------------------------------------ state
 const state = {
-  model: 'dssat-soybean-v1',
+  model: 'dssat-soybean-v2',
   emulators: {},           // name -> Emulator (loaded on demand)
   site: null,              // {lat, lon, elev, ws, table, info, profile, soilSource}
   tab: 'safra',
@@ -347,6 +347,7 @@ function renderTabs() {
     type: 'button', role: 'tab', 'aria-selected': t.id === state.tab,
     onclick: () => { state.tab = t.id; renderTabs(); refresh(); },
   }, t.label)));
+  $('tabs').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 let timer = null, run = 0;
@@ -401,6 +402,7 @@ function emptyState() {
       h('button.chip', { type: 'button', onclick: () => $('open-map').click() }, t('Pick on the map…', 'Escolher no mapa…'))),
     h('ul.features',
       h('li', h('strong', t('One season', 'Uma safra')), t(' — every model output (phenology, yield, biomass, water balance), domain warnings, growth curves and the weather of the cycle.', ' — todas as saídas do modelo (fenologia, produtividade, biomassa, balanço hídrico), avisos de domínio, curvas de crescimento e o clima do ciclo.')),
+      h('li', h('strong', t('Crop monitoring', 'Monitoramento da cultura')), t(' — the season in progress: weather observed so far and the 16-day forecast (Open-Meteo), the rest of the cycle from each past year adjusted by the ECMWF seasonal forecast; expected yield and yield gap followed week by week.', ' — a safra em andamento: clima observado até agora e a previsão de 16 dias (Open-Meteo), o resto do ciclo de cada ano passado ajustado pela previsão sazonal do ECMWF; produtividade esperada e yield gap acompanhados semana a semana.')),
       h('li', h('strong', t('Many years', 'Série de anos')), t(' — year-to-year variability, rainfed vs. no water stress, rain and evapotranspiration.', ' — variabilidade entre anos, sequeiro × sem estresse hídrico, chuva e evapotranspiração.')),
       h('li', h('strong', t('Sowing window', 'Janela de semeadura')), t(' — year × date map, median, risk bands and best date.', ' — mapa ano × data, mediana, faixas de risco e melhor data.')),
       h('li', h('strong', t('Cultivars', 'Cultivares')), t(' — maturity groups or cycle lengths and the sensitivity to each parameter.', ' — grupos de maturidade ou ciclos e sensibilidade a cada parâmetro.')),
@@ -408,6 +410,7 @@ function emptyState() {
 }
 
 // ------------------------------------------------------------------ start
+$('goto-about').addEventListener('click', () => { state.tab = 'sobre'; renderTabs(); refresh(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 setupMap((lat, lon) => { $('lat').value = lat.toFixed(4); $('lon').value = lon.toFixed(4); $('preset').value = ''; loadSite(); });
 renderTabs();
 onModel();

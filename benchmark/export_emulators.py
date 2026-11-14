@@ -4,12 +4,18 @@ Usage (after phase1_emulators.py and phase1_report.py):
 
     python benchmark/export_emulators.py --name dssat_v1 --emulator mlp_grouped --zoo-name dssat-soybean-v1
 
+The daily-sequence emulator ("cnn") is not fitted here: it is read from
+data/<name>/benchmark/cnn_final.pkl (benchmark/train_sequence.py ... fit):
+
+    python benchmark/export_emulators.py --name dssat_v1 --emulator cnn --zoo-name dssat-soybean-v2
+
 Writes data/zoo/<zoo-name>/: model.onnx and card.json (inputs, outputs, domain, acceptance
 levels of the block validation, training data). Load with ``cropemu.load``.
 """
 
 import argparse
 import json
+import pickle
 import time
 from pathlib import Path
 
@@ -57,7 +63,7 @@ def cultivar_info(aquacrop: bool) -> dict:
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True)
-    ap.add_argument("--emulator", required=True, choices=list(FACTORIES))
+    ap.add_argument("--emulator", required=True, choices=[*FACTORIES, "cnn"])
     ap.add_argument("--zoo-name", required=True)
     args = ap.parse_args()
 
@@ -66,8 +72,19 @@ def main():
     X, Y_all, info = build(data, derived=True)
     Y = Y_all.drop(columns=[c for c in DERIVED if c in Y_all])
     t0 = time.time()
-    em = FACTORIES[args.emulator]().fit(X, Y, groups=info["block"])
-    print(f"fit on {len(X)} seasons in {(time.time() - t0) / 60:.1f} min", flush=True)
+    seq = None
+    if args.emulator == "cnn":
+        from cropemu_bench.sequence import build_sequences
+
+        with open(data / "benchmark" / "cnn_final.pkl", "rb") as f:
+            em = pickle.load(f)
+        seq = build_sequences(data, X)
+        em.offsets_ = em.offsets
+        fit_minutes = em.fit_seconds_ / 60
+    else:
+        em = FACTORIES[args.emulator]().fit(X, Y, groups=info["block"])
+        fit_minutes = (time.time() - t0) / 60
+    print(f"fit on {len(X)} seasons in {fit_minutes:.1f} min", flush=True)
 
     acc = pd.read_csv(data / "benchmark" / f"acceptance_{args.emulator}_block.csv", index_col="target")
     meta = json.loads((data / "meta.json").read_text())
@@ -81,11 +98,15 @@ def main():
         "acceptance": {c: {"level": r["level"], "rmse": r["rmse"], "r2": r["r2"], "relative_rmse": r["relative_rmse"],
                            "criterion": r["criterion"]} for c, r in acc.iterrows()},
         "validation": "5-fold cross-validation by 5-degree spatial blocks (out-of-fold metrics)",
-        "emulator": {"type": args.emulator, "offsets": getattr(em, "offsets_", {}), "fit_minutes": (time.time() - t0) / 60},
+        "emulator": {"type": args.emulator, "offsets": getattr(em, "offsets_", {}), "fit_minutes": fit_minutes,
+                     **({"description": "development dates: mean of 4 MLPs (seeds 0-3) on the season inputs; "
+                                        "other outputs: 1-D convolutional network over the daily weather "
+                                        "(30 days before to 170 after sowing) joined to the season inputs"}
+                        if args.emulator == "cnn" else {})},
         "training": {"dataset": args.name, "seasons": len(X), "points": int(info["point"].nunique()),
                      "weather": meta.get("weather"), "soil": meta.get("soil"), "created": time.strftime("%Y-%m-%d")},
     }
-    out = export(em, X, ROOT / "data" / "zoo" / args.zoo_name, card)
+    out = export(em, X, ROOT / "data" / "zoo" / args.zoo_name, card, seq=seq)
     print(f"exported to {out}", flush=True)
 
 

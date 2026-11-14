@@ -1,0 +1,7 @@
+[0_baseline_published] yield RMSE 453.8 kg/ha (R² 0.9435, rel 0.315); maturity 3.29 d; median R² 0.9411
+  grouped fold 1/5: fit 133s
+  grouped fold 2/5: fit 90s
+  grouped fold 3/5: fit 250s
+  grouped fold 4/5: fit 184s
+  grouped fold 5/5: fit 213s
+[0_baseline_seed0] yield RMSE 453.8 kg/ha (R² 0.9435, rel 0.315); maturity 3.29 d; median R² 0.9411

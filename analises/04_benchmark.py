@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from common import MODELS, ROOT, SERIES, TAB, save
 
 NAMES = {"ridge": "Ridge\nregression", "gb": "Gradient\nboosting", "mlp": "MLP", "mlp_grouped": "MLP by\noutput group",
-         "mlp_offset": "MLP by group\n+ thermal offset"}
+         "mlp_offset": "MLP by group\n+ thermal offset", "cnn": "MLP dates +\nCNN daily weather"}
 KEY = {"dssat": ("HWAM", "MDAT_dap", "ETCM", 1e-3), "aquacrop": ("Y(dry)", "MAT_dap", "ET_crop", 1.0)}
 rows, per_output = [], []
 for m, cfg in MODELS.items():
@@ -38,12 +38,14 @@ infl.to_csv(TAB / "random_vs_block_inflation.csv")
 print(infl.round(1).to_string())
 
 fig, axes = plt.subplots(1, 2, figsize=(7.5, 3.2), sharey=True)
-order = ["ridge", "gb", "mlp", "mlp_grouped", "mlp_offset"]
+order = ["ridge", "gb", "mlp", "mlp_grouped", "mlp_offset", "cnn"]
 for ax, (m, cfg) in zip(axes, MODELS.items()):
     t = bench[bench["model"] == m].set_index(["emulator", "validation"])
-    ems = [e for e in order if (e, "block") in t.index and (e, "random") in t.index]
+    ems = [e for e in order if (e, "block") in t.index]          # the CNN has block validation only
     x = np.arange(len(ems))
-    ax.bar(x - 0.2, [t.loc[(e, "random"), "yield_rmse"] for e in ems], 0.4, color="#9ec5f4", label="random folds")
+    rnd = [(i, e) for i, e in enumerate(ems) if (e, "random") in t.index]
+    ax.bar([i - 0.2 for i, _ in rnd], [t.loc[(e, "random"), "yield_rmse"] for _, e in rnd], 0.4, color="#9ec5f4",
+           label="random folds")
     ax.bar(x + 0.2, [t.loc[(e, "block"), "yield_rmse"] for e in ems], 0.4, color=SERIES[0], label="5° spatial blocks")
     for i, e in enumerate(ems):
         ax.text(i + 0.2, t.loc[(e, "block"), "yield_rmse"], f"{t.loc[(e, 'block'), 'median_r2']:.2f}", ha="center", va="bottom", fontsize=6)

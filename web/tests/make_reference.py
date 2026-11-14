@@ -21,7 +21,8 @@ w = fill_gaps(read_weather(DATA / "clima_A.csv", lat=s["lat"], lon=s["lon"], ele
 SOWINGS = ["1995-10-02", "2003-11-15", "2010-09-25", "2020-12-10"]
 SCEN = [dict(dt=0.0, rain_factor=1.0), dict(dt=2.0, rain_factor=0.8), dict(dt=-1.0, rain_factor=1.2)]
 cases = []
-for name in ("dssat-soybean-v1", "aquacrop-soybean-v1"):
+import sys
+for name in sys.argv[1:] or ("dssat-soybean-v2", "aquacrop-soybean-v2"):
     emu = cropemu.load(name)
     if emu.family == "dssat":
         cultivars = {"lat": emu.cultivar(lat=s["lat"]), "mg7": emu.cultivar(mg=7.0)}

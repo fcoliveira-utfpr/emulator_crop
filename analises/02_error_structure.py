@@ -7,9 +7,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from common import FIG, LEVEL_COLOR, MODELS, ROOT, SERIES, TAB, load, r2, rmse, save
+from common import FIG, LEVEL_COLOR, MODELS, REGIONS, draw_land, ROOT, SERIES, TAB, load, r2, regions, rmse, save
 
 data = {m: load(m) for m in MODELS}
+for m in data:                                     # world region of every season (country of its point)
+    info = data[m][3]
+    pts = info.groupby("point")[["lat", "lon"]].first()
+    reg = regions(pts["lat"], pts["lon"]).set_index(pts.index)
+    data[m][3]["region"] = info["point"].map(reg["region"])
 
 # ---------------------------------------------------------------- 1. outputs and acceptance levels
 rows = []
@@ -74,6 +79,7 @@ def strata(info):
     s["water regime"] = np.where(info["water"], "rainfed", "no water stress")
     s["climate"] = np.where(info["perturbed"], "perturbed", "historical")
     s["point"] = info["kind"].map({"soy": "soybean area", "expansion": "outside soybean area"})
+    s["world region"] = pd.Categorical(info["region"], REGIONS, ordered=True)
     return s
 
 rows = []
@@ -92,7 +98,7 @@ st = pd.DataFrame(rows)
 st.to_csv(TAB / "yield_error_by_stratum.csv", index=False)
 print(st.round(3).to_string())
 
-fig, axes = plt.subplots(1, 2, figsize=(7.5, 4.6), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(7.5, 6.2), sharey=True)
 order = st[st["model"] == "dssat"].reset_index(drop=True)
 labels = [f"{a}: {b}" for a, b in zip(order["stratum"], order["class"])]
 for ax, (m, cfg) in zip(axes, MODELS.items()):
@@ -118,6 +124,7 @@ for ax, (m, cfg) in zip(axes, MODELS.items()):
     pt = pt.join(info.groupby("point")[["lat", "lon"]].first())
     pt["model"] = m
     rows.append(pt)
+    draw_land(ax)
     sc = ax.scatter(pt["lon"], pt["lat"], c=pt["rmse"], s=5, cmap="viridis_r", vmin=0, vmax=np.nanpercentile(pt["rmse"], 98), linewidths=0)
     plt.colorbar(sc, ax=ax, label="RMSE of yield (t ha$^{-1}$)", shrink=0.85, pad=0.01)
     ax.set(xlim=(-130, 150), ylim=(-45, 62), aspect="equal", title=f"{cfg['label']}: median {pt['rmse'].median():.2f} t ha$^{{-1}}$ per point",
@@ -200,3 +207,43 @@ save(fig, "fig_responses")
 resp = pd.DataFrame(rows)
 resp.to_csv(TAB / "climate_response_slopes.csv", index=False)
 print(resp.round(4).to_string())
+
+
+# ---------------------------------------------------------------- 7. world regions: v2 (CNN) vs v1 (MLP)
+PREVIOUS = {"dssat": "mlp_grouped", "aquacrop": "mlp_offset"}
+rows = []
+for m, cfg in MODELS.items():
+    X, Y, P, info = data[m]
+    old = pd.read_parquet(ROOT / "data" / cfg["data"] / "benchmark" / f"{PREVIOUS[m]}_block_oof.parquet").loc[Y.index]
+    y = Y[cfg["yld"]] * cfg["yscale"]
+    for reg in REGIONS:
+        idx = info.index[info["region"] == reg]
+        e_new = (P[cfg["yld"]] * cfg["yscale"] - y).loc[idx]
+        e_old = (old[cfg["yld"]] * cfg["yscale"] - y).loc[idx]
+        rf = idx[(info.loc[idx, "water"].astype(bool)) & ~info.loc[idx, "perturbed"].astype(bool)]
+        d = pd.DataFrame({"y": y.loc[rf], "p": P.loc[rf, cfg["yld"]] * cfg["yscale"], "pt": info.loc[rf, "point"]})
+        within = d.groupby("pt").apply(lambda g: g["y"].corr(g["p"]) if len(g) > 4 else np.nan).median()
+        rows.append({"model": m, "region": reg, "points": info.loc[idx, "point"].nunique(), "seasons": len(idx),
+                     "mean_yield": y.loc[idx].mean(), "rmse_v1": rmse(e_old), "rmse_v2": rmse(e_new),
+                     "change_%": 100 * (rmse(e_new) / rmse(e_old) - 1), "rrmse_v2_%": 100 * rmse(e_new) / y.loc[idx].mean(),
+                     "r2_v2": r2(y.loc[idx], (P[cfg["yld"]] * cfg["yscale"]).loc[idx]), "bias_v2": e_new.mean(),
+                     "maturity_rmse_v2": rmse((P[cfg["mat"]] - Y[cfg["mat"]]).loc[idx]),
+                     "within_site_r_v2": within})
+rg = pd.DataFrame(rows)
+rg.to_csv(TAB / "yield_error_by_region.csv", index=False)
+print(rg.round(3).to_string())
+
+fig, axes = plt.subplots(1, 2, figsize=(7.5, 3.6), sharey=True)
+yy = np.arange(len(REGIONS))
+for ax, (m, cfg) in zip(axes, MODELS.items()):
+    t = rg[rg["model"] == m].set_index("region").loc[REGIONS]
+    ax.barh(yy - 0.2, t["rmse_v1"], 0.38, color="#c9c9c9", label="v1: MLP on 30-day windows")
+    ax.barh(yy + 0.2, t["rmse_v2"], 0.38, color=SERIES[0], label="v2: + CNN on the daily weather")
+    for i, (v, rr) in enumerate(zip(t["rmse_v2"], t["r2_v2"])):
+        ax.text(v, i + 0.2, f" R² {rr:.2f}", va="center", fontsize=5.8)
+    ax.set_yticks(yy, [f"{r} ({n})" for r, n in zip(REGIONS, t["points"])], fontsize=6.5)
+    ax.invert_yaxis(); ax.grid(axis="y", visible=False)
+    ax.set(xlabel="RMSE of grain yield (t ha$^{-1}$)", title=cfg["label"])
+fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=2, bbox_to_anchor=(0.5, -0.01))
+fig.tight_layout(rect=(0, 0.07, 1, 1))
+save(fig, "fig_regions")

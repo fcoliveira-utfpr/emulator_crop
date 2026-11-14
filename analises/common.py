@@ -15,9 +15,9 @@ FIG.mkdir(exist_ok=True)
 TAB.mkdir(exist_ok=True)
 
 MODELS = {
-    "dssat": dict(data="dssat_v1", emulator="mlp_grouped", label="DSSAT CROPGRO-Soybean",
+    "dssat": dict(data="dssat_v1", emulator="cnn", label="DSSAT CROPGRO-Soybean",
                   yld="HWAM", yscale=1e-3, mat="MDAT_dap", flo="ADAT_dap", et="ETCM", bio="CWAM"),
-    "aquacrop": dict(data="aquacrop_v1", emulator="mlp_offset", label="AquaCrop 7.3",
+    "aquacrop": dict(data="aquacrop_v1", emulator="cnn", label="AquaCrop 7.3",
                      yld="Y(dry)", yscale=1.0, mat="MAT_dap", flo="FLO_dap", et="ET_crop", bio="BioMass"),
 }
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
@@ -63,3 +63,69 @@ def save(fig, name):
     fig.savefig(FIG / f"{name}.png")
     plt.close(fig)
     print("figure:", name)
+
+
+# ---------------------------------------------------------------- countries and world regions
+#: Natural Earth 1:110m countries (public domain, v5.1.2), used for the map outlines and the regions.
+COUNTRIES = ROOT / "analises" / "data" / "ne_110m_admin_0_countries.geojson"
+#: World regions used to report the error (order of the tables and colours of the maps).
+REGIONS = ["North America", "Brazil", "Argentina, Uruguay, Paraguay", "Other Latin America",
+           "Europe and Central Asia", "Africa and Middle East", "South Asia", "East Asia and Oceania"]
+
+
+def _polygons():
+    import json
+    from matplotlib.path import Path as MPath
+
+    out = []
+    for f in json.loads(COUNTRIES.read_text())["features"]:
+        p, g = f["properties"], f["geometry"]
+        polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+        iso = p["ADM0_A3"]
+        for poly in polys:
+            out.append((iso, p["SUBREGION"], p["CONTINENT"], MPath(np.asarray(poly[0]))))
+    return out
+
+
+def world_region(iso: str, subregion: str, continent: str) -> str:
+    if iso in ("USA", "CAN"):
+        return "North America"
+    if iso == "BRA":
+        return "Brazil"
+    if iso in ("ARG", "URY", "PRY"):
+        return "Argentina, Uruguay, Paraguay"
+    if continent in ("North America", "South America"):
+        return "Other Latin America"
+    if continent == "Europe" or subregion == "Central Asia" or iso == "RUS":
+        return "Europe and Central Asia"
+    if continent == "Africa" or subregion == "Western Asia":
+        return "Africa and Middle East"
+    if subregion == "Southern Asia":
+        return "South Asia"
+    return "East Asia and Oceania"
+
+
+def regions(lat, lon) -> pd.DataFrame:
+    """Country (ISO3) and world region of points (nearest country polygon when a coastal point falls
+    outside the 1:110m outlines)."""
+    lat, lon = np.asarray(lat, float), np.asarray(lon, float)
+    xy = np.column_stack([lon, lat])
+    polys = _polygons()
+    iso = np.full(len(xy), None, object)
+    reg = np.full(len(xy), None, object)
+    for c, sub, cont, path in polys:
+        inside = path.contains_points(xy) & (iso == None)  # noqa: E711
+        iso[inside], reg[inside] = c, world_region(c, sub, cont)
+    for i in np.flatnonzero(iso == None):  # noqa: E711
+        d = [np.min(np.hypot(*(path.vertices - xy[i]).T)) for _, _, _, path in polys]
+        c, sub, cont, _ = polys[int(np.argmin(d))]
+        iso[i], reg[i] = c, world_region(c, sub, cont)
+    return pd.DataFrame({"country": iso, "region": reg})
+
+
+def draw_land(ax, color="0.92", edge="0.75"):
+    """Country outlines (Natural Earth 1:110m) as the background of a lon/lat map."""
+    from matplotlib.patches import PathPatch
+
+    for _, _, _, path in _polygons():
+        ax.add_patch(PathPatch(path, facecolor=color, edgecolor=edge, linewidth=0.3, zorder=0))

@@ -117,10 +117,11 @@ for ax, (v, lab) in zip(axes, [("srad", "radiation (MJ/m²/d)"), ("tmax", "Tmax 
 fig.suptitle("Paragominas: station vs. NASA POWER on the same days", y=1.04)
 fig.tight_layout(); plt.show()"""),
 md("""**Completing the station.** A season needs weather from 30 days before sowing to at least 130 days
-after (more for the AquaCrop thermal time). The Paragominas file starts on 1 January 2018, a week
+after, and the network reads the daily weather up to 170 days after sowing (more for the AquaCrop
+thermal time). The Paragominas file starts on 1 January 2018, a week
 before the first sowing: `fill_from` takes the missing days (and missing columns, such as humidity)
 from NASA POWER and records how many values it took."""),
-code("""def season_weather(sid, sowing, after=150):
+code("""def season_weather(sid, sowing, after=175):
     \"\"\"Station weather of a season, completed with NASA POWER where the station has no data.\"\"\"
     s, w = SITES[sid], stations[sid]
     start, end = pd.Timestamp(sowing) - pd.Timedelta(days=31), pd.Timestamp(sowing) + pd.Timedelta(days=after)

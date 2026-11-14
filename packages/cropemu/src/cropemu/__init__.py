@@ -15,4 +15,4 @@ from .emulator import Emulator, Prediction, available, gdd_between, load, season
 
 __all__ = ["Emulator", "Prediction", "available", "gdd_between", "load", "season_gdd"]
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"

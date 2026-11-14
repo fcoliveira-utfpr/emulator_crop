@@ -21,7 +21,7 @@ const ws = new WeatherSeries(table, ref.lat, ref.elev);
 const profile = readSoils(fs.readFileSync(path.join(data, 'solo.csv'), 'utf8')).profiles[ref.farm];
 let worstIn = 0, worstOut = 0, worstCult = 0, fails = 0;
 const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-3);
-for (const name of ['dssat-soybean-v1', 'aquacrop-soybean-v1']) {
+for (const name of [...new Set(ref.cases.map((c) => c.model))]) {
   const emu = await Emulator.load(name, '', fetcher);
   const soil = prepareSoil(profile, emu.card, ref.lat).features;
   const cases = ref.cases.filter((c) => c.model === name);

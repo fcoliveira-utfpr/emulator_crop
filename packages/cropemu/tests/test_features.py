@@ -74,3 +74,27 @@ def test_bucket_stress_and_water_features():
     hot = season_features(wd, "2000-03-01", dt=3.0, paw_mm=150.0)
     assert hot["eto_0_30"] > f["eto_0_30"]                                          # warmer -> more ETo
     assert "eto_0_30" not in season_features(wd, "2000-03-01")
+
+
+def test_season_sequence():
+    from cropemu.features import SEQUENCE_CHANNELS, season_sequence
+
+    df = _weather()
+    df["rain"] = np.where(np.arange(len(df)) % 7 == 0, 15.0, 0.0)
+    w = WeatherSeries(df, lat=-23.3)
+    s = season_sequence(w, "2019-11-01", paw_mm=120, dt=2.0, rain_factor=0.8)
+    assert s.shape == (len(SEQUENCE_CHANNELS), 201) and s.dtype == np.float32
+    c = {n: s[k] for k, n in enumerate(SEQUENCE_CHANNELS)}
+    assert np.allclose(c["tmax"], 32) and np.allclose(c["tmin"], 20) and c["rain"].max() == pytest.approx(12)
+    assert c["das"][0] == pytest.approx(-0.3) and c["das"][-1] == pytest.approx(1.7)
+    # the same bucket and window values as the 30-day window inputs
+    eto, stress = w.bucket_stress("2019-11-01", 120, 0.5, -30, 130, dt=2.0, rain_factor=0.8)
+    np.testing.assert_allclose(c["stress"][:160], stress, atol=1e-6)
+    np.testing.assert_allclose(c["eto"][:160], eto, rtol=1e-6)
+    f = season_features(w, "2019-11-01", dt=2.0, rain_factor=0.8)
+    assert c["vpd"][30:60].mean() == pytest.approx(f["vpd_0_30"], rel=1e-6)
+    # past the end of the weather: zeros (except the day counter); before its start: an error
+    late = season_sequence(w, "2020-10-01", paw_mm=120)
+    assert (late[:-1, 122:] == 0).all() and (late[0, :122] > 0).all()      # weather ends on day 122
+    with pytest.raises(ValueError, match="cover"):
+        season_sequence(w, "2019-01-10", paw_mm=120)

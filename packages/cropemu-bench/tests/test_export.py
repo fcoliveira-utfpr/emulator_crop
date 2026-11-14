@@ -71,3 +71,35 @@ def test_export_and_library_prediction(tmp_path):
     assert edge.out_of_domain.iloc[0] == [] and edge.rare_inputs.iloc[0] == ["mg"]
     with pytest.raises(KeyError, match="cultivar"):
         emu.predict(_weather(), lat=-24.0, soil=SOIL, sowing=sow[0], cultivar={"mg": 5})
+
+
+def test_export_sequence_emulator(tmp_path):
+    """v2: dates from MLP seeds, other outputs from the CNN over the daily sequence."""
+    from cropemu.features import season_sequence
+    from cropemu_bench.emulators import SequenceEmulator
+
+    wdf = _weather()
+    w = WeatherSeries(wdf, lat=-24.0, elev=500)
+    soil = soil_features(SOIL)
+    rng = np.random.default_rng(2)
+    sow = pd.Timestamp("2018-03-01") + pd.to_timedelta(rng.integers(0, 900, 300), unit="D")
+    cult = [{"mg": m} for m in rng.uniform(4, 8, 300)]
+    X = pd.DataFrame([season_inputs(w, soil, s, c, irrigated=False, co2=400) for s, c in zip(sow, cult)])
+    seq = np.stack([season_sequence(w, s, soil["paw_mm"]) for s in sow])
+    Y = pd.DataFrame({"MDAT_dap": 100 + 5 * X["mg"], "HWAM": 1000 * X["mg"] + 50 * seq[:, 3, 30:90].sum(1)})
+    em = SequenceEmulator(seeds=(0, 1), conv={"max_epochs": 3, "patience": 3}, verbose=False)
+    em.fit(X, Y, groups=np.arange(len(X)) % 10, seq=seq)
+    export(em, X, tmp_path / "emu", {"name": "t", "model": "synthetic", "crop": "soybean", "cultivar": ["mg"],
+                                      "water_balance": True, "initial_water": 0.5, "hydraulics": "hybrid"}, seq=seq)
+    emu = cropemu.load(tmp_path / "emu")
+    assert emu.uses_sequence and emu.weather_days_after == 170
+    Xl = emu.inputs(wdf, lat=-24.0, elev=500, soil=SOIL, sowing=list(sow[:5]), cultivar=cult[0], co2=400)
+    assert "sequence_id" in Xl
+    big = pd.concat([Xl.assign(mg=m) for m in (5.0, 6.0)])        # edited copies keep their sequences
+    p = emu.predict_inputs(big).outputs
+    ref = em.predict(big[em.features_], np.concatenate([seq[:5]] * 2)).to_numpy()
+    np.testing.assert_allclose(p.to_numpy(), ref, rtol=1e-3, atol=1e-2)
+    with pytest.raises(KeyError, match="daily weather"):
+        emu.predict_inputs(X.iloc[:2])
+    np.testing.assert_allclose(emu.predict_inputs(X.iloc[:2], sequence=seq[:2]).outputs.to_numpy(),
+                               em.predict(X.iloc[:2], seq[:2]).to_numpy(), rtol=1e-3, atol=1e-2)
