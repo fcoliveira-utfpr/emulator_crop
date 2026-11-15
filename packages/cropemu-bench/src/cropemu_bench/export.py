@@ -7,6 +7,8 @@ thermal-time offsets are inside the graph, so the library needs only onnxruntime
 
 from __future__ import annotations
 
+import inspect
+
 import json
 from pathlib import Path
 
@@ -148,14 +150,16 @@ def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=
     g = torch_graph(em)
     seqs = isinstance(em, SequenceEmulator)
     x = torch.tensor(X.iloc[:16].to_numpy("float32"))
+    # TorchScript exporter: torch >= 2.9 defaults to the dynamo exporter, which needs onnxscript
+    legacy = {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}
     if seqs:
         s = torch.tensor(np.asarray(seq[:16], dtype="float32"))
         torch.onnx.export(g, (x, s), folder / "model.onnx", input_names=["inputs", "sequence"],
-                          output_names=["outputs"], opset_version=17,
+                          output_names=["outputs"], opset_version=17, **legacy,
                           dynamic_axes={"inputs": {0: "rows"}, "sequence": {0: "rows"}, "outputs": {0: "rows"}})
     else:
         torch.onnx.export(g, x, folder / "model.onnx", input_names=["inputs"], output_names=["outputs"],
-                          dynamic_axes={"inputs": {0: "rows"}, "outputs": {0: "rows"}}, opset_version=17)
+                          dynamic_axes={"inputs": {0: "rows"}, "outputs": {0: "rows"}}, opset_version=17, **legacy)
     pick = np.sort(np.random.default_rng(0).choice(len(X), min(check_rows, len(X)), replace=False))
     rows = X.iloc[pick]
     sess = ort.InferenceSession(str(folder / "model.onnx"), providers=["CPUExecutionProvider"])
