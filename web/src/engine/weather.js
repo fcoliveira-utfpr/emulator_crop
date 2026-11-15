@@ -7,7 +7,7 @@ import { t } from '../i18n.js';
 export const COLUMNS = ['tmax', 'tmin', 'srad', 'rain', 'rhum', 'wind', 'dewp'];
 export const REQUIRED = ['tmax', 'tmin', 'srad', 'rain'];
 /** Source of each value in a table. */
-export const SRC = { none: 0, user: 1, power: 2, filled: 3 };
+export const SRC = { none: 0, user: 1, power: 2, filled: 3, openmeteo: 4, forecast: 5 };
 export const POWER_FIRST_DAY = dayNumber('1984-01-01');
 
 // ------------------------------------------------------------------ tables
@@ -221,6 +221,30 @@ export class WeatherSeries {
       s = Math.max(s - eto[k] * (1 - stress[k]), 0);
     }
     return { eto, stress };
+  }
+
+  /** Daily sequence of a season for the convolutional emulators (cropemu.features.season_sequence):
+   * Float32Array of channels x days (tmax, tmin, srad, rain, eto, vpd, dayl, stress, das), with the
+   * climate perturbation applied; days past the end of the weather are zeros; null when the weather
+   * starts after the first day. */
+  sequence(sowing, pawMm, dt = 0, rainFactor = 1, initial = 0.5, days = [-30, 170]) {
+    const [a, b] = days, n = b - a + 1, i0 = this.index(sowing) + a;
+    if (i0 < 0) return null;
+    const m = Math.max(0, Math.min(n, this.n - i0)), out = new Float32Array(9 * n), cap = Math.max(pawMm, 1);
+    const z = (v) => (Number.isFinite(v) ? v : 0);
+    let s = initial * cap;
+    for (let k = 0; k < m; k++) {
+      const i = i0 + k, tx = this.tmax[i] + dt, tn = this.tmin[i] + dt;
+      const vpd = dt ? this.vpd[i] + ((satVp(tx) + satVp(tn)) - (satVp(tx - dt) + satVp(tn - dt))) / 2 : this.vpd[i];
+      const rain = this.rain[i] * rainFactor;
+      const eto = dt ? etoDay(tx, tn, this.srad[i], this.wind[i], this.ea[i], this.lat, this.elev, this.doy[i]) : this.eto[i];
+      s = Math.min(s + z(rain), cap);
+      const stress = 1 - Math.min(1, s / (0.5 * cap));
+      s = Math.max(s - z(eto) * (1 - stress), 0);
+      [tx, tn, this.srad[i], rain, eto, vpd, this.dayl[i], stress].forEach((v, c) => { out[c * n + k] = z(v); });
+    }
+    for (let k = 0; k < n; k++) out[8 * n + k] = (a + k) / 100;
+    return out;
   }
 
   /** Days after sowing to accumulate each thermal requirement ({name: GDD}). A requirement not

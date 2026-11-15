@@ -59,3 +59,16 @@ def test_aquacrop_cultivar():
         emu.cultivar()
     r = emu.predict(w, lat=-23.0, elev=500, soil=SOIL, sowing="2016-10-15", cultivar=c, co2=410)
     assert r.outputs["MAT_dap"].iloc[0] > 60
+
+
+@pytest.mark.parametrize("name", ["dssat-soybean-v2", "aquacrop-soybean-v2"])
+def test_v2_prediction_inputs_can_be_fed_back(name):
+    emu = cropemu.load(name)
+    assert emu.uses_sequence and emu.weather_days_after == 170
+    w = _weather()
+    c = emu.cultivar(weather=w, sowing="2016-10-15", cycle_days=120) if emu.card.get("thermal") else emu.cultivar(mg=6)
+    r = emu.predict(w, lat=-23.0, elev=500, soil=SOIL, sowing=["2016-10-15", "2017-10-15"], cultivar=c, co2=410)
+    again = emu.predict_inputs(pd.concat([r.inputs] * 3, ignore_index=True))
+    assert np.allclose(again.outputs.iloc[:2].to_numpy(), r.outputs.to_numpy(), equal_nan=True)
+    with pytest.raises(KeyError):
+        emu.predict_inputs(r.inputs[emu.inputs_])

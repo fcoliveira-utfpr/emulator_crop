@@ -14,7 +14,7 @@ function aquacropThermal(cultivar) {
 const THERMAL = { aquacrop_soybean: aquacropThermal };
 
 /** Days of weather needed after sowing by an emulator. */
-export const daysAfter = (card) => (card.thermal ? 600 : 130);
+export const daysAfter = (card) => (card.thermal ? 600 : Math.max(130, card.sequence?.days?.[1] ?? 0));
 
 /** Every input of one season; `null` when the weather does not cover the season windows.
  * `ws`: WeatherSeries; `soil`: soil features; `sowing`: day number. */

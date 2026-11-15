@@ -673,6 +673,32 @@ Implementado, ainda sem publicar:
     - **Resultado:** a calibração (1994–2013) recupera o grupo de maturação escondido. Na avaliação (2014–2023), o RMSE caiu de 640 para 449 kg/ha na produtividade e de 6,4 para 2,5 d na maturação.
     - **Desempenho:** 886 mil safras emuladas em 17 s.
 
+### 5.2.2 Emuladores v2 e aplicativo web (14/11/2026)
+
+- **Teste de melhorias** (`benchmark/improve`, validação por bloco, `dssat_v1`): a rede convolucional 1-D sobre o clima diário levou a produtividade de 454 para 335 kg/ha. A média de sementes e as fases melhoraram as datas (366 kg/ha com fases + conjunto). A CNN não melhorou as datas.
+- **v2 (`cnn`, `cropemu_bench.emulators.sequence`):** datas pela média de 4 MLPs por grupos (sementes 0–3); demais saídas por uma CNN 1-D sobre 9 canais diários (Tmax, Tmin, radiação, chuva, ETo, VPD, fotoperíodo, estresse do balde, dia após a semeadura), de −30 a +170 dias, unida às entradas da safra. ONNX com duas entradas (`inputs` e `sequence`).
+- **Validação por bloco (v1 → v2):**
+
+  | | Produtividade | Maturação | ET | Níveis (rec./cautela/não) |
+  |---|---|---|---|---|
+  | DSSAT | 454 → 335 kg/ha (R² 0,944 → 0,969) | 3,3 → 3,1 d | 32 → 23 mm | 5/29/7 → 17/23/1 |
+  | AquaCrop | 0,581 → 0,497 t/ha (R² 0,906 → 0,931) | 4,4 → 4,3 d | 52 → 45 mm | 6/16/22 → 7/20/17 |
+
+  Por região do mundo, o erro de produtividade caiu 23–33% no DSSAT e 4–21% no AquaCrop (`analises/RESULTADOS.md`).
+- **Custo:** treino com todas as safras ~45 min (CPU) contra 2–3 min da v1; validação cruzada ~3 h por base. Modelos de ~3,3 MB. Predição no navegador ~0,4–0,5 ms por safra.
+- **Sítios independentes com a v2** (`examples/compare_emulator_simulator.ipynb`, mesmas 175 safras por modelo):
+  - DSSAT: produtividade de 330 para 224 kg/ha (R² 0,978); ET de 18,6 para 9,3 mm; datas 1,1–1,8 d.
+  - AquaCrop: produtividade de 0,336 para 0,329 t/ha (R² 0,922); ET de 27,5 para 25,2 mm; datas 0,8–1,3 d.
+  - Razão mediana erro nos sítios / erro da validação por bloco: 0,49 (DSSAT) e 0,63 (AquaCrop).
+  - Tempo: ~0,2 ms por safra com as entradas prontas (v1: 12 µs); a janela de semeadura com 9.310 safras levou 20 s, incluindo o cálculo das entradas.
+- **Biblioteca 0.4.0** (ainda não publicada no PyPI): `dssat-soybean-v2` e `aquacrop-soybean-v2` dentro do pacote, com os v1 mantidos. `emu.inputs` guarda a sequência diária de cada safra (`sequence_id`). Os notebooks pedem `cropemu>=0.4`.
+- **Aplicativo web** (GitHub Pages): roda os dois v2 no navegador, com paridade Python/JS de 2e-5. Duas abas novas:
+  - **Monitoramento da cultura:** a safra atual com o clima observado (NASA POWER e, nos dias recentes, Open-Meteo), a previsão de 16 dias e o resto do ciclo pelos anos passados.
+    - Os anos passados podem ser deslocados pelas anomalias mensais da previsão sazonal do ECMWF (método delta: temperatura e ponto de orvalho somados; chuva e radiação multiplicadas).
+    - A safra é refeita semana a semana; o yield gap é a mediana de sem estresse − sequeiro.
+    - Falta avaliar a habilidade da previsão sazonal (hindcast).
+  - **Sobre o CropEmu:** finalidade, uso sem fins comerciais, resumo da metodologia e link para o GitHub.
+
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
 - Código aberto (GitHub + DOI no Zenodo), licença MIT ou Apache-2.0.

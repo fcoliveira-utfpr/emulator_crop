@@ -15,7 +15,8 @@ class Scaler:
     def fit(self, a: np.ndarray) -> "Scaler":
         self.mean = np.nanmean(a, axis=0)
         sd = np.nanstd(a, axis=0)
-        self.std = np.where(sd > 0, sd, 1.0)
+        # constant columns (also "constant" up to rounding noise, e.g. one soil repeated) keep scale 1
+        self.std = np.where(sd > 1e-9 * np.maximum(1.0, np.abs(np.nan_to_num(self.mean))), sd, 1.0)
         return self
 
     def transform(self, a):

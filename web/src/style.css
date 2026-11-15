@@ -261,3 +261,20 @@ details > summary + .table-wrap { margin-top: 8px; }
 .lang button { border: 0; background: none; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; cursor: pointer; color: var(--muted); }
 .lang button.active { background: var(--navy); color: var(--surface); }
 @media (max-width: 600px) { .local-badge { display: none; } }
+
+/* about tab and footer */
+.about { max-width: 900px; }
+.about > h2 { display: block; margin: 18px 0 6px; }
+.about > h2:first-child { margin-top: 0; }
+.about p { color: var(--text-2); margin: 6px 0; line-height: 1.55; }
+.about ul.plain li, ol.steps li { margin: 4px 0; line-height: 1.55; }
+ol.steps { padding-left: 20px; color: var(--text-2); }
+ol.steps strong { color: var(--text); }
+.about a { color: var(--brand); }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px !important; }
+a.button { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 14px; border-radius: 9px; background: var(--green); color: #fff !important; font-weight: 700; text-decoration: none; }
+a.button.secondary { background: var(--surface); color: var(--text) !important; }
+.site-foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--text-2); font-size: 12.5px; line-height: 1.6; }
+.site-foot a, .site-foot button.linklike { color: var(--brand); }
+button.linklike { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; font-size: inherit; }
+@media (min-width: 761px) { .tabs { flex-wrap: wrap; overflow-x: visible; } }

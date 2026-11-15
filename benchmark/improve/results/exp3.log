@@ -1,0 +1,40 @@
+  1_phases_seed1: fold 1/5 (4.4 min)
+  1_phases_seed1: fold 2/5 (7.9 min)
+  1_phases_seed1: fold 3/5 (11.3 min)
+  1_phases_seed1: fold 4/5 (15.6 min)
+  1_phases_seed1: fold 5/5 (19.1 min)
+[1_phases_seed1] yield RMSE 393.4 kg/ha (R² 0.9575, rel 0.273); maturity 3.29 d; median R² 0.9552
+  1_phases_seed2: fold 1/5 (3.8 min)
+  1_phases_seed2: fold 2/5 (8.0 min)
+  1_phases_seed2: fold 3/5 (12.1 min)
+  1_phases_seed2: fold 4/5 (15.8 min)
+  1_phases_seed2: fold 5/5 (19.2 min)
+[1_phases_seed2] yield RMSE 383.2 kg/ha (R² 0.9597, rel 0.266); maturity 3.29 d; median R² 0.9573
+  1_phases_seed3: fold 1/5 (4.5 min)
+  1_phases_seed3: fold 2/5 (9.3 min)
+  1_phases_seed3: fold 3/5 (13.3 min)
+  1_phases_seed3: fold 4/5 (18.9 min)
+  1_phases_seed3: fold 5/5 (22.3 min)
+[1_phases_seed3] yield RMSE 389.9 kg/ha (R² 0.9583, rel 0.271); maturity 3.29 d; median R² 0.9557
+  grouped fold 1/5: fit 623s
+  grouped fold 2/5: fit 498s
+  grouped fold 3/5: fit 315s
+  grouped fold 4/5: fit 431s
+  grouped fold 5/5: fit 387s
+[0_baseline_seed1] yield RMSE 452.0 kg/ha (R² 0.9439, rel 0.314); maturity 3.39 d; median R² 0.9415
+  grouped fold 1/5: fit 563s
+  grouped fold 2/5: fit 552s
+  grouped fold 3/5: fit 547s
+  grouped fold 4/5: fit 463s
+  grouped fold 5/5: fit 552s
+[0_baseline_seed2] yield RMSE 444.8 kg/ha (R² 0.9457, rel 0.309); maturity 3.19 d; median R² 0.9431
+  grouped fold 1/5: fit 558s
+  grouped fold 2/5: fit 557s
+  grouped fold 3/5: fit 728s
+  grouped fold 4/5: fit 626s
+  grouped fold 5/5: fit 587s
+[0_baseline_seed3] yield RMSE 445.8 kg/ha (R² 0.9455, rel 0.310); maturity 3.36 d; median R² 0.9431
+[3a_seed_ensemble] yield RMSE 422.8 kg/ha (R² 0.9509, rel 0.294); maturity 3.12 d; median R² 0.9487
+[3b_mlp_gb] yield RMSE 472.7 kg/ha (R² 0.9387, rel 0.328); maturity 3.34 d; median R² 0.9387
+[3c_seeds_gb] yield RMSE 463.1 kg/ha (R² 0.9412, rel 0.322); maturity 3.31 d; median R² 0.9412
+[3d_phases_seed_ensemble] yield RMSE 365.8 kg/ha (R² 0.9633, rel 0.254); maturity 3.29 d; median R² 0.9611

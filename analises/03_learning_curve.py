@@ -1,5 +1,6 @@
 """Learning curve: emulation error on held-out 5° blocks as a function of the number of simulated
-points used for training (the chosen emulator of each model, same folds as the benchmark).
+points used for training (the MLP by output group of each model, same folds as the benchmark; the
+convolutional emulator costs ~1 h per fit on a CPU, too much for the 5 fractions x 5 folds x repeats).
 
     python analises/03_learning_curve.py
 """

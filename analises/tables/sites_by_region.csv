@@ -1,0 +1,9 @@
+region,points,soybean,expansion,blocks,countries,lat_min,lat_max,seasons
+North America,346,330,16,34,2,19.75,52.75,20760
+Brazil,348,335,13,29,1,-32.25,0.25,20880
+"Argentina, Uruguay, Paraguay",297,288,9,15,3,-40.75,-19.75,17820
+Other Latin America,87,61,26,22,8,-22.25,25.75,5220
+Europe and Central Asia,156,110,46,51,24,37.25,62.75,9360
+Africa and Middle East,183,95,88,57,33,-34.75,40.75,10980
+South Asia,248,197,51,28,6,9.75,37.75,14880
+East Asia and Oceania,297,255,42,67,14,-43.75,52.25,17820

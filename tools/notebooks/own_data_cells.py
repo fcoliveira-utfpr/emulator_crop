@@ -117,10 +117,11 @@ for ax, (v, lab) in zip(axes, [("srad", "radiation (MJ/m²/d)"), ("tmax", "Tmax 
 fig.suptitle("Paragominas: station vs. NASA POWER on the same days", y=1.04)
 fig.tight_layout(); plt.show()"""),
 md("""**Completing the station.** A season needs weather from 30 days before sowing to at least 130 days
-after (more for the AquaCrop thermal time). The Paragominas file starts on 1 January 2018, a week
+after, and the network reads the daily weather up to 170 days after sowing (more for the AquaCrop
+thermal time). The Paragominas file starts on 1 January 2018, a week
 before the first sowing: `fill_from` takes the missing days (and missing columns, such as humidity)
 from NASA POWER and records how many values it took."""),
-code("""def season_weather(sid, sowing, after=150):
+code("""def season_weather(sid, sowing, after=175):
     \"\"\"Station weather of a season, completed with NASA POWER where the station has no data.\"\"\"
     s, w = SITES[sid], stations[sid]
     start, end = pd.Timestamp(sowing) - pd.Timedelta(days=31), pd.Timestamp(sowing) + pd.Timedelta(days=after)
@@ -277,7 +278,7 @@ the 1978 value (335 ppm) raised to the training minimum (345 ppm).
 
 What the emulator does **not** know: plant density and row spacing (fixed at 30 plants/m² and
 50 cm in training), nitrogen, pests and diseases. The comparison mixes the error of the emulator
-(validation: {"~450 kg/ha and ~3 days" if dssat else "~0.6 t/ha and ~4 days"}) with the error of the crop model itself, which was not
+(validation: {"~340 kg/ha and ~3 days" if dssat else "~0.5 t/ha and ~4 days"}) with the error of the crop model itself, which was not
 calibrated for these sites."""),
 code(f"""CO2_MIN = emu.card["domain"]["co2"]["min"]
 das = lambda d: np.nan if d is None or pd.isna(d) else (d - r["sowing"]).days

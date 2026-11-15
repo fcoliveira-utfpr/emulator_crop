@@ -1,0 +1,19 @@
+region
+USA                           160
+Argentina/Uruguay/Paraguay    160
+Brazil                         80
+50/400 points
+100/400 points
+150/400 points
+200/400 points
+250/400 points
+300/400 points
+350/400 points
+400/400 points
+weather: 400 ok, 0 errors in 339s
+soil: 100/400 points (0 failed)
+soil: 200/400 points (0 failed)
+soil: 300/400 points (0 failed)
+soil: 400/400 points (0 failed)
+soil: 400 points in 895s
+393 usable points of 400 (20.9 min)

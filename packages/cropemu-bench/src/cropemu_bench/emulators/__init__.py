@@ -3,6 +3,8 @@
 from .base import Emulator
 from .grouped import GroupedEmulator
 from .mlp import MLPEmulator
+from .sequence import ConvEmulator, SequenceEmulator
 from .sk import GBEmulator, RidgeEmulator
 
-__all__ = ["Emulator", "GroupedEmulator", "MLPEmulator", "GBEmulator", "RidgeEmulator"]
+__all__ = ["Emulator", "GroupedEmulator", "MLPEmulator", "GBEmulator", "RidgeEmulator", "ConvEmulator",
+           "SequenceEmulator"]

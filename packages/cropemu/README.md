@@ -20,12 +20,17 @@ spatial cross-validation, and every season is checked against the range of the t
 
 | Emulator | Crop model | Inputs | Outputs |
 |---|---|---|---|
-| `dssat-soybean-v1` | DSSAT 4.8 CROPGRO-Soybean (official executable) | weather, soil, sowing date, maturity group and 13 cultivar coefficients, water regime, CO₂ | 41 |
-| `aquacrop-soybean-v1` | FAO AquaCrop 7.3 (official executable) | weather, soil, sowing date, 13 crop parameters, water regime, CO₂ | 44 |
+| `dssat-soybean-v2` | DSSAT 4.8 CROPGRO-Soybean (official executable) | weather (summaries and the daily series), soil, sowing date, maturity group and 13 cultivar coefficients, water regime, CO₂ | 41 |
+| `aquacrop-soybean-v2` | FAO AquaCrop 7.3 (official executable) | weather (summaries and the daily series), soil, sowing date, 13 crop parameters, water regime, CO₂ | 44 |
+
+The v2 emulators (0.4.0) read the daily weather of the season with a convolutional network, which
+cut the yield error on unseen regions from 454 to 335 kg/ha (DSSAT) and from 0.58 to 0.50 t/ha
+(AquaCrop); the development dates come from the mean of four dense networks. The v1 emulators
+(dense networks on weather summaries only) still ship for comparison.
 
 Both were trained on ~118,000 seasons simulated with the official executables at ~2,000 points
 of the world's soybean area (NASA POWER weather, SoilGrids soils, GGCMI crop calendar, perturbed
-cultivars and climate). They ship inside the package (~1.3 MB each) and need only `numpy`,
+cultivars and climate). They ship inside the package (~3.3 MB each for v2) and need only `numpy`,
 `pandas` and `onnxruntime`.
 
 ## What you can do with it
@@ -62,7 +67,7 @@ lat, lon = -23.19, -51.18                                          # Londrina, B
 weather = fill_gaps(fetch(lat, lon, "2000-01-01", "2024-12-31"))   # NASA POWER, downloaded once
 soil = soilgrids.fetch(lat, lon)                                   # SoilGrids 2.0, downloaded once
 
-emu = cropemu.load("dssat-soybean-v1")                             # cropemu.available() lists them
+emu = cropemu.load("dssat-soybean-v2")                             # cropemu.available() lists them
 emu.describe()                                                     # outputs, units, validation error, level
 
 res = emu.predict(weather, lat=lat, elev=600, soil=soil,

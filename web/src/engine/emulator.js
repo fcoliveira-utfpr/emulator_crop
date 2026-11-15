@@ -7,11 +7,11 @@ import { KEYS, outputMeta } from './units.js';
 import { getLang, t } from '../i18n.js';
 
 ort.env.wasm.numThreads = 1;              // no cross-origin isolation needed (GitHub Pages)
-const BATCH = 8192;
+const BATCH = 2048;                       // rows per run (the v2 sequence input is 1809 floats per row)
 
 export const EMULATORS = {
-  'dssat-soybean-v1': 'DSSAT CROPGRO-Soybean',
-  'aquacrop-soybean-v1': 'AquaCrop soybean',
+  'dssat-soybean-v2': 'DSSAT CROPGRO-Soybean',
+  'aquacrop-soybean-v2': 'AquaCrop soybean',
 };
 
 export class Emulator {
@@ -45,7 +45,12 @@ export class Emulator {
     return seasons.map((s) => {
       const co2 = Number.isFinite(s.co2) ? s.co2 : co2At(s.sowing + 60);
       const rec = seasonInputs(this.card, ws, soil, s.sowing, s.cultivar, { irrigated: s.irrigated, co2, dt: s.dt ?? 0, rainFactor: s.rainFactor ?? 1 });
-      return rec && Object.assign(rec, this.fixed);
+      if (!rec) return rec;
+      if (this.card.sequence) {                  // daily weather read by the convolutional network (v2)
+        const seq = ws.sequence(s.sowing, soil.paw_mm, s.dt ?? 0, s.rainFactor ?? 1, this.card.initial_water ?? 0.5, this.card.sequence.days);
+        Object.defineProperty(rec, 'sequence', { value: seq, enumerable: false });
+      }
+      return Object.assign(rec, this.fixed);
     });
   }
 
@@ -61,14 +66,21 @@ export class Emulator {
         if (!Number.isFinite(v) || v < this.lo[j] || v > this.hi[j]) outOfDomain.push(this.card.inputs[j]);
         else if (v < this.qlo[j] || v > this.qhi[j]) rare.push(this.card.inputs[j]);
       });
-      const ok = x.every(Number.isFinite);
-      return { ok, x, outputs: {}, outOfDomain, rare, reason: ok ? null : t('incomplete inputs (missing weather)', 'entradas incompletas (falta clima)') };
+      const ok = x.every(Number.isFinite) && (!this.card.sequence || !!rec.sequence);
+      return { ok, x, seq: rec.sequence, outputs: {}, outOfDomain, rare, reason: ok ? null : t('incomplete inputs (missing weather)', 'entradas incompletas (falta clima)') };
     });
     const good = rows.filter((r) => r.ok);
     for (let k = 0; k < good.length; k += BATCH) {
       const part = good.slice(k, k + BATCH), data = new Float32Array(part.length * n);
       part.forEach((r, i) => data.set(r.x, i * n));
-      const result = await this.session.run({ [this.card.onnx.input]: new ort.Tensor('float32', data, [part.length, n]) });
+      const feeds = { [this.card.onnx.input]: new ort.Tensor('float32', data, [part.length, n]) };
+      if (this.card.sequence) {
+        const c = this.card.sequence.channels.length, d = this.card.sequence.days[1] - this.card.sequence.days[0] + 1;
+        const sq = new Float32Array(part.length * c * d);
+        part.forEach((r, i) => sq.set(r.seq, i * c * d));
+        feeds[this.card.onnx.sequence_input] = new ort.Tensor('float32', sq, [part.length, c, d]);
+      }
+      const result = await this.session.run(feeds);
       const y = result[this.card.onnx.output].data, m = this.card.outputs.length;
       part.forEach((r, i) => { this.card.outputs.forEach((name, j) => { r.outputs[name] = y[i * m + j]; }); });
     }
@@ -77,7 +89,7 @@ export class Emulator {
       for (const [name, [num, den, f, floor]] of Object.entries(this.card.derived ?? {})) {
         r.outputs[name] = f * Math.max(r.outputs[num], 0) / Math.max(r.outputs[den], floor);
       }
-      delete r.x;
+      delete r.x; delete r.seq;
     }
     return rows;
   }

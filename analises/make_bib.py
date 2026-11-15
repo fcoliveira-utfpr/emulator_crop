@@ -37,6 +37,8 @@ REFS = {  # key: DOI or ("title", "first author surname")
     "li2024": ("Knowledge-guided machine learning for improving crop yield projections of waterlogging effects under climate change", "Li"),
     "angione2022": ("Using machine learning as a surrogate model for agent-based simulations", "Angione"),
     "battisti2019": "10.1016/j.fcr.2019.06.007",
+    "johnson2019": "10.5194/gmd-12-1087-2019", "lecun2015": "10.1038/nature14539", "khaki2020": "10.3389/fpls.2019.01750",
+    "hansen2006": "10.3354/cr033027", "vanklompenburg2020": "10.1016/j.compag.2020.105709",
 }
 
 def get(url, accept=None):

@@ -180,6 +180,50 @@ def season_features(weather: WeatherSeries, sowing, dt: float = 0.0, rain_factor
     return out
 
 
+#: Daily sequence read by the convolutional emulators: first and last day after sowing (inclusive)
+#: and channels (``das``: day after sowing / 100).
+SEQUENCE_DAYS = (-30, 170)
+SEQUENCE_CHANNELS = ("tmax", "tmin", "srad", "rain", "eto", "vpd", "dayl", "stress", "das")
+
+
+def season_sequence(weather: WeatherSeries, sowing, paw_mm: float, dt: float = 0.0, rain_factor: float = 1.0,
+                    initial_water: float = 0.5, days=SEQUENCE_DAYS) -> np.ndarray:
+    """Daily weather of one season as a (channels, days) float32 array (:data:`SEQUENCE_CHANNELS`).
+
+    The climate perturbation is applied as in :meth:`WeatherSeries.window` (temperatures + ``dt``,
+    VPD shifted, ETo recomputed with the vapour pressure kept, rain x ``rain_factor``); ``stress``
+    is the one-layer bucket of :meth:`WeatherSeries.bucket_stress` started on the first day.
+    Days after the end of the weather are zeros (as in training, where the last seasons ran past
+    the end of the series); the weather must start on or before the first day.
+    """
+    a, b = days
+    n = b - a + 1
+    i0 = (pd.Timestamp(sowing) - weather.t0).days + a
+    if i0 < 0:
+        raise ValueError(f"weather does not cover day {a} after sowing {sowing}")
+    m = max(0, min(n, weather.n - i0))                    # days covered by the weather
+    sl = slice(i0, i0 + m)
+    es = lambda t: 0.6108 * np.exp(17.27 * t / (t + 237.3))
+    tmax, tmin = weather.tmax[sl] + dt, weather.tmin[sl] + dt
+    vpd = weather.vpd[sl]
+    if dt:
+        vpd = vpd + ((es(tmax) + es(tmin)) - (es(tmax - dt) + es(tmin - dt))) / 2
+    rain = weather.rain[sl] * rain_factor
+    eto = weather._eto(i0, i0 + m, dt)
+    cap = max(float(paw_mm), 1.0)
+    s, stress = initial_water * cap, np.empty(m)
+    r, e = np.nan_to_num(rain), np.nan_to_num(eto)
+    for k in range(m):
+        s = min(s + r[k], cap)
+        stress[k] = 1 - min(1.0, s / (0.5 * cap))
+        s = max(s - e[k] * (1 - stress[k]), 0.0)
+    out = np.zeros((len(SEQUENCE_CHANNELS), n), np.float32)
+    for c, v in enumerate((tmax, tmin, weather.srad[sl], rain, eto, vpd, weather.dayl[sl], stress)):
+        out[c, :m] = np.nan_to_num(v)
+    out[-1] = np.arange(a, b + 1) / 100.0
+    return out
+
+
 # ---------------------------------------------------------------------------- soil and site
 def soil_features(profile: pd.DataFrame) -> dict:
     """Soil features from a standard profile with hydraulics (``cropemu.soil.hydraulics``)."""
