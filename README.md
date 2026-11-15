@@ -43,7 +43,8 @@ browser, anywhere in the world (NASA POWER weather, SoilGrids soil, or your own 
 season, many years, sowing window, cultivars, climate scenarios and **crop monitoring** of the
 season in progress (observed weather and the 16-day forecast from Open-Meteo, the rest of the cycle
 from past years shifted by the ECMWF seasonal forecast; expected yield and yield gap week by week).
-Source in [`web/`](web).
+How to read every chart and number: [guide](docs/guide.md) ([guia em português](docs/guia.md)), also in
+the *Guide* tab of the app. Source in [`web/`](web).
 
 ## Example notebooks
 
@@ -60,6 +61,7 @@ The notebooks are written by the scripts in [`tools/notebooks`](tools/notebooks)
 
 - [`packages/`](packages): the two packages and their tests.
 - [`web/`](web): the static web app (GitHub Pages).
+- [`docs/`](docs): guide to the web app ([EN](docs/guide.md), [PT](docs/guia.md)).
 - [`analises/`](analises): analyses and figures of the paper.
 - [`benchmark/`](benchmark): scripts that generate the simulated data sets, train and compare the emulators, and export them.
 - [`planing.md`](planing.md): research plan, decisions and results (in Portuguese).

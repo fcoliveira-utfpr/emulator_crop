@@ -10,6 +10,7 @@ import { combine, completeSpan, fillGaps, fetchPower, POWER_FIRST_DAY, SRC, Weat
 import { $, h, fmt, auto } from './ui/dom.js';
 import { TABS } from './ui/tabs.js';
 import { setupMap } from './ui/map.js';
+import { GUIDE_SECTIONS, openGuideAt } from './ui/tabs/guide.js';
 import { getLang, onLang, setLang, t, translateDom } from './i18n.js';
 
 translateDom();
@@ -373,6 +374,7 @@ async function refresh() {
     state.cache[tab.id] = { data, family: emu.family };
     panel.replaceChildren();
     tab.render(ctx, data, panel);
+    addGuideLink(panel, tab.id);
   } catch (error) {
     console.error(error);
     if (token === run) panel.replaceChildren(h('div.empty.error', h('h2', t('Could not compute', 'Não foi possível calcular')), h('p', error.message)));
@@ -386,6 +388,16 @@ async function redraw() {
   const panel = $('panel');
   panel.replaceChildren();
   tab.render(context(emu), cached.data, panel);
+  addGuideLink(panel, tab.id);
+}
+
+/** "How to read this tab": a link in the tab header to its section of the guide. */
+function addGuideLink(panel, id) {
+  if (!GUIDE_SECTIONS.has(id)) return;
+  const controls = panel.querySelector('.panel-head .controls');
+  const link = h('button.secondary.guide-link', { type: 'button', title: t('Open the guide at this tab', 'Abrir o guia nesta aba'),
+    onclick: () => { openGuideAt(id); state.tab = 'guia'; renderTabs(); refresh(); } }, t('How to read this tab', 'Como ler esta aba'));
+  if (controls) controls.prepend(link); else panel.prepend(h('div.guide-link-row', link));
 }
 
 let lastWidth = window.innerWidth;

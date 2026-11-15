@@ -4,7 +4,7 @@ name: web
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/web.yml"]
+    paths: ["web/**", "docs/**", ".github/workflows/web.yml"]
   workflow_dispatch:
 
 permissions:
