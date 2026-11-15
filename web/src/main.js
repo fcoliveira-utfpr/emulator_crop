@@ -417,8 +417,20 @@ onModel();
 setStatus('idle', () => [t('No site loaded.', 'Nenhum local carregado.'), t('Choose an example site, pick one on the map or enter coordinates.', 'Escolha um local de exemplo, use o mapa ou informe as coordenadas.')]);
 
 // language switch: everything is redrawn in place (no reload, the loaded data are kept)
-function markLang() { document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('active', b.dataset.lang === getLang())); }
-document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+function markLang() { document.querySelectorAll('.lang button[data-lang]').forEach((b) => b.classList.toggle('active', b.dataset.lang === getLang())); }
+document.querySelectorAll('.lang button[data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+// theme switch: auto (follow the system), light or dark; kept in the browser
+const THEME_KEY = 'cropemu-theme';
+const themeNow = () => document.documentElement.dataset.theme || 'auto';
+function markTheme() { document.querySelectorAll('[data-theme-set]').forEach((b) => { const on = b.dataset.themeSet === themeNow(); b.classList.toggle('active', on); b.setAttribute('aria-pressed', on); }); }
+document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {
+  const th = b.dataset.themeSet;
+  if (th === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = th;
+  try { if (th === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, th); } catch { /* optional */ }
+  markTheme();
+}));
+markTheme();
 onLang(() => {
   translateDom(); markLang(); fillMonths(); fileLabels(); buildCoefficients(); updateCultivarHints();
   if (lastStatus) setStatus(lastStatus.kind, lastStatus.text);
