@@ -43,9 +43,9 @@ files in `my_data/` and skip section 2.**
 9. export."""),
 code("""try:
     import cropemu
-    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 3)
+    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 4)
 except (ImportError, AssertionError):     # install from PyPI (Intel Macs need --prefer-binary for rasterio)
-    %pip install --quiet --prefer-binary "cropemu>=0.3"
+    %pip install --quiet --prefer-binary "cropemu>=0.4"
     import cropemu
 
 import time, warnings

@@ -19,15 +19,31 @@ pip install "cropemu[soil]"
 
 | Package | Purpose | Status |
 |---|---|---|
-| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/), 0.3.0 |
+| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/); 0.4.0 (v2 emulators) in this repository |
 | [`cropemu-bench`](packages/cropemu-bench) | Research package: crop model adapters (DSSAT, AquaCrop), experimental design, simulation, emulator training, benchmarking and export to ONNX. | in this repository |
 
 ## Emulators
 
 | Emulator | Crop model | Validation by 5° spatial blocks: maturity, yield |
 |---|---|---|
+| `dssat-soybean-v2` | DSSAT 4.8 CROPGRO-Soybean | 3.1 d; 335 kg/ha (R² 0.97) |
+| `aquacrop-soybean-v2` | FAO AquaCrop 7.3 | 4.3 d; 0.50 t/ha (R² 0.93) |
 | `dssat-soybean-v1` | DSSAT 4.8 CROPGRO-Soybean | 3.3 d; 454 kg/ha (R² 0.94) |
 | `aquacrop-soybean-v1` | FAO AquaCrop 7.3 | 4.4 d; 0.58 t/ha (R² 0.91) |
+
+v2: development dates from the mean of four dense networks; the other outputs from a 1-D
+convolutional network over the daily weather of the season (30 days before to 170 days after
+sowing) joined to the season inputs. v1: dense networks on weather summaries in five windows.
+Yield error by world region and the global map of the sites: [`analises/RESULTADOS.md`](analises/RESULTADOS.md).
+
+## Web app
+
+[**CropEmu**](https://fcoliveira-utfpr.github.io/emulator_crop/) runs both v2 emulators in the
+browser, anywhere in the world (NASA POWER weather, SoilGrids soil, or your own spreadsheets): one
+season, many years, sowing window, cultivars, climate scenarios and **crop monitoring** of the
+season in progress (observed weather and the 16-day forecast from Open-Meteo, the rest of the cycle
+from past years shifted by the ECMWF seasonal forecast; expected yield and yield gap week by week).
+Source in [`web/`](web).
 
 ## Example notebooks
 
@@ -43,6 +59,8 @@ The notebooks are written by the scripts in [`tools/notebooks`](tools/notebooks)
 ## Repository
 
 - [`packages/`](packages): the two packages and their tests.
+- [`web/`](web): the static web app (GitHub Pages).
+- [`analises/`](analises): analyses and figures of the paper.
 - [`benchmark/`](benchmark): scripts that generate the simulated data sets, train and compare the emulators, and export them.
 - [`planing.md`](planing.md): research plan, decisions and results (in Portuguese).
 

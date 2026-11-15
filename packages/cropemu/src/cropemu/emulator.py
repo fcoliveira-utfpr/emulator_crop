@@ -246,7 +246,8 @@ class Emulator:
         # ratios computed from predicted outputs: name -> [numerator, denominator, factor, floor]
         for name, (num, den, f, floor) in self.card.get("derived", {}).items():
             P[name] = f * P[num].clip(lower=0) / P[den].clip(lower=floor)
-        return Prediction(P, X[self.inputs_], self.domain(X), self.domain(X, rare=True), self.levels)
+        keep = self.inputs_ + ([SEQUENCE_ID] if SEQUENCE_ID in X else [])   # inputs can be fed back
+        return Prediction(P, X[keep], self.domain(X), self.domain(X, rare=True), self.levels)
 
     def inputs(self, weather, lat: float, soil, sowing, cultivar: dict, elev: float | None = None,
                irrigated: bool = False, co2: float | None = None, dt: float = 0.0,

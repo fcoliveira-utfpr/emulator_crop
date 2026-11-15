@@ -92,9 +92,9 @@ Everything here runs with `pip install "cropemu[soil]"`; weather and soil are do
 cached (`CROPEMU_CACHE`, default `~/.cache/cropemu`)."""),
 code("""try:
     import cropemu
-    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 2)
+    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 4)
 except (ImportError, AssertionError):     # install from PyPI (Intel Macs need --prefer-binary for rasterio)
-    %pip install --quiet --prefer-binary "cropemu[soil]>=0.2"
+    %pip install --quiet --prefer-binary "cropemu[soil]>=0.4"
     import cropemu
 
 import time

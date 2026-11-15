@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 
 from common import MODELS, ROOT, SERIES, TAB, save
 
-NAMES = {"ridge": "Ridge\nregression", "gb": "Gradient\nboosting", "mlp": "MLP", "mlp_grouped": "MLP by\noutput group",
-         "mlp_offset": "MLP by group\n+ thermal offset", "cnn": "MLP dates +\nCNN daily weather"}
+NAMES = {"ridge": "Ridge", "gb": "Gradient\nboosting", "mlp": "MLP", "mlp_grouped": "MLP by\ngroup",
+         "mlp_offset": "MLP by\ngroup +\noffset", "cnn": "CNN +\nMLP dates\n(v2)"}
 KEY = {"dssat": ("HWAM", "MDAT_dap", "ETCM", 1e-3), "aquacrop": ("Y(dry)", "MAT_dap", "ET_crop", 1.0)}
 rows, per_output = [], []
 for m, cfg in MODELS.items():
@@ -37,7 +37,7 @@ infl = piv.groupby(["model", "emulator"])["inflation_%"].describe()[["count", "5
 infl.to_csv(TAB / "random_vs_block_inflation.csv")
 print(infl.round(1).to_string())
 
-fig, axes = plt.subplots(1, 2, figsize=(7.5, 3.2), sharey=True)
+fig, axes = plt.subplots(1, 2, figsize=(7.5, 3.4), sharey=True)
 order = ["ridge", "gb", "mlp", "mlp_grouped", "mlp_offset", "cnn"]
 for ax, (m, cfg) in zip(axes, MODELS.items()):
     t = bench[bench["model"] == m].set_index(["emulator", "validation"])

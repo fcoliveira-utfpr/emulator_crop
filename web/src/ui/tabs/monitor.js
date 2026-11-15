@@ -171,8 +171,10 @@ export const monitorTab = {
       if (d >= sowing) cr += rain;
       days.push({ day: d, date: asDate(d), tmax: table.cols.tmax[i], tmin: table.cols.tmin[i], rain, cum: d >= sowing ? cr : null, forecast: src === SRC.forecast || table.src.rain[i] === SRC.forecast });
     }
+    // shown up to a week after the expected maturity (AquaCrop scenarios carry a whole year of weather)
+    const nShow = Math.min(n, Math.max(Number.isFinite(mat) ? Math.round(mat) + 7 : n, cutoff - sowing));
     const normal = [];                                   // past years, same days after sowing
-    for (let k2 = 0; k2 <= n; k2++) {
+    for (let k2 = 0; k2 <= nShow; k2++) {
       const cums = [], tmaxes = [];
       for (const a of analogs) {
         let c = 0;
@@ -184,9 +186,9 @@ export const monitorTab = {
     // rain expected for the rest of the cycle (median of the scenarios of the chosen mode)
     const adj = (d) => (useSeasonal ? seasonal.byMonth.get(isoDate(d).slice(0, 7)) ?? null : null);
     const kn = Math.max(0, cutoff - sowing), cumKnown = days.find((d) => d.day === cutoff)?.cum ?? 0, proj = [];
-    if (cutoff < sowing + n) {
+    if (cutoff < sowing + nShow) {
       const run = analogs.map(() => cumKnown);
-      for (let k2 = kn + 1; k2 <= n; k2++) {
+      for (let k2 = kn + 1; k2 <= nShow; k2++) {
         const d = sowing + k2, a = adj(d);
         analogs.forEach((an, j) => { run[j] += table.cols.rain[ix(d - an.shift)] * (a ? a.rain : 1); });
         proj.push({ date: asDate(d), day: d, cum: summary(run).p50, tmax: normal[k2].tmax + (a ? a.dT : 0) });
@@ -242,7 +244,7 @@ export const monitorTab = {
     // 3. what happened so far
     const span = (a, b) => days.filter((d) => d.day >= a && d.day <= b);
     const soFar = span(sowing, observedEnd), k3 = Math.max(0, observedEnd - sowing);
-    const rainNow = soFar.reduce((x, d) => x + d.rain, 0), rainNormal = normal[Math.min(k3, n)]?.cum;
+    const rainNow = soFar.reduce((x, d) => x + d.rain, 0), rainNormal = normal[Math.min(k3, nShow)]?.cum;
     const hot = soFar.filter((d) => d.tmax >= 35).length, fcDays = days.filter((d) => d.forecast && d.day >= sowing);
     const fcRain = fcDays.reduce((x, d) => x + d.rain, 0);
     const seq = last.rainfed.find((r) => r.inputs?.sequence)?.inputs.sequence, L = emu.card.sequence ? emu.card.sequence.days[1] - emu.card.sequence.days[0] + 1 : 0;

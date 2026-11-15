@@ -278,7 +278,7 @@ the 1978 value (335 ppm) raised to the training minimum (345 ppm).
 
 What the emulator does **not** know: plant density and row spacing (fixed at 30 plants/m² and
 50 cm in training), nitrogen, pests and diseases. The comparison mixes the error of the emulator
-(validation: {"~450 kg/ha and ~3 days" if dssat else "~0.6 t/ha and ~4 days"}) with the error of the crop model itself, which was not
+(validation: {"~340 kg/ha and ~3 days" if dssat else "~0.5 t/ha and ~4 days"}) with the error of the crop model itself, which was not
 calibrated for these sites."""),
 code(f"""CO2_MIN = emu.card["domain"]["co2"]["min"]
 das = lambda d: np.nan if d is None or pd.isna(d) else (d - r["sowing"]).days
