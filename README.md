@@ -9,7 +9,7 @@
 Fast, validated emulators of process-based crop models: neural networks trained on ~118,000
 seasons simulated with the official **DSSAT CROPGRO-Soybean** and **FAO AquaCrop 7.3** executables at
 ~2,000 points of the world's soybean area. They predict a whole season (phenology, yield, biomass,
-water balance) in microseconds, anywhere on the globe, without installing the crop models.
+water balance) in a fraction of a millisecond, anywhere on the globe, without installing the crop models.
 
 ```bash
 pip install "cropemu[soil]"
@@ -19,7 +19,7 @@ pip install "cropemu[soil]"
 
 | Package | Purpose | Status |
 |---|---|---|
-| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/); 0.4.0 (v2 emulators) in this repository |
+| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/), 0.4.0 |
 | [`cropemu-bench`](packages/cropemu-bench) | Research package: crop model adapters (DSSAT, AquaCrop), experimental design, simulation, emulator training, benchmarking and export to ONNX. | in this repository |
 
 ## Emulators
