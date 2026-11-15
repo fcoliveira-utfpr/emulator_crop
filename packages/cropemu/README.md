@@ -6,13 +6,13 @@
 [![Downloads/month](https://img.shields.io/pypi/dm/cropemu?label=downloads%2Fmonth)](https://pypistats.org/packages/cropemu)
 [![License: MIT](https://img.shields.io/pypi/l/cropemu)](https://opensource.org/licenses/MIT)
 
-**Crop model simulations in microseconds, anywhere on the globe, without installing the crop models.**
+**Crop model simulations in a fraction of a millisecond, anywhere on the globe, without installing the crop models.**
 
 `cropemu` ships validated neural-network emulators of two widely used process-based crop models,
 **DSSAT CROPGRO-Soybean** and **FAO AquaCrop**. Give it the daily weather, the soil, the sowing
 date and the cultivar, and it returns the whole season: phenology dates, yield, biomass,
-evapotranspiration, water balance and stress indices. A season runs in microseconds, against
-0.1–1 s for the crop model, so you can simulate millions of seasons on a laptop: decades of
+evapotranspiration, water balance and stress indices. A season runs in about 0.1–0.2 ms (v2) or
+10 µs (v1), against 0.05–1 s for the crop model, so you can simulate millions of seasons on a laptop: decades of
 weather × sowing dates × cultivars × climate scenarios, for one field or a whole region.
 
 Every prediction says how far it can be trusted: each output carries an acceptance level from a
@@ -33,12 +33,33 @@ of the world's soybean area (NASA POWER weather, SoilGrids soils, GGCMI crop cal
 cultivars and climate). They ship inside the package (~3.3 MB each for v2) and need only `numpy`,
 `pandas` and `onnxruntime`.
 
+**No Python?** The same emulators run in the browser in the
+[CropEmu web app](https://fcoliveira-utfpr.github.io/emulator_crop/): one season, many years, sowing
+window, cultivars, climate scenarios and crop monitoring of the season in progress, anywhere in
+the world, with NASA POWER weather, SoilGrids soil or your own spreadsheets.
+
+## What's new in 0.4.0
+
+- **v2 emulators** `dssat-soybean-v2` and `aquacrop-soybean-v2`: a 1-D convolutional network reads
+  the daily weather from 30 days before to 170 days after sowing (temperature, radiation, rain,
+  ETo, vapour pressure deficit, day length, a soil-water stress index), so it sees *when* heat,
+  drought or rain happen in the cycle. Yield error on unseen regions: 454 → 335 kg/ha (DSSAT) and
+  0.58 → 0.50 t/ha (AquaCrop); lower in all eight world regions of the soybean area.
+- `emu.inputs()` keeps the daily series of each season and adds a `sequence_id` column; tables
+  built from it (and `prediction.inputs`) can be edited and passed to `predict_inputs`, or pass
+  `sequence=` (rows × channels × days) yourself. `emu.uses_sequence` and `emu.weather_days_after`
+  tell what an emulator needs.
+- Weather must now cover 170 days after sowing for v2 (130 for v1).
+- The v1 emulators are still shipped; `cropemu.load("dssat-soybean-v1")` keeps old results reproducible.
+
 ## What you can do with it
 
 - **Sowing window:** yield and risk for every sowing date × every year of the climate record.
 - **Cultivar choice:** compare maturity groups or cycle lengths at a site, or across a region.
 - **Climate scenarios:** warming, CO₂ and rain changes, as in the training design.
 - **Water:** rainfed vs. irrigated yield, the yield gap due to water.
+- **Season monitoring:** observed weather up to today, then each past year (or a forecast) for the
+  rest of the cycle, to follow the expected yield and the yield gap during the season.
 - **Regional maps:** thousands of points × decades in seconds.
 - **Your own data:** station weather, measured soils, field trials from spreadsheets or DSSAT files.
 - **Calibration:** fit cultivar parameters to your observations by trying thousands of
@@ -136,10 +157,17 @@ tested on), against the crop model:
 
 | | Maturity date | Yield | Evapotranspiration |
 |---|---|---|---|
-| DSSAT emulator | 3.3 d (R² 0.98) | 454 kg/ha (R² 0.94) | 32 mm (R² 0.96) |
-| AquaCrop emulator | 4.4 d (R² 0.99) | 0.58 t/ha (R² 0.91) | 52 mm (R² 0.90) |
+| | Maturity date | Yield | Evapotranspiration |
+|---|---|---|---|
+| `dssat-soybean-v2` | 3.1 d (R² 0.98) | 335 kg/ha (R² 0.97) | 23 mm (R² 0.98) |
+| `aquacrop-soybean-v2` | 4.3 d (R² 0.99) | 0.50 t/ha (R² 0.93) | 45 mm (R² 0.93) |
+| `dssat-soybean-v1` | 3.3 d (R² 0.98) | 454 kg/ha (R² 0.94) | 32 mm (R² 0.96) |
+| `aquacrop-soybean-v1` | 4.4 d (R² 0.99) | 0.58 t/ha (R² 0.91) | 52 mm (R² 0.90) |
 
-At 7 sites outside the training data the error against the crop models was about 0.6 of these values.
+By world region, the v2 yield error ranges from 223 kg/ha (Europe and Central Asia) to 439 kg/ha
+(North America) for DSSAT and from 0.38 to 0.59 t/ha for AquaCrop. At 7 sites outside the training
+data (Brazil, Argentina, USA, China), the v2 yield error against new runs of the crop models was
+224 kg/ha (DSSAT) and 0.33 t/ha (AquaCrop), about half of the values above.
 
 - **Acceptance level of every output** (`emu.describe()`, `res.levels`):
   - *recommended*: dates with RMSE ≤ 5 days, other outputs with RMSE < 0.25 of the within-site standard deviation;
@@ -152,7 +180,8 @@ At 7 sites outside the training data the error against the crop models was about
 ## Inputs, as in training
 
 - **Weather:** daily radiation, Tmax, Tmin, rain (humidity and wind optional), summarised in
-  windows from 30 days before to 130 days after sowing.
+  windows from 30 days before to 130 days after sowing; the v2 emulators also read the daily
+  series up to 170 days after sowing.
 - **Soil:** profile to 2 m. Water retention, unless measured: Reichert et al. (2009), field
   capacity at 10 kPa, up to 30° latitude; Saxton & Rawls (2006) from 40°; a linear blend in between.
 - **Cultivar:** DSSAT coefficients around the defaults of each maturity group; AquaCrop crop
@@ -174,5 +203,5 @@ MIT. Training data: NASA POWER, SoilGrids 2.0 (ISRIC, CC-BY 4.0), GGCMI Phase 3 
 crop models: DSSAT (BSD-3) and FAO AquaCrop 7.3. `cropemu` is not affiliated with the DSSAT
 Foundation or FAO.
 
-A paper describing the benchmark and the emulators is in preparation; until then, please cite
+A paper describing the emulators, their validation by world region and the web app is in preparation; until then, please cite
 the package and its version.

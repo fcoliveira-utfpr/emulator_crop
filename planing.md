@@ -691,7 +691,7 @@ Implementado, ainda sem publicar:
   - AquaCrop: produtividade de 0,336 para 0,329 t/ha (R² 0,922); ET de 27,5 para 25,2 mm; datas 0,8–1,3 d.
   - Razão mediana erro nos sítios / erro da validação por bloco: 0,49 (DSSAT) e 0,63 (AquaCrop).
   - Tempo: ~0,2 ms por safra com as entradas prontas (v1: 12 µs); a janela de semeadura com 9.310 safras levou 20 s, incluindo o cálculo das entradas.
-- **Biblioteca 0.4.0** (ainda não publicada no PyPI): `dssat-soybean-v2` e `aquacrop-soybean-v2` dentro do pacote, com os v1 mantidos. `emu.inputs` guarda a sequência diária de cada safra (`sequence_id`). Os notebooks pedem `cropemu>=0.4`.
+- **Biblioteca 0.4.0** (publicada no PyPI em 14/11/2026): `dssat-soybean-v2` e `aquacrop-soybean-v2` dentro do pacote, com os v1 mantidos. `emu.inputs` guarda a sequência diária de cada safra (`sequence_id`). Os notebooks pedem `cropemu>=0.4`.
 - **Aplicativo web** (GitHub Pages): roda os dois v2 no navegador, com paridade Python/JS de 2e-5. Duas abas novas:
   - **Monitoramento da cultura:** a safra atual com o clima observado (NASA POWER e, nos dias recentes, Open-Meteo), a previsão de 16 dias e o resto do ciclo pelos anos passados.
     - Os anos passados podem ser deslocados pelas anomalias mensais da previsão sazonal do ECMWF (método delta: temperatura e ponto de orvalho somados; chuva e radiação multiplicadas).
