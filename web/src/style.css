@@ -280,3 +280,19 @@ a.button.secondary { background: var(--surface); color: var(--text) !important; 
 .site-foot a, .site-foot button.linklike { color: var(--brand); }
 button.linklike { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; font-size: inherit; }
 @media (min-width: 761px) { .tabs { flex-wrap: wrap; overflow-x: visible; } }
+
+/* guide */
+.guide { max-width: 900px; padding: 20px 26px; line-height: 1.6; font-size: 15px; }
+.guide h2 { font-size: 21px; margin: 30px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); scroll-margin-top: 110px; }
+.guide h2:first-of-type { border-top: 0; margin-top: 8px; }
+.guide h3 { font-size: 16px; margin: 18px 0 6px; }
+.guide p { margin: 8px 0; color: var(--text); }
+.guide ul, .guide ol { margin: 6px 0 10px; padding-left: 22px; }
+.guide li { margin: 3px 0; }
+.guide li > p { margin: 6px 0; }
+.guide strong { color: var(--navy); }
+.guide code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 4px; font-size: 0.92em; }
+.guide a { color: var(--green); }
+button.guide-link { white-space: nowrap; }
+.guide-link-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+@media (max-width: 600px) { .guide { padding: 14px 16px; font-size: 14px; } }

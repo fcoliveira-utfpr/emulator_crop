@@ -30,6 +30,7 @@ npm test           # confere o motor JS contra o pacote Python (tests/reference.
 - **Cultivares**: grupos de maturidade (DSSAT) ou fatores de ciclo (AquaCrop) e sensibilidade a qualquer parâmetro do cultivar.
 - **Cenários climáticos**: ΔT × CO₂, ΔT com CO₂ observado e fator de chuva, nas faixas do treino.
 - **Local**: climatologia, perfil de solo e retenção de água, origem de cada valor de clima; download de clima e solo.
+- **Guia**: como interpretar cada gráfico e número, lido de `../docs/guia.md` e `../docs/guide.md` (os mesmos arquivos do GitHub); cada aba tem o botão *Como ler esta aba*, que abre a seção correspondente.
 - **Sobre o modelo**: validação de cada saída, posição da safra no domínio de treino, limites.
 - **Sobre o CropEmu**: do que se trata, uso sem fins comerciais, resumo da metodologia, fontes de dados e link para o GitHub (também no rodapé).
 
