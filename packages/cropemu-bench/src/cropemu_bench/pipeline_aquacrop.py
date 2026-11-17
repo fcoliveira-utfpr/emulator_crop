@@ -20,19 +20,36 @@ from cropemu.weather.eto import actual_vapour_pressure
 from .design.aquacrop import AQ_PERTURBATIONS, aquacrop_design, climatological_gdd, season_crop
 from .inputs.calendar import CropCalendar
 from .models.aquacrop import AquaCrop, AquaSoil, Season
-from .pipeline import WEATHER_END, WEATHER_START
+from .pipeline import WEATHER_END, WEATHER_START, _daily_table
 
 #: Simulation window around the sowing date (days); the climate files go further, since
 #: AquaCrop converts the GDD cycle to calendar days with the temperature record, and a delayed
 #: germination (dry topsoil) shifts the whole cycle later.
 DAYS_BEFORE, DAYS_AFTER, CLIMATE_DAYS_AFTER = 30, 300, 600
 INITIAL_WATER = 0.5
+#: Daily AquaCrop columns kept for the season trajectories (``generate(daily=...)``): day of the
+#: crop period (``DAP`` recomputed from the calendar, see :func:`crop_days`), stage,
+#: canopy cover, biomass, dry yield, root depth, stresses on expansion, stomata and senescence,
+#: relative transpiration.
+TRAJECTORY_COLUMNS = ["DAP", "Stage", "CC", "Biomass", "Y(dry)", "Z", "StExp", "StSto", "StSen", "Tr/Trx"]
 
 
 def _weather(p) -> pd.DataFrame:
     w = fill_gaps(fetch(p.lat, p.lon, WEATHER_START, WEATHER_END))
     w["ea"] = actual_vapour_pressure(w)
     return w
+
+
+def crop_days(day: pd.DataFrame) -> pd.DataFrame:
+    """The crop period of each season's daily table, with ``DAP`` as calendar days from sowing
+    (sowing day = 1), as the development dates of ``crop_period_summary`` (``MAT_dap`` = last day).
+
+    AquaCrop's own ``DAP`` restarts when germination is delayed and is -9 after the cycle.
+    """
+    crop = day[day["Stage"].isin([1, 2, 3, 4]) & (day["DAP"] >= 0)].copy()
+    date = pd.to_datetime(dict(year=crop["Year"], month=crop["Month"], day=crop["Day"]))
+    crop["DAP"] = (date - date.groupby(crop["treatment"]).transform("min")).dt.days + 1
+    return crop
 
 
 def season_weather(w: pd.DataFrame, lat: float, elev: float, start, end, dt: float, rain_factor: float):
@@ -45,14 +62,19 @@ def season_weather(w: pd.DataFrame, lat: float, elev: float, start, end, dt: flo
 
 
 def generate(dssat_dir, out_dir, model: AquaCrop | None = None, crop_name: str = "SoybeanGDD",
-             points_per_batch: int = 50, n_jobs: int = 4, regime: str = "rf", progress: bool = True) -> Path:
+             points_per_batch: int = 50, n_jobs: int = 4, regime: str = "rf", progress: bool = True,
+             daily: list[str] | None = None) -> Path:
     """Simulate with AquaCrop every season of the DSSAT dataset in ``dssat_dir``.
 
     Writes ``points.parquet``, ``design.parquet`` (shared season inputs + AquaCrop crop
-    parameters), ``meta.json`` and ``summary/batchNNNNN.parquet`` (resumable).
+    parameters), ``meta.json`` and ``summary/batchNNNNN.parquet`` (resumable). ``daily``:
+    daily columns to keep (e.g. :data:`TRAJECTORY_COLUMNS`), in ``daily_day/batchNNNNN.parquet``,
+    one row per day from sowing, keyed by ``sample``.
     """
     src, out = Path(dssat_dir), Path(out_dir)
     (out / "summary").mkdir(parents=True, exist_ok=True)
+    if daily:
+        (out / "daily_day").mkdir(exist_ok=True)
     model = model or AquaCrop()
     base = model.crop(crop_name)
     pts = pd.read_parquet(src / "points.parquet")
@@ -82,7 +104,7 @@ def generate(dssat_dir, out_dir, model: AquaCrop | None = None, crop_name: str =
         "soil": "SoilGrids 2.0 1 km, 3x3 km median; hybrid hydraulics (Reichert et al. 2009 / Saxton & Rawls 2006 by latitude); top layers merged to 5 horizons",
         "window_days": [DAYS_BEFORE, DAYS_AFTER], "initial_water": INITIAL_WATER,
         "potential": "net irrigation requirement (0 % RAW depletion)",
-        "perturbations": {k: list(v) for k, v in AQ_PERTURBATIONS.items()}}, indent=1, default=str))
+        "perturbations": {k: list(v) for k, v in AQ_PERTURBATIONS.items()}, "daily": daily}, indent=1, default=str))
 
     ids = list(pts["id"])
     batches = [ids[i:i + points_per_batch] for i in range(0, len(ids), points_per_batch)]
@@ -107,7 +129,10 @@ def generate(dssat_dir, out_dir, model: AquaCrop | None = None, crop_name: str =
             seasons.append(Season(w, soils[r["point"]], season_crop(base, r), sow, start, end,
                                   co2=r["co2"] if r["perturbed"] else None, irrigated=not r["water"],
                                   initial_water=INITIAL_WATER))
-        res = model.simulate(seasons, n_jobs=n_jobs)
+        res = model.simulate(seasons, n_jobs=n_jobs, daily=bool(daily))
+        if daily:                                 # written first: the summary file marks a finished batch
+            _daily_table(crop_days(res.daily["day"]), daily, sub["sample"].to_numpy(), missing=-9).to_parquet(
+                out / "daily_day" / f"batch{b:05d}.parquet")
         s = res.summary.copy()
         s.insert(0, "sample", sub["sample"].to_numpy()[s.pop("treatment").to_numpy()])
         s.drop(columns=["season"]).to_parquet(target)

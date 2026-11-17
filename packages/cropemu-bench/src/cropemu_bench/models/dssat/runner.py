@@ -20,11 +20,23 @@ from .soil import SoilProfile, write_sol
 from .weather import Weather
 
 FILEX = "CEMU0001.SBX"
-PROFILE = "DSSATPRO.L48"
+PROFILE = "DSSATPRO.V48" if os.name == "nt" else "DSSATPRO.L48"   # the Windows build reads .V48
 GENOTYPE_FILES = ("SBGRO048.ECO", "SBGRO048.SPE")
 #: Output files that are not daily tables (season summaries, logs, text reports).
 SEASON_FILES = {"Summary", "EnvSum", "OVERVIEW", "ERROR", "WARNING", "INFO", "RunList", "LUN", "Evaluate",
                 "SWBalSum", "SoilWatBal", "SoilNiBal", "SoilCBal", "PlantNBal", "SoilPiBal", "OUTPUT"}
+
+
+def _link_dir(target: Path, link: Path) -> None:
+    """Link a folder of the installation into a run folder. On Windows, where symbolic links need
+    a privilege, a directory junction (removed by ``shutil.rmtree`` without touching the target)."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError:
+        if os.name != "nt":
+            raise
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
 
 
 class DSSATError(RuntimeError):
@@ -73,7 +85,7 @@ class DSSAT(CropModel):
         # DSSAT reads each DSSATPRO line as 80 characters: use paths relative to the run folder,
         # with links to the data folders of the installation.
         for link, target in (("pest", "Pest"), ("std", "StandardData")):
-            os.symlink(self.dssat_home / target, folder / link)
+            _link_dir(self.dssat_home / target, folder / link)
         (folder / PROFILE).write_text(
             "WED    ./Weather\n"
             "MSB    ./ dscsm048 CRGRO048\n"

@@ -1,0 +1,11 @@
+== aquacrop ==
+seasons: 2160, daily rows: 333690 (154 per season)
+last Y(dry) vs season Y(dry): median rel. diff 0.0000, 99th pct 0.0257
+max CC vs CC_max: median abs diff 0.000
+seasons without maturity: 277 of 2160
+missing share: Stage 0.000, CC 0.000, Biomass 0.000, Y(dry) 0.000, Z 0.000, StExp 0.624, StSto 0.306, StSen 0.435, Tr/Trx 0.000
+K= 8 per phase: rel. RMSE CC 0.010 (p95 0.028), Biomass 0.003 (p95 0.012), Y(dry) 0.005 (p95 0.007), stress bins 0.038 (p95 0.091)  [stress StSto bins: abs. RMSE on 0..1]
+K=12 per phase: rel. RMSE CC 0.005 (p95 0.019), Biomass 0.002 (p95 0.006), Y(dry) 0.004 (p95 0.005), stress bins 0.031 (p95 0.073)  [stress StSto bins: abs. RMSE on 0..1]
+K=16 per phase: rel. RMSE CC 0.003 (p95 0.014), Biomass 0.001 (p95 0.004), Y(dry) 0.003 (p95 0.004), stress bins 0.030 (p95 0.073)  [stress StSto bins: abs. RMSE on 0..1]
+K=24 per phase: rel. RMSE CC 0.002 (p95 0.010), Biomass 0.001 (p95 0.003), Y(dry) 0.002 (p95 0.003), stress bins 0.033 (p95 0.081)  [stress StSto bins: abs. RMSE on 0..1]
+daily parquet: 1.6 MB for 2160 seasons -> 0.09 GB for 117,720

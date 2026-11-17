@@ -84,17 +84,45 @@ def _weather(point_row) -> Weather:
     return Weather.from_standard(df)
 
 
+#: Daily DSSAT columns kept by default for the season trajectories (``generate(daily=...)``):
+#: growth stage, leaf area index, leaf/stem/grain/pod/aboveground mass, pod number, water stress on
+#: photosynthesis and on expansion, nitrogen stress, canopy height and root depth.
+TRAJECTORY_COLUMNS = {"PlantGro": ["DAP", "GSTD", "LAID", "LWAD", "SWAD", "GWAD", "PWAD", "CWAD", "P#AD",
+                                   "WSPD", "WSGD", "NSTD", "CHTD", "RDPD"]}
+#: DSSAT output groups that write the tables above.
+_DAILY_GROUPS = {"PlantGro": "growth", "SoilWat": "water", "ET": "water", "PlantN": "growth"}
+
+
+def _daily_table(df: pd.DataFrame, columns: list[str], samples, missing: float = -99) -> pd.DataFrame:
+    """One daily table reduced to ``columns`` (float32, values <= ``missing`` as NaN: -99 in DSSAT,
+    -9 in AquaCrop; DAP int16), keyed by ``sample``, from sowing on."""
+    d = df[["treatment", *columns]].copy()
+    for c in columns:
+        v = pd.to_numeric(d[c], errors="coerce")
+        d[c] = v.where(v > missing).astype("float32")
+    if "DAP" in d:
+        d = d[d["DAP"] >= 0]
+        d["DAP"] = d["DAP"].astype("int16")
+    d.insert(0, "sample", samples[d.pop("treatment").to_numpy()])
+    return d.reset_index(drop=True)
+
+
 def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(), model: DSSAT | None = None,
-             points_per_batch: int = 50, n_jobs: int = 4, regime: str = "rf", progress: bool = True) -> Path:
+             points_per_batch: int = 50, n_jobs: int = 4, regime: str = "rf", progress: bool = True,
+             daily: dict[str, list[str]] | None = None) -> Path:
     """Simulate every season of every usable point and write a dataset to ``out_dir``.
 
     Files: ``points.parquet``, ``design.parquet`` (one row per season: every varying input),
     ``cultivars.parquet``, ``meta.json`` and, per batch of points, ``summary/``,
     ``envsum/`` and ``stress/`` Parquet files keyed by ``sample``. Existing batch
     files are kept (resume).
+
+    ``daily``: daily tables to keep, as ``{file: [columns]}`` (e.g. :data:`TRAJECTORY_COLUMNS`),
+    written per batch to ``daily_<file>/``, one row per day from sowing, keyed by ``sample``.
     """
     out = Path(out_dir)
-    for sub in ("summary", "envsum", "stress"):
+    daily = daily or {}
+    for sub in ("summary", "envsum", "stress", *(f"daily_{n}" for n in daily)):
         (out / sub).mkdir(parents=True, exist_ok=True)
     model = model or DSSAT()
 
@@ -109,7 +137,8 @@ def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(
     (out / "meta.json").write_text(json.dumps({
         "design": asdict(design), "weather": f"NASA POWER {WEATHER_START}..{WEATHER_END}",
         "soil": "SoilGrids 2.0 1 km, 3x3 km median; LL/DUL from Reichert et al. (2009, DUL at 10 kPa) up to 30° lat., Saxton & Rawls (2006) from 40°, blend between; SAT/Ksat from Saxton & Rawls",
-        "calendar": f"GGCMI Phase 3 v1.01 soy_{regime}", "dssat": str(model.executable)}, indent=1, default=str))
+        "calendar": f"GGCMI Phase 3 v1.01 soy_{regime}", "dssat": str(model.executable), "daily": daily},
+        indent=1, default=str))
 
     cul_by_id = {c.id: c for c in cultivars}
     soil_ids = dict(zip(pts["id"], pts["soil_id"]))
@@ -133,9 +162,12 @@ def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(
                 s0 = pd.Timestamp(t.start)
                 weather[key] = full[t.weather].slice(s0 - pd.Timedelta(days=30), s0 + pd.Timedelta(days=450))
             treatments.append(replace(t, weather=key))
+        groups = tuple(dict.fromkeys(_DAILY_GROUPS[n] for n in daily))
         res = model.simulate(treatments, weather=weather, soils=soils,
-                             cultivars=[cul_by_id[c] for c in sub["cultivar"]], n_jobs=n_jobs)
+                             cultivars=[cul_by_id[c] for c in sub["cultivar"]], n_jobs=n_jobs, daily=groups)
         samples = sub["sample"].to_numpy()
+        for name, columns in daily.items():       # written first: the summary file marks a finished batch
+            _daily_table(res.daily[name], columns, samples).to_parquet(out / f"daily_{name}" / f"batch{b:05d}.parquet")
         for name, df in (("summary", res.summary), ("envsum", res.extra.get("envsum")),
                          ("stress", res.extra.get("overview_stress"))):
             if df is None:
@@ -151,10 +183,12 @@ def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(
 
 
 def load(out_dir) -> dict[str, pd.DataFrame]:
-    """Read a generated dataset: design joined with the summary outputs, plus the other tables."""
+    """Read a generated dataset: design joined with the summary outputs, plus the other tables
+    (daily ones, when generated, as ``daily_<file>``)."""
     out = Path(out_dir)
+    names = ["summary", "envsum", "stress", *sorted(p.name for p in out.glob("daily_*") if p.is_dir())]
     tables = {n: pd.concat([pd.read_parquet(f) for f in sorted((out / n).glob("*.parquet"))], ignore_index=True)
-              for n in ("summary", "envsum", "stress") if any((out / n).glob("*.parquet"))}
+              for n in names if any((out / n).glob("*.parquet"))}
     tables["design"] = pd.read_parquet(out / "design.parquet")
     tables["points"] = pd.read_parquet(out / "points.parquet")
     return tables

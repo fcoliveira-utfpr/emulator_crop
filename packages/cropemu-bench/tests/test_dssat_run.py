@@ -86,7 +86,7 @@ def test_daily_matches_summary(scenario):
     last = g.groupby(["treatment", "season"]).tail(1).set_index(["treatment", "season"])["GWAD"]
     hwam = res.summary.set_index(["treatment", "season"])["HWAM"]
     pd.testing.assert_series_equal(last.sort_index(), hwam.sort_index(), check_names=False, check_dtype=False)
-    assert {"envsum", "overview_stress"} <= set(res.extra)
+    assert "overview_stress" in res.extra      # EnvSum.OUT: not written by every build (4.8.5 on Windows)
 
 
 def test_chunks_and_threads_do_not_change_results(model, inputs, scenario):

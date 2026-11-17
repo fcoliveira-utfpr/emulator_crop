@@ -699,6 +699,45 @@ Implementado, ainda sem publicar:
     - Falta avaliar a habilidade da previsão sazonal (hindcast).
   - **Sobre o CropEmu:** finalidade, uso sem fins comerciais, resumo da metodologia e link para o GitHub.
 
+### 5.2.3 Trajetórias diárias: piloto (17/11/2026)
+
+**Objetivo.** Emular as curvas ao longo do ciclo (área foliar ou cobertura do dossel, biomassa, grãos, estresse hídrico), não só os valores da safra. As curvas do aplicativo hoje são esquemáticas. Com curvas emuladas, uma animação da planta (porte, folhas, amarelecimento no déficit) passa a mostrar o comportamento do modelo, incluindo a queda de IAF num veranico.
+
+**Dados.** As campanhas `dssat_v1` e `aquacrop_v1` não guardaram as tabelas diárias: precisam ser refeitas. O design é determinístico (sementes), então as mesmas 117.720 safras podem ser reproduzidas.
+- `pipeline.generate(daily=TRAJECTORY_COLUMNS)` grava o `PlantGro` do DSSAT: GSTD, LAID, LWAD, SWAD, GWAD, PWAD, CWAD, P#AD, WSPD, WSGD, NSTD, CHTD e RDPD.
+- `pipeline_aquacrop.generate(daily=TRAJECTORY_COLUMNS)` grava Stage, CC, Biomass, Y(dry), Z, StExp, StSto, StSen e Tr/Trx.
+- Ausentes (-99 no DSSAT, -9 no AquaCrop) viram NaN.
+- No AquaCrop, `DAP` é recalculado pelo calendário (`crop_days`): o `DAP` do modelo recomeça quando a germinação atrasa e vale -9 depois do ciclo.
+
+**Piloto** (`benchmark/trajectory/`: 36 pontos do `dssat_v1` espalhados por faixa de latitude, 60 safras cada, 2.160 safras; Windows, 8 processos):
+
+| | DSSAT | AquaCrop |
+|---|---|---|
+| Custo com tabela diária | 65 ms/safra (35 sem): ~2,1 h para 117.720 | ~igual sem e com (já lia a tabela diária): ~2–3 h |
+| Disco (parquet) | 0,18 GB para 117.720 | 0,09 GB |
+| Coerência com o resumo | GWAD final = HWAM; máx. LAID − LAIX: 0,025 | Y(dry) final = Y(dry); máx. CC = CC_max; último dia = MAT_dap |
+| Safras sem maturação | 231 (11 %) | 277 (13 %) |
+
+- **Representação proposta: tempo fenológico.** 0 na emergência, 1 na floração, 2 na maturação, com 12 pontos por fase (23 no total). As datas vêm das redes de fenologia que já existem.
+- **Erro de reconstrução das curvas diárias** (RMSE relativo ao máximo, mediana/p95):
+  - DSSAT: LAID 0,6/2,0 %, CWAD 0,4/1,1 %, GWAD 0,5/0,9 %;
+  - AquaCrop: CC 0,5/1,9 %, Biomass 0,2/0,6 %, Y(dry) 0,4/0,5 %.
+- **Último dia do AquaCrop:** o modelo zera o CC no último dia (fim do ciclo, não senescência). A curva vai até o dia anterior, e o último dia vira a colheita na animação.
+- **Estresse hídrico:** oscila de um dia para o outro (WSPD, StSto). Vai como média por intervalo de tempo fenológico (22 intervalos). O erro contra a média móvel de 7 dias é de 0,05 (DSSAT) e 0,03 (AquaCrop) na escala 0–1.
+
+**Próximos passos:**
+1. Refazer as duas campanhas com as tabelas diárias.
+2. Treinar um ramo de saída da rede v2 para as curvas normalizadas pelo valor final, escalado pelas saídas já emuladas para manter a coerência com elas.
+3. Validar por bloco de 5° e nos 7 sítios independentes.
+4. Exportar a v3 e a biblioteca 0.5.0.
+5. Fazer a animação no aplicativo.
+
+**Portabilidade.**
+- O runner do DSSAT agora roda no Windows: junction em vez de link simbólico, perfil `DSSATPRO.V48`.
+- O `EnvSum.OUT` não é escrito pelo DSSAT 4.8.5 do Windows; não é usado no treino.
+- O AquaCrop 7.3 do Windows vem da mesma release (`v7.3_typofix`) e passa nos testes.
+- `cropemu.io` lê CSV em Latin-1 (salvo pelo Excel no Windows), além de UTF-8.
+
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
 - Código aberto (GitHub + DOI no Zenodo), licença MIT ou Apache-2.0.
