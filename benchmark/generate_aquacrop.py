@@ -12,7 +12,8 @@ import argparse
 import time
 from pathlib import Path
 
-from cropemu_bench.pipeline_aquacrop import generate
+from cropemu_bench.models.aquacrop import AquaCrop
+from cropemu_bench.pipeline_aquacrop import TRAJECTORY_COLUMNS, generate
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,10 +23,13 @@ def main():
     ap.add_argument("--seasons-from", default="dssat_v0", help="DSSAT dataset in data/ whose seasons are simulated")
     ap.add_argument("--name", default="aquacrop_v0")
     ap.add_argument("--crop", default="SoybeanGDD", help="FAO crop file (without .CRO)")
+    ap.add_argument("--crop-dir", type=Path, help="folder with the crop file (default: CROPEMU_AQUACROP_DATA)")
     ap.add_argument("--jobs", type=int, default=4, help="AquaCrop processes")
+    ap.add_argument("--daily", action="store_true", help="also keep the daily trajectories (TRAJECTORY_COLUMNS)")
     args = ap.parse_args()
     t0 = time.time()
-    out = generate(ROOT / "data" / args.seasons_from, ROOT / "data" / args.name, crop_name=args.crop, n_jobs=args.jobs)
+    out = generate(ROOT / "data" / args.seasons_from, ROOT / "data" / args.name, crop_name=args.crop, n_jobs=args.jobs,
+                   model=AquaCrop(crop_dir=args.crop_dir), daily=TRAJECTORY_COLUMNS if args.daily else None)
     print(f"done in {(time.time() - t0) / 60:.1f} min -> {out}", flush=True)
 
 

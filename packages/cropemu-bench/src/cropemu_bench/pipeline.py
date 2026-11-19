@@ -93,6 +93,30 @@ TRAJECTORY_COLUMNS = {"PlantGro": ["DAP", "GSTD", "LAID", "LWAD", "SWAD", "GWAD"
 _DAILY_GROUPS = {"PlantGro": "growth", "SoilWat": "water", "ET": "water", "PlantN": "growth"}
 
 
+def _numeric_columns(df: pd.DataFrame, where: str = "") -> pd.DataFrame:
+    """Numeric columns of a summary table that came out as text in some runs.
+
+    DSSAT is parsed per worker, so a column with one non-numeric value (e.g. an overflowed
+    ``*****`` field) stays text in that worker only and the concatenation mixes text and
+    numbers. Those values become NaN (reported); identifier columns stay text.
+    """
+    from .models.dssat.outputs import MISSING_CODES, TEXT_COLUMNS
+
+    df = df.copy()
+    for c in df.columns:
+        if df[c].dtype != object or c in TEXT_COLUMNS:
+            continue
+        conv = pd.to_numeric(df[c], errors="coerce")
+        text = df[c].astype(str).str.strip()
+        bad = text[conv.isna() & df[c].notna() & (text != "")]
+        if len(bad) == len(text[text != ""]) and len(bad):
+            continue                                   # a genuine text column
+        if len(bad):
+            print(f"{where}: {c} has {len(bad)} non-numeric values set to NaN: {sorted(set(bad))[:5]}")
+        df[c] = conv.replace(list(MISSING_CODES), float("nan"))
+    return df
+
+
 def _daily_table(df: pd.DataFrame, columns: list[str], samples, missing: float = -99) -> pd.DataFrame:
     """One daily table reduced to ``columns`` (float32, values <= ``missing`` as NaN: -99 in DSSAT,
     -9 in AquaCrop; DAP int16), keyed by ``sample``, from sowing on."""
@@ -174,7 +198,7 @@ def generate(points: pd.DataFrame, out_dir, design: SeasonDesign = SeasonDesign(
                 continue
             df = df.copy()
             df.insert(0, "sample", samples[df.pop("treatment").to_numpy()])
-            df = df.drop(columns=["season"])
+            df = _numeric_columns(df.drop(columns=["season"]), f"{name} batch {b}")
             df.to_parquet(out / name / f"batch{b:05d}.parquet")
         if progress:
             dt = time.time() - t0

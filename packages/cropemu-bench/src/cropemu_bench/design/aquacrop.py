@@ -68,6 +68,8 @@ def aquacrop_design(dssat_design: pd.DataFrame, points: pd.DataFrame, gdd_clim: 
     lat = points.set_index("id")["lat"]
     keep = ["sample", "point", "year", "sowing", "sowing_offset", "mg", "water", "perturbed",
             "dt", "rain_factor", "co2", "planting_doy"]
+    if "population" in dssat_design:                 # plants/m², when the DSSAT design samples it
+        keep.append("population")
     d = dssat_design[keep].copy()
     rel = d["mg"].to_numpy() - mg_center(d["point"].map(lat).to_numpy())
     d["cycle_factor"] = 1 + CYCLE_PER_MG * np.clip(rel, -2, 2)
@@ -91,5 +93,6 @@ def season_crop(base: CropFile, row) -> CropFile:
     c.scale_cycle(float(row["gdd_maturity"]) / base["gdd_maturity"])
     for n, (kind, _, _) in AQ_PERTURBATIONS.items():
         c[n] = c[n] * float(row[n]) if kind == "mul" else float(row[n])
-    c["plants"] = PLANTS
+    pop = row.get("population") if hasattr(row, "get") else None
+    c["plants"] = PLANTS if pop is None or pd.isna(pop) else round(float(pop) * 10_000)
     return c
