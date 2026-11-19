@@ -119,6 +119,8 @@ class Emulator:
         given, or computed from ``weather`` as the mean over the years of the ``cycle_days`` days
         after the day of year of ``sowing``; with ``mg`` and ``lat``, it is scaled by the cycle
         factor of the training design (+12.5 % per MG above the typical MG of the latitude, ±2 MG).
+        Emulators with the plant population as an input (v3) take ``population`` (plants/m²,
+        training range 15–50); without it, the fixed value of the earlier campaigns (30) is used.
         """
         if self.family == "dssat":
             if mg is None:
@@ -135,6 +137,8 @@ class Emulator:
                 if weather is None or sowing is None or cycle_days is None:
                     raise ValueError("AquaCrop: give gdd_maturity, or weather, sowing and cycle_days")
                 out["gdd_maturity"] = season_gdd(weather, sowing, cycle_days) * out["cycle_factor"]
+        if "population" in self.cultivar_:            # v3: plant population (plants/m²) is an input
+            out["population"] = float(self.card.get("population_default", 30.0))
         out.update(values)
         missing = [k for k in self.cultivar_ if k not in out]
         if missing:

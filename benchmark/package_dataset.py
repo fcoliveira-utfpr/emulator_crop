@@ -7,7 +7,7 @@ Usage (repository root):
 Each ``data/<name>/`` folder is zipped (parquet is already compressed: stored, not deflated)
 with ``README_data.md`` and ``LICENSE-data.txt`` from ``benchmark/data_release/``. Local paths
 in ``meta.json`` (executables, source folders) are replaced by neutral descriptions. The
-``benchmark/`` subfolder (emulator predictions) and ``features*.parquet`` caches are left out.
+``benchmark/`` subfolder (emulator predictions) and the ``features*.parquet`` and ``sequence*`` caches are left out.
 Download them back with :func:`cropemu_bench.datasets.fetch_dataset`.
 """
 
@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EXTRA = ROOT / "benchmark" / "data_release"
 SKIP_DIRS = {"benchmark"}
-SKIP_PREFIX = ("features",)
+SKIP_PREFIX = ("features", "sequence")      # caches rebuilt by the training scripts
 
 
 def clean_meta(meta: dict, name: str) -> dict:

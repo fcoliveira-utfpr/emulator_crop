@@ -174,12 +174,14 @@ def build(out_dir, cache: bool = True, derived: bool = False,
     if cache and fpath.exists():
         X = pd.read_parquet(fpath)
     else:
+        # v3 campaigns sample the plant population: it becomes an input (after the cultivar ones)
+        management = ("population",) if "population" in design else ()
         if model == "aquacrop":
             from .design.aquacrop import AQ_PERTURBATIONS
-            X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS),
+            X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS, *management),
                          thermal="aquacrop_soybean")
         else:
-            X = features(design, t["points"], CULTIVAR_FEATURES)
+            X = features(design, t["points"], CULTIVAR_FEATURES + management)
         X.to_parquet(fpath)
     Y = targets_aquacrop(t["summary"]) if model == "aquacrop" else targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(

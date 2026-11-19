@@ -86,7 +86,7 @@ def cv(name: str, folds: int = 5):
     from phase1_emulators import KEY
 
     summ = out / "summary.csv"
-    prev = pd.read_csv(summ)
+    prev = pd.read_csv(summ) if summ.exists() else pd.DataFrame(columns=["emulator", "validation"])
     prev = prev[~((prev["emulator"] == "cnn") & (prev["validation"] == "block"))]
     old = prev[prev["emulator"] == "cnn"]
     row = {"emulator": "cnn", "validation": "block", "outputs": Y.shape[1],

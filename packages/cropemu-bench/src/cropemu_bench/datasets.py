@@ -19,6 +19,8 @@ REPOSITORY = "https://github.com/fcoliveira-utfpr/emulator_crop"
 
 #: name -> (release tag, SHA-256 of ``<name>.zip``)
 DATASETS = {
+    "dssat_v1": ("data-v1", "5dfb17b1da2d7a95d6b454614e262ad1c00d855cdaa57b6ed8d6e1b54813608d"),
+    "aquacrop_v1": ("data-v1", "003a34022989c58da123d625c7c2ae0959face139c2bb89df679f93371162d84"),
     "dssat_v3": ("data-v3", "7aefacc15cd3bddf7b4e9be56a7e98591e0fc49a12ba38a4cbf29019e95ca974"),
     "aquacrop_v3": ("data-v3", "ab13b2a6c5ebedc0591afb2cc17667380216ded2b531c9858ce5bf4e2bebea91"),
 }
