@@ -23,11 +23,12 @@ PHASE_POINTS = 12
 GRID = np.concatenate([np.linspace(0, 1, PHASE_POINTS), np.linspace(1, 2, PHASE_POINTS)[1:]])
 
 #: per model: daily table, growth curves as {daily column: (name, season column used as scale)},
-#: water stress (daily column, divisor to 0..1), dates of emergence/flowering/maturity.
+#: water stress (daily column, divisor to 0..1), emulator outputs of emergence/flowering/maturity
+#: (days after sowing).
 SPECS = {
-    "dssat": dict(table="daily_PlantGro", stress=("WSPD", 1.0),
+    "dssat": dict(table="daily_PlantGro", stress=("WSPD", 1.0), dates=("EDAT_dap", "ADAT_dap", "MDAT_dap"),
                   growth={"LAID": ("leaf", "LAIX"), "CWAD": ("biomass", "CWAM"), "GWAD": ("grain", "HWAM")}),
-    "aquacrop": dict(table="daily_day", stress=("StSto", 100.0),
+    "aquacrop": dict(table="daily_day", stress=("StSto", 100.0), dates=("EMR_dap", "FLO_dap", "MAT_dap"),
                      growth={"CC": ("leaf", "CC_max"), "Biomass": ("biomass", "BioMass"),
                              "Y(dry)": ("grain", "Y(dry)")}),
 }
@@ -139,4 +140,21 @@ def curves(shapes: pd.DataFrame, season: pd.DataFrame, dates: pd.DataFrame, mode
             y = np.interp(tau, GRID, shape, left=0.0, right=np.nan) * season.loc[sid, scale_col]
             rows.append(np.where(days <= m, y, np.nan))
         out[name] = pd.DataFrame(rows, index=shapes.index, columns=days)
+    return out
+
+
+def card_entry(model: str, metrics: pd.DataFrame | None = None) -> dict:
+    """``card["trajectory"]`` of an exported emulator: how to turn the shapes into daily curves."""
+    spec = SPECS[model]
+    out = {"description": "curve shapes in phenological time (0 emergence, 1 flowering, 2 maturity, linear in "
+                          "days within each phase): growth curves at the grid points divided by the season "
+                          "output named in 'curves'; water stress (0 none to 1 full) as the mean of each "
+                          "grid interval",
+           "grid": [float(g) for g in GRID], "phase_points": PHASE_POINTS,
+           "curves": {name: {"daily": col, "scale": scale} for col, (name, scale) in spec["growth"].items()},
+           "stress": {"daily": spec["stress"][0], "intervals": len(GRID) - 1},
+           "dates": dict(zip(("emergence", "flowering", "maturity"), spec["dates"]))}
+    if metrics is not None:
+        m = metrics[metrics["part"] == "all"].set_index("curve")
+        out["validation"] = {c: {"rmse": float(r["rmse"]), "r2": float(r["r2"])} for c, r in m.iterrows()}
     return out

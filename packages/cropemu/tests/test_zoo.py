@@ -72,3 +72,38 @@ def test_v2_prediction_inputs_can_be_fed_back(name):
     assert np.allclose(again.outputs.iloc[:2].to_numpy(), r.outputs.to_numpy(), equal_nan=True)
     with pytest.raises(KeyError):
         emu.predict_inputs(r.inputs[emu.inputs_])
+
+
+V3 = [n for n in ("dssat-soybean-v3", "aquacrop-soybean-v3") if n in cropemu.available()]
+
+
+@pytest.mark.parametrize("name", V3)
+def test_v3_population_and_curves(name):
+    emu = cropemu.load(name)
+    assert "population" in emu.cultivar_ and emu.card["population_default"] == 30.0
+    w = _weather()
+    kw = dict(weather=w, sowing="2016-10-15", cycle_days=120) if emu.card.get("thermal") else dict(mg=6)
+    assert emu.cultivar(**kw)["population"] == 30.0                       # v1/v2 value when not given
+    preds = {}
+    for pop in (15, 50):
+        c = emu.cultivar(**kw, population=pop)
+        preds[pop] = emu.predict(w, lat=-23.0, elev=500, soil=SOIL, sowing="2016-10-15", cultivar=c, co2=410)
+    r = preds[50]
+    curves = r.curves()
+    assert set(curves) == {*emu.card["trajectory"]["curves"], "stress"}
+    t = emu.card["trajectory"]
+    m = int(r.outputs[t["dates"]["maturity"]].iloc[0])
+    leaf, grain, stress = curves["leaf"].iloc[0], curves["grain"].iloc[0], curves["stress"].iloc[0]
+    assert leaf.index[-1] == m and leaf.iloc[0] == 0                        # sowing .. maturity
+    scale = r.outputs[t["curves"]["leaf"]["scale"]].iloc[0]
+    assert leaf.max() == pytest.approx(scale, rel=0.15)                    # leaf curve peaks at the season maximum
+    assert grain.iloc[-1] == pytest.approx(r.outputs[t["curves"]["grain"]["scale"]].iloc[0], rel=0.15)
+    assert stress.dropna().between(0, 1).all()
+    # more plants: the canopy closes earlier (AquaCrop: initial canopy cover; DSSAT: leaf area per area)
+    early = {p: preds[p].curves()["leaf"].iloc[0] for p in preds}
+    day = {p: int(np.argmax(early[p].to_numpy() > 0.5 * early[p].max())) for p in early}
+    assert day[50] <= day[15]
+    v2 = cropemu.load(name.replace("v3", "v2"))
+    c2 = v2.cultivar(**kw)
+    with pytest.raises(ValueError):
+        v2.predict(w, lat=-23.0, elev=500, soil=SOIL, sowing="2016-10-15", cultivar=c2, co2=410).curves()

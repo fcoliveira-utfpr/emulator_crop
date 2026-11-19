@@ -144,7 +144,7 @@ popover.addEventListener('mouseleave', () => { popover.dataset.hover = ''; if (!
 // model and every setting
 document.querySelectorAll('input[name=model]').forEach((r) => r.addEventListener('change', () => { state.model = r.value; onModel(); }));
 for (const id of ['sow-day', 'sow-month']) $(id).addEventListener('change', () => { refreshYears(); updateCultivarHints(); schedule(); });
-for (const id of ['year', 'year-from', 'year-to', 'co2', 'dt', 'rain-factor', 'mg', 'cycle-days', 'cycle-factor', 'gdd']) {
+for (const id of ['year', 'year-from', 'year-to', 'co2', 'dt', 'rain-factor', 'mg', 'cycle-days', 'cycle-factor', 'gdd', 'population']) {
   $(id).addEventListener('change', () => { updateCultivarHints(); schedule(); });
 }
 document.querySelectorAll('input[name=water]').forEach((r) => r.addEventListener('change', schedule));
@@ -240,7 +240,14 @@ async function loadSite() {
 
 // ------------------------------------------------------------------ cultivar
 const family = () => (state.model.includes('aquacrop') ? 'aquacrop' : 'dssat');
-const SEPARATE = { dssat: ['mg'], aquacrop: ['cycle_factor', 'gdd_maturity'] };
+const SEPARATE = { dssat: ['mg', 'population'], aquacrop: ['cycle_factor', 'gdd_maturity', 'population'] };
+
+/** v3 emulators: plant population (plants/m²) from the management field, blank = card default (30). */
+function population(card) {
+  if (!card.cultivar.includes('population')) return {};
+  const v = $('population').value;
+  return { population: v !== '' && Number.isFinite(+v) ? +v : card.population_default };
+}
 
 function buildCoefficients() {
   const emu = state.emulators[state.model];
@@ -262,19 +269,29 @@ function cultivar(emu, { mg = null, factor = null } = {}) {
   const overrides = Object.fromEntries([...$('coefficients').querySelectorAll('input')].filter((i) => i.value !== '' && Number.isFinite(+i.value)).map((i) => [i.dataset.k, +i.value]));
   if (emu.family === 'dssat') {
     const g = mg ?? ($('mg').value !== '' ? +$('mg').value : typicalMg(card, site?.lat ?? 0));
-    return { ...dssatCultivar(card, g), ...overrides, mg: g };
+    return { ...dssatCultivar(card, g), ...overrides, mg: g, ...population(card) };
   }
   const f = factor ?? (+$('cycle-factor').value || 1);
   const gddIn = +$('gdd').value;
   const sowingDoy = dayOfYear(fromYMD(2001, +$('sow-month').value, +$('sow-day').value));
   const base = $('gdd').value !== '' && gddIn > 0 ? gddIn : site.ws.seasonGdd(sowingDoy, +$('cycle-days').value || 120);
-  return { ...aquacropCultivar(card, { ws: site.ws, sowingDoy, gddMaturity: base * f, cycleFactor: f }), ...overrides };
+  return { ...aquacropCultivar(card, { ws: site.ws, sowingDoy, gddMaturity: base * f, cycleFactor: f }), ...overrides, ...population(card) };
 }
 
 function updateCultivarHints() {
   const emu = state.emulators[state.model];
   if (!(emu instanceof Emulator)) return;
   const lat = state.site?.lat;
+  const hasPop = emu.card.cultivar.includes('population');
+  $('population').disabled = !hasPop;
+  if (hasPop) {
+    const [lo, hi] = emu.card.population_range ?? [15, 50], v = +$('population').value;
+    $('population-hint').textContent = $('population').value !== '' && (v < lo || v > hi)
+      ? t(`Outside the training range (${lo}–${hi} plants/m²): extrapolation.`, `Fora da faixa de treino (${lo}–${hi} plantas/m²): extrapolação.`)
+      : t(`Training range ${lo}–${hi} plants/m² (sampled in every season of the v3 campaign).`, `Faixa de treino ${lo}–${hi} plantas/m² (sorteada em cada safra da campanha v3).`);
+  } else {
+    $('population-hint').textContent = t('Fixed at 30 plants/m² in this emulator (v2): its training did not vary the population.', 'Fixa em 30 plantas/m² neste emulador (v2): o treino dele não variou a população.');
+  }
   if (emu.family === 'dssat') {
     const g = Number.isFinite(lat) ? typicalMg(emu.card, lat) : null;
     $('mg').placeholder = g != null ? `${t('typical of the latitude', 'típico da latitude')}: ${fmt(g, 1)}` : t('typical of the latitude', 'típico da latitude');

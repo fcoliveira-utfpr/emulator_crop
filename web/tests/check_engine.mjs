@@ -19,7 +19,7 @@ const { table } = readWeather(fs.readFileSync(path.join(data, 'clima_A.csv'), 'u
 fillGaps(table);
 const ws = new WeatherSeries(table, ref.lat, ref.elev);
 const profile = readSoils(fs.readFileSync(path.join(data, 'solo.csv'), 'utf8')).profiles[ref.farm];
-let worstIn = 0, worstOut = 0, worstCult = 0, fails = 0;
+let worstIn = 0, worstOut = 0, worstCult = 0, worstCurve = 0, fails = 0;
 const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-3);
 for (const name of [...new Set(ref.cases.map((c) => c.model))]) {
   const emu = await Emulator.load(name, '', fetcher);
@@ -30,7 +30,7 @@ for (const name of [...new Set(ref.cases.map((c) => c.model))]) {
     const mine = emu.family === 'dssat'
       ? dssatCultivar(emu.card, c.cultivar_name === 'lat' ? typicalMg(emu.card, ref.lat) : 7.0)
       : aquacropCultivar(emu.card, { ws, sowingDoy: dayOfYear(dayNumber('2003-11-15')), cycleDays: 120, ...(c.cultivar_name === 'mg' ? { mg: 8.5, lat: ref.lat } : {}) });
-    for (const k of emu.card.cultivar) worstCult = Math.max(worstCult, rel(mine[k], c.cultivar[k]));
+    for (const k of emu.card.cultivar) if (c.cultivar_name !== 'pop15' || k !== 'population') worstCult = Math.max(worstCult, rel(mine[k], c.cultivar[k]));
   }
   const rows = await emu.run(ws, soil, cases.map((c) => ({ sowing: dayNumber(c.sowing), cultivar: c.cultivar, irrigated: c.irrigated, dt: c.dt, rainFactor: c.rain_factor })));
   rows.forEach((r, i) => {
@@ -45,8 +45,22 @@ for (const name of [...new Set(ref.cases.map((c) => c.model))]) {
       if (e > 1e-3) { fails++; if (fails < 15) console.log('output', name, c.sowing, k, r.outputs[k], c.outputs[k]); }
       worstOut = Math.max(worstOut, e);
     }
+    if (c.curves) {                               // v3: daily curves (JS: display units; Python: model units)
+      const cv = emu.curves(r), tr = emu.card.trajectory;
+      if (!cv) { fails++; console.log('no curves', name, c.sowing); return; }
+      for (const [k, ref] of Object.entries(c.curves)) {
+        const unit = k === 'leaf' || k === 'stress' ? 1 : emu.meta[tr.curves[k].scale]?.scale ?? 1;
+        const top = Math.max(1e-6, ...ref.filter((v) => v != null).map(Math.abs));
+        ref.forEach((v, d) => {
+          if (v == null || d >= cv.pts.length) return;
+          const e = Math.abs(cv.pts[d][k] / unit - v) / top;
+          if (e > 1e-3) { fails++; if (fails < 15) console.log('curve', name, c.sowing, k, d, cv.pts[d][k] / unit, v); }
+          worstCurve = Math.max(worstCurve, e);
+        });
+      }
+    }
   });
   console.log(name, cases.length, 'cases');
 }
-console.log({ worstCultivar: worstCult, worstInput: worstIn, worstOutput: worstOut, fails });
+console.log({ worstCultivar: worstCult, worstInput: worstIn, worstOutput: worstOut, worstCurve, fails });
 process.exit(fails ? 1 : 0);

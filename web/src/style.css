@@ -296,3 +296,19 @@ button.linklike { background: none; border: 0; padding: 0; cursor: pointer; text
 button.guide-link { white-space: nowrap; }
 .guide-link-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 @media (max-width: 600px) { .guide { padding: 14px 16px; font-size: 14px; } }
+
+/* animated plant (v3 emulators) */
+.plant-wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: center; }
+.plant-stage-box { background: linear-gradient(var(--surface-2), var(--surface)); border: 1px solid var(--line); border-radius: 12px; color: var(--text-2); }
+.plant-svg { display: block; width: 100%; height: auto; max-height: 340px; }
+.plant-info .plant-day { font-size: 15px; }
+.plant-info .plant-stage { color: var(--text-2); font-weight: 600; margin: 2px 0 10px; }
+.plant-info dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.plant-info dt { color: var(--muted); }
+.plant-info dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.plant-bar { height: 6px; border-radius: 3px; background: var(--line); margin-top: 4px; overflow: hidden; }
+.plant-bar i { display: block; height: 100%; width: 0; border-radius: 3px; }
+.plant-controls { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.plant-controls input[type=range] { flex: 1; accent-color: var(--green, #2f7d32); }
+.plant-controls select { width: auto; min-height: 34px; }
+@media (max-width: 760px) { .plant-wrap { grid-template-columns: 1fr; } }

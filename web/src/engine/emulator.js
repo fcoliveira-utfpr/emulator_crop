@@ -11,7 +11,7 @@ const BATCH = 2048;                       // rows per run (the v2 sequence input
 
 export const EMULATORS = {
   'dssat-soybean-v2': 'DSSAT CROPGRO-Soybean',
-  'aquacrop-soybean-v2': 'AquaCrop soybean',
+  'aquacrop-soybean-v3': 'AquaCrop soybean',
 };
 
 export class Emulator {
@@ -83,6 +83,11 @@ export class Emulator {
       const result = await this.session.run(feeds);
       const y = result[this.card.onnx.output].data, m = this.card.outputs.length;
       part.forEach((r, i) => { this.card.outputs.forEach((name, j) => { r.outputs[name] = y[i * m + j]; }); });
+      const tr = this.card.trajectory;
+      if (tr) {                                   // v3: curve shapes in phenological time (second output)
+        const z = result[tr.output].data, q = tr.targets.length;
+        part.forEach((r, i) => { r.shapes = Array.from(z.subarray(i * q, (i + 1) * q)); });
+      }
     }
     for (const r of rows) {
       if (!r.ok) { for (const name of this.outputs) r.outputs[name] = NaN; continue; }
@@ -99,6 +104,45 @@ export class Emulator {
     const records = this.inputs(ws, soil, seasons);
     const rows = await this.predict(records);
     return rows.map((r, i) => ({ ...seasons[i], ...r, inputs: records[i] }));
+  }
+
+  /** True when the network also predicts the daily curves (v3). */
+  get hasCurves() { return !!this.card.trajectory; }
+
+  /** v3: daily curves of a predicted season, {pts: [{das, tau, leaf, biomass, grain, stress}], emr, flo, mat},
+   * from sowing to maturity (cropemu Prediction.curves): emulated shapes in phenological time
+   * (0 emergence, 1 flowering, 2 maturity) times the emulated season outputs, placed on days by the
+   * emulated dates. Leaf: LAI (DSSAT) or canopy cover % (AquaCrop); biomass and grain in the display
+   * unit; stress 0 none to 1 full. Null for a v2 emulator or when the dates are not predicted. */
+  curves(row) {
+    const tr = this.card.trajectory;
+    if (!tr || !row?.shapes) return null;
+    const o = row.outputs, g = tr.grid, n = g.length;
+    const e = o[tr.dates.emergence], a = o[tr.dates.flowering], m = o[tr.dates.maturity];
+    if (![e, a, m].every(Number.isFinite) || !(e < a && a < m)) return null;
+    const interp = (x, ys) => {
+      if (x <= g[0]) return ys[0];
+      if (x >= g[n - 1]) return ys[n - 1];
+      let j = 1; while (g[j] < x) j++;
+      return ys[j - 1] + (ys[j] - ys[j - 1]) * (x - g[j - 1]) / (g[j] - g[j - 1]);
+    };
+    const names = Object.keys(tr.curves);
+    const shape = Object.fromEntries(names.map((k, i) => [k, row.shapes.slice(i * n, (i + 1) * n).map((v) => Math.max(v, 0))]));
+    const stress = row.shapes.slice(names.length * n).map((v) => Math.min(1, Math.max(0, v)));
+    const scale = Object.fromEntries(names.map((k) => {
+      const c = tr.curves[k].scale;
+      return [k, Math.max(o[c], 0) * (k === 'leaf' ? 1 : this.meta[c]?.scale ?? 1)];
+    }));
+    const pts = [];
+    for (let d = 0; d <= Math.ceil(m); d++) {
+      const tau = d <= a ? (d - e) / Math.max(a - e, 1) : 1 + (d - a) / Math.max(m - a, 1);
+      const p = { das: d, tau };
+      for (const k of names) p[k] = tau < 0 ? 0 : interp(tau, shape[k]) * scale[k];
+      let j = 0; while (j < n - 2 && g[j + 1] <= tau) j++;
+      p.stress = tau < 0 ? 0 : stress[j];
+      pts.push(p);
+    }
+    return { pts, emr: e, flo: a, mat: m };
   }
 
   /** Value of an output in the display unit. */

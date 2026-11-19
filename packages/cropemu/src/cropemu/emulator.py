@@ -46,6 +46,50 @@ class Prediction:
     out_of_domain: pd.Series
     rare_inputs: pd.Series
     levels: pd.Series
+    shapes: pd.DataFrame | None = None           # v3: curve shapes in phenological time (card["trajectory"])
+    trajectory: dict | None = None
+
+    def curves(self) -> dict[str, pd.DataFrame]:
+        """v3 emulators: daily curves of every season, ``{curve: DataFrame (season x day after sowing)}``.
+
+        Growth curves (``leaf``: leaf area index in DSSAT, canopy cover % in AquaCrop; ``biomass``;
+        ``grain``) are the emulated shapes times the emulated season output named in
+        ``card["trajectory"]["curves"]`` (so they end at the season values), placed on days by the
+        emulated emergence, flowering and maturity dates; ``stress`` is the water stress (0 none to
+        1 full) of each interval of phenological time. Days before emergence are 0 and after
+        maturity NaN.
+        """
+        if self.shapes is None:
+            raise ValueError("this emulator has no trajectory output (v3 emulators)")
+        t = self.trajectory
+        grid = np.asarray(t["grid"], float)
+        n = len(grid)
+        d = t["dates"]
+        dates = self.outputs[[d["emergence"], d["flowering"], d["maturity"]]].to_numpy(float)
+        last = np.nanmax(dates[:, 2]) if np.isfinite(dates[:, 2]).any() else 0
+        days = np.arange(0, int(last) + 1)
+        S = self.shapes.to_numpy(float)
+        out = {}
+        names = list(t["curves"]) + ["stress"]
+        rows = {k: [] for k in names}
+        for i in range(len(S)):
+            e, a, m = dates[i]
+            if not (np.isfinite([e, a, m]).all() and e < a < m):
+                for k in names:
+                    rows[k].append(np.full(len(days), np.nan))
+                continue
+            tau = np.where(days <= a, (days - e) / max(a - e, 1), 1 + (days - a) / max(m - a, 1))
+            for k, (name, c) in enumerate(t["curves"].items()):
+                shape = np.clip(S[i, k * n:(k + 1) * n], 0, None)
+                y = np.interp(tau, grid, shape, left=0.0) * max(float(self.outputs.iloc[i][c["scale"]]), 0.0)
+                rows[name].append(np.where(days <= m, y, np.nan))
+            w = np.clip(S[i, len(t["curves"]) * n:], 0, 1)
+            j = np.clip(np.digitize(tau, grid) - 1, 0, n - 2)
+            rows["stress"].append(np.where((tau >= 0) & (days <= m), w[j], np.nan))
+        for k in names:
+            out[k] = pd.DataFrame(np.vstack(rows[k]) if rows[k] else np.empty((0, len(days))),
+                                  index=self.outputs.index, columns=pd.Index(days, name="day_after_sowing"))
+        return out
 
     def recommended(self, level: str = "caution") -> pd.DataFrame:
         """Outputs at ``level`` or better ("recommended" or "caution")."""
@@ -237,6 +281,8 @@ class Emulator:
         a = X[self.inputs_].to_numpy("float32")
         ok = np.isfinite(a).all(axis=1)
         out = np.full((len(X), len(self.outputs_)), np.nan)
+        traj = self.card.get("trajectory")
+        shapes = np.full((len(X), len(traj["targets"])), np.nan) if traj else None
         if ok.any():
             o = self.card["onnx"]
             feed = {o["input"]: a[ok]}
@@ -245,13 +291,18 @@ class Emulator:
                 feed[o["sequence_input"]] = s[ok].astype("float32")
             for i in range(0, int(ok.sum()), 4096):               # bounded memory for large grids
                 rows = np.flatnonzero(ok)[i:i + 4096]
-                out[rows] = self.session.run([o["output"]], {k: v[i:i + 4096] for k, v in feed.items()})[0]
+                names = [o["output"]] + ([traj["output"]] if traj else [])
+                res = self.session.run(names, {k: v[i:i + 4096] for k, v in feed.items()})
+                out[rows] = res[0]
+                if traj:
+                    shapes[rows] = res[1]
         P = pd.DataFrame(out, index=X.index, columns=self.outputs_)
         # ratios computed from predicted outputs: name -> [numerator, denominator, factor, floor]
         for name, (num, den, f, floor) in self.card.get("derived", {}).items():
             P[name] = f * P[num].clip(lower=0) / P[den].clip(lower=floor)
         keep = self.inputs_ + ([SEQUENCE_ID] if SEQUENCE_ID in X else [])   # inputs can be fed back
-        return Prediction(P, X[keep], self.domain(X), self.domain(X, rare=True), self.levels)
+        T = pd.DataFrame(shapes, index=X.index, columns=traj["targets"]) if traj else None
+        return Prediction(P, X[keep], self.domain(X), self.domain(X, rare=True), self.levels, T, traj)
 
     def inputs(self, weather, lat: float, soil, sowing, cultivar: dict, elev: float | None = None,
                irrigated: bool = False, co2: float | None = None, dt: float = 0.0,

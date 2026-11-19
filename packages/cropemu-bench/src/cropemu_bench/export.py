@@ -79,6 +79,44 @@ def torch_graph(em):
     return Graph().eval()
 
 
+def _conv_module(c, features: list):
+    """Torch module of a fitted :class:`ConvEmulator` (scaling inside) on the full input array."""
+    import torch
+    import torch.nn as nn
+
+    f32 = lambda a: torch.tensor(np.asarray(a, dtype="float32"))
+
+    class Conv(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.net = c.net_
+            for k, v in (("xm", c.xs.mean), ("xs", c.xs.std), ("ym", c.ys.mean), ("ys", c.ys.std)):
+                self.register_buffer(k, f32(v))
+            self.register_buffer("cm", f32(c.cm)[None, :, None])
+            self.register_buffer("cs", f32(c.cs)[None, :, None])
+            self.idx = [features.index(f) for f in c.features_]
+
+        def forward(self, x, s):
+            return self.net((s - self.cm) / self.cs, (x[:, self.idx] - self.xm) / self.xs) * self.ys + self.ym
+
+    return Conv()
+
+
+def _with_trajectory(g, traj, features: list):
+    """Graph with two outputs: the emulator outputs and the trajectory shapes (``ConvEmulator``)."""
+    import torch.nn as nn
+
+    class Both(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.main, self.traj = g, _conv_module(traj, features)
+
+        def forward(self, x, s):
+            return self.main(x, s), self.traj(x, s)
+
+    return Both().eval()
+
+
 def _sequence_graph(em: SequenceEmulator):
     """Graph of a :class:`SequenceEmulator`: mean of the date networks + the convolutional network."""
     import torch
@@ -104,24 +142,11 @@ def _sequence_graph(em: SequenceEmulator):
         def forward(self, x):
             return (self.net((x[:, self.idx] - self.xm) / self.xs) * self.ys + self.ym)[:, self.perm] + x @ self.off
 
-    class Conv(nn.Module):
-        def __init__(self, c):
-            super().__init__()
-            self.net = c.net_
-            for k, v in (("xm", c.xs.mean), ("xs", c.xs.std), ("ym", c.ys.mean), ("ys", c.ys.std)):
-                self.register_buffer(k, f32(v))
-            self.register_buffer("cm", f32(c.cm)[None, :, None])
-            self.register_buffer("cs", f32(c.cs)[None, :, None])
-            self.idx = [features.index(f) for f in c.features_]
-
-        def forward(self, x, s):
-            return self.net((s - self.cm) / self.cs, (x[:, self.idx] - self.xm) / self.xs) * self.ys + self.ym
-
     class Graph(nn.Module):
         def __init__(self):
             super().__init__()
             self.dates = nn.ModuleList(Dates(g) for g in em.date_members_)
-            self.conv = Conv(em.conv_)
+            self.conv = _conv_module(em.conv_, features)
             order = list(em.date_members_[0].targets_) + list(em.conv_.targets_)
             self.perm = [order.index(c) for c in targets]
 
@@ -132,13 +157,18 @@ def _sequence_graph(em: SequenceEmulator):
     return Graph().eval()
 
 
-def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=None) -> Path:
+def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=None,
+           trajectory=None) -> Path:
     """Write ``model.onnx`` and ``card.json`` of a fitted emulator to ``folder``.
 
     ``X``: the training inputs (domain of every input: 0.5/99.5 % quantiles, min and max).
     ``card``: name, model, crop, cultivar parameters, thermal, acceptance, training description...
     ``seq``: the daily sequences of the rows of ``X`` (needed for a :class:`SequenceEmulator`,
     whose graph has a second input, ``sequence``: rows x channels x days).
+    ``trajectory``: a fitted :class:`ConvEmulator` of the curve shapes (``cropemu_bench.trajectory``),
+    added to the graph of a :class:`SequenceEmulator` as a second output, ``trajectory``; the first
+    output stays ``outputs``, so readers of one output are unaffected. ``card["trajectory"]`` should
+    describe it (grid, curves and their scales).
     The ONNX predictions are checked against ``em.predict`` on ``check_rows`` rows.
     """
     import onnxruntime as ort
@@ -152,11 +182,18 @@ def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=
     x = torch.tensor(X.iloc[:16].to_numpy("float32"))
     # TorchScript exporter: torch >= 2.9 defaults to the dynamo exporter, which needs onnxscript
     legacy = {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}
+    if trajectory is not None and not seqs:
+        raise ValueError("a trajectory network needs a SequenceEmulator")
     if seqs:
         s = torch.tensor(np.asarray(seq[:16], dtype="float32"))
+        names = ["outputs"]
+        if trajectory is not None:
+            g = _with_trajectory(g, trajectory, list(em.features_))
+            names.append("trajectory")
         torch.onnx.export(g, (x, s), folder / "model.onnx", input_names=["inputs", "sequence"],
-                          output_names=["outputs"], opset_version=17, **legacy,
-                          dynamic_axes={"inputs": {0: "rows"}, "sequence": {0: "rows"}, "outputs": {0: "rows"}})
+                          output_names=names, opset_version=17, **legacy,
+                          dynamic_axes={"inputs": {0: "rows"}, "sequence": {0: "rows"},
+                                        **{n: {0: "rows"} for n in names}})
     else:
         torch.onnx.export(g, x, folder / "model.onnx", input_names=["inputs"], output_names=["outputs"],
                           dynamic_axes={"inputs": {0: "rows"}, "outputs": {0: "rows"}}, opset_version=17, **legacy)
@@ -170,11 +207,17 @@ def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=
         p_ref = em.predict(rows, rs).to_numpy()
     else:
         p_ref = em.predict(rows).to_numpy()
-    p_onnx = sess.run(None, feed)[0]
+    res = sess.run(None, feed)
+    p_onnx = res[0]
     scale = np.nanstd(p_ref, axis=0) + 1e-9
     err = float(np.nanmax(np.abs(p_onnx - p_ref) / scale))
     if err > 1e-3:
         raise RuntimeError(f"ONNX differs from the emulator: {err:.2g} SD")
+    if trajectory is not None:
+        t_ref = trajectory.predict(rows, rs).to_numpy()
+        t_err = float(np.nanmax(np.abs(res[1] - t_ref) / (np.nanstd(t_ref, axis=0) + 1e-9)))
+        if t_err > 1e-3:
+            raise RuntimeError(f"ONNX trajectory differs from the network: {t_err:.2g} SD")
     q = X.quantile([0.005, 0.995])
     card = {"card_version": CARD_VERSION, **card, "inputs": list(em.features_), "outputs": list(em.targets_),
             "domain": {c: {"q005": float(q.loc[0.005, c]), "q995": float(q.loc[0.995, c]),
@@ -185,5 +228,8 @@ def export(em, X: pd.DataFrame, folder, card: dict, check_rows: int = 2000, seq=
 
         card["onnx"]["sequence_input"] = "sequence"
         card["sequence"] = {"channels": list(SEQUENCE_CHANNELS), "days": list(SEQUENCE_DAYS)}
+    if trajectory is not None:
+        card["trajectory"] = {**card.get("trajectory", {}), "output": "trajectory",
+                              "targets": list(trajectory.targets_), "max_rel_error_check": t_err}
     (folder / "card.json").write_text(json.dumps(card, indent=1, default=float))
     return folder
