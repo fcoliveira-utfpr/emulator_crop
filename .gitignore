@@ -26,3 +26,6 @@ analises/__pycache__/
 benchmark/improve/results/*.npy
 benchmark/logs/
 /data/
+
+# run logs
+logs/
