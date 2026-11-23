@@ -2,8 +2,8 @@
 
 >>> import cropemu
 >>> cropemu.available()
-['aquacrop-soybean-v1', 'dssat-soybean-v1']
->>> emu = cropemu.load("dssat-soybean-v1")
+['aquacrop-soybean-v1', 'aquacrop-soybean-v2', 'aquacrop-soybean-v3', 'dssat-soybean-v1', 'dssat-soybean-v2', 'dssat-soybean-v3']
+>>> emu = cropemu.load("dssat-soybean-v3")
 >>> emu.describe()                       # outputs, units, acceptance levels
 
 Weather (NASA POWER, station data) and soil (SoilGrids, measured profiles) helpers are in
@@ -15,4 +15,4 @@ from .emulator import Emulator, Prediction, available, gdd_between, load, season
 
 __all__ = ["Emulator", "Prediction", "available", "gdd_between", "load", "season_gdd"]
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

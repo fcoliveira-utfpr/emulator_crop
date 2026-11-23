@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cropemu"
-version = "0.4.0"
+version = "0.5.0"
 description = "Validated neural-network emulators of DSSAT and AquaCrop for soybean: whole crop model seasons in a fraction of a millisecond, anywhere on the globe, with your own data"
 readme = "README.md"
 license = "MIT"
@@ -40,7 +40,7 @@ Homepage = "https://github.com/fcoliveira-utfpr/emulator_crop"
 Repository = "https://github.com/fcoliveira-utfpr/emulator_crop"
 Examples = "https://github.com/fcoliveira-utfpr/emulator_crop/tree/main/examples"
 "Web app" = "https://fcoliveira-utfpr.github.io/emulator_crop/"
-Changelog = "https://github.com/fcoliveira-utfpr/emulator_crop/blob/main/packages/cropemu/README.md#whats-new-in-040"
+Changelog = "https://github.com/fcoliveira-utfpr/emulator_crop/blob/main/packages/cropemu/README.md#whats-new-in-050"
 Issues = "https://github.com/fcoliveira-utfpr/emulator_crop/issues"
 
 [project.optional-dependencies]

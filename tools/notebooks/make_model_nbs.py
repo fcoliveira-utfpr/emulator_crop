@@ -11,9 +11,9 @@ md, code = nbf.v4.new_markdown_cell, nbf.v4.new_code_cell
 
 CFG = {
     "dssat": dict(
-        file="dssat_soybean.ipynb", emu="dssat-soybean-v2", title="DSSAT CROPGRO-Soybean emulator",
+        file="dssat_soybean.ipynb", emu="dssat-soybean-v3", title="DSSAT CROPGRO-Soybean emulator",
         model="DSSAT 4.8 CROPGRO-Soybean", yld="HWAM", yscale="1e-3", mat="MDAT_dap", flo="ADAT_dap",
-        et="ETCM", rain="PRCM", bio="CWAM", bscale="1e-3",
+        et="ETCM", rain="PRCM", bio="CWAM", bscale="1e-3", leaf="leaf area index (m²/m²)",
         cultivar_doc="""In DSSAT the cultivar is a set of 14 coefficients. `emu.cultivar(mg=...)` returns the
 default coefficients of a maturity group (MG) from the CROPGRO-Soybean cultivar file;
 `emu.cultivar(lat=...)` uses the typical MG of the latitude. Any coefficient can be overridden.""",
@@ -30,9 +30,9 @@ later (photoperiod), which changes the yield and its year-to-year variability.""
               ("SFDUR", "seed filling duration (photothermal d)"), ("WTPSD", "max. seed weight (g)")],
     ),
     "aquacrop": dict(
-        file="aquacrop_soybean.ipynb", emu="aquacrop-soybean-v2", title="AquaCrop soybean emulator",
+        file="aquacrop_soybean.ipynb", emu="aquacrop-soybean-v3", title="AquaCrop soybean emulator",
         model="FAO AquaCrop 7.3", yld="Y(dry)", yscale="1.0", mat="MAT_dap", flo="FLO_dap",
-        et="ET_crop", rain="Rain_crop", bio="BioMass", bscale="1.0",
+        et="ET_crop", rain="Rain_crop", bio="BioMass", bscale="1.0", leaf="canopy cover (%)",
         cultivar_doc="""AquaCrop's soybean has no photoperiod response: the cycle is a thermal time,
 `gdd_maturity` (growing degrees from sowing to maturity, Tbase 5 °C, Tupper 30 °C), as in the
 training design, where it was fitted to the local crop calendar. `emu.cultivar(weather=...,
@@ -67,21 +67,22 @@ md(f"""# {c['title']}: what it does and how to use it
 `cropemu` ships an emulator of **{c['model']}**: neural networks trained on ~118,000 simulated
 seasons at ~2,000 points of the world soybean area (NASA POWER weather, SoilGrids soil, GGCMI
 calendar). It predicts the phenology, yield, biomass and water balance of a season from the
-weather, the soil, the sowing date and the cultivar, in a fraction of a millisecond instead of the
+weather, the soil, the sowing date, the cultivar and the plant population, in a fraction of a millisecond instead of the
 0.1-1 s of the crop model, and without installing it. The development dates come from the mean of
 four networks on season summaries (30-day weather windows, soil, cultivar); the other outputs from
 a convolutional network that also reads the daily weather from 30 days before to 170 days after
-sowing, so it sees *when* heat, drought or rain fall in the cycle.
+sowing, so it sees *when* heat, drought or rain fall in the cycle. A second output of that network
+gives the daily curves of the season (leaf, biomass, grain, water stress).
 
 This notebook is a tour of the library with one site (Londrina, Brazil) and one region:
 
 1. the emulator: outputs, units, validation error, training domain;
 2. weather and soil of a site;
-3. one season, and how to read a prediction;
+3. one season, how to read a prediction, and its daily curves;
 4. 35 years at a fixed sowing date;
 5. the sowing window (year × sowing date);
 6. cultivars and parameter sensitivity;
-7. water: rainfed vs. irrigated;
+7. management: water (rainfed vs. irrigated) and plant population;
 8. climate scenarios (warming, CO₂, rain);
 9. a regional map;
 10. speed;
@@ -92,9 +93,9 @@ Everything here runs with `pip install "cropemu[soil]"`; weather and soil are do
 cached (`CROPEMU_CACHE`, default `~/.cache/cropemu`)."""),
 code("""try:
     import cropemu
-    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 4)
+    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 5)
 except (ImportError, AssertionError):     # install from PyPI (Intel Macs need --prefer-binary for rasterio)
-    %pip install --quiet --prefer-binary "cropemu[soil]>=0.4"
+    %pip install --quiet --prefer-binary "cropemu[soil]>=0.5"
     import cropemu
 
 import time
@@ -115,6 +116,7 @@ plt.rcParams.update({{"axes.spines.top": False, "axes.spines.right": False, "axe
                      "axes.prop_cycle": plt.cycler(color=SERIES)}})
 
 YLD, MAT, FLO, ET, RAIN, BIO = {c['yld']!r}, {c['mat']!r}, {c['flo']!r}, {c['et']!r}, {c['rain']!r}, {c['bio']!r}
+LEAF = {c['leaf']!r}
 TO_T = {c['yscale']}            # yield to t/ha
 BIO_T = {c['bscale']}           # biomass to t/ha"""),
 md("## 1. The emulator"),
@@ -209,6 +211,28 @@ md("""A prediction carries, besides the outputs:
 - `res.recommended("caution")`: only the outputs that passed the validation."""),
 code("""print("out of domain:", res.out_of_domain.iloc[0], "| rare:", res.rare_inputs.iloc[0])
 res.recommended("recommended").round(2)"""),
+md("""### Daily curves
+
+`res.curves()` gives the daily curves of every season as `{curve: table (season × day after sowing)}`:
+leaf, aboveground biomass and grain, which end at the season outputs of the prediction, and the water
+stress (0 none to 1 full). Their shape in phenological time is the second output of the network; the
+emulated emergence, flowering and maturity place it on days. Rainfed against no water stress, same season:"""),
+code("""res_irr = emu.predict(weather, lat=LAT, elev=ELEV, soil=soil, sowing=REF_SOWING, cultivar=cult, irrigated=True)
+PANELS = [("leaf", 1.0, LEAF), ("biomass", BIO_T, "biomass (t/ha)"), ("grain", TO_T, "grain (t/ha)"),
+          ("stress", 1.0, "water stress (0-1)")]
+fig, axes = plt.subplots(1, 4, figsize=(14, 3.2))
+for r, lab, ls, colr in ((res, "rainfed", "-", "#2a78d6"), (res_irr, "no water stress", "--", "0.5")):
+    cv_ = r.curves()
+    for ax, (k, scale, ylab) in zip(axes, PANELS):
+        s = cv_[k].iloc[0] * scale
+        ax.plot(s.index, s.to_numpy(), ls=ls, lw=2, color=colr, label=lab)
+        ax.set(xlabel="days after sowing", title=ylab)
+for ax in axes:
+    for col in (FLO, MAT):
+        ax.axvline(res.outputs[col].iloc[0], color="0.75", lw=1, ls=":")
+axes[0].legend()
+fig.suptitle(f"{SITE}, sown {REF_SOWING} (dotted: emulated flowering and maturity)", y=1.03)
+fig.tight_layout(); plt.show()"""),
 md("## 4. Thirty-five years at a fixed sowing date"),
 code("""YEARS = list(range(1990, 2025))
 dates = [pd.Timestamp(y, 10, 20) for y in YEARS]
@@ -324,7 +348,9 @@ for ax, (p, lab) in zip(axes, SENS):
 axes[0].set_ylabel("rainfed yield (t/ha)")
 fig.suptitle("sensitivity of yield to one parameter (dashed: typical value)", y=1.03)
 fig.tight_layout(); plt.show()"""),
-md("""## 7. Water: rainfed vs. no water stress
+md("""## 7. Management
+
+### 7.1 Water: rainfed vs. no water stress
 
 `irrigated=True` predicts the season without water stress (the water balance switched off, as in
 the training seasons without water limitation). The difference is the water-limited yield gap."""),
@@ -341,6 +367,35 @@ ax.step(srt_i, p, where="post", color="0.5", lw=2, ls="--", label="no water stre
 ax.set(xlabel="yield (t/ha)", ylabel="cumulative probability", title="yield distribution, 1990-2024"); ax.legend()
 fig.tight_layout(); plt.show()
 print(f"mean gap {gap.mean():.2f} t/ha ({gap.mean() / o['yield_irrigated_t'].mean():.0%} of the unstressed yield)")"""),
+md("""### 7.2 Plant population
+
+The plant population (plants/m²) is part of the cultivar dictionary, `population`, default 30. The
+training seasons sampled it from 15 to 50 plants/m² (`card["domain"]["population"]`); other values
+are flagged as out of domain. Yield over 1990-2024 at each population, rainfed and without water
+stress (line: median; band: 25-75 %):"""),
+code("""print("training range:", emu.card["domain"]["population"])
+POPS = [15, 20, 25, 30, 35, 40, 45, 50]
+rows = []
+for pop in POPS:
+    for irrigated in (False, True):
+        r = emu.predict(weather, lat=LAT, elev=ELEV, soil=soil, sowing=dates, cultivar={**cult, "population": pop},
+                        irrigated=irrigated).outputs
+        rows.append(pd.DataFrame({"population": pop, "irrigated": irrigated, "year": YEARS,
+                                  "yield": r[YLD].to_numpy() * TO_T, "biomass": r[BIO].to_numpy() * BIO_T}))
+PP = pd.concat(rows)
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
+for ax, col, lab in zip(axes, ("yield", "biomass"), ("yield (t/ha)", "biomass (t/ha)")):
+    for irrigated, name, colr in ((False, "rainfed", "#2a78d6"), (True, "no water stress", "0.5")):
+        q = PP[PP["irrigated"] == irrigated].groupby("population")[col].quantile([0.25, 0.5, 0.75]).unstack()
+        ax.fill_between(q.index, q[0.25], q[0.75], color=colr, alpha=0.2, lw=0)
+        ax.plot(q.index, q[0.5], color=colr, lw=2, marker="o", markersize=4, label=name)
+    ax.axvline(30, color="0.75", lw=1, ls=":")
+    ax.set(xlabel="plants/m²", ylabel=lab, title=f"{lab.split(' (')[0]} and plant population, 1990-2024")
+axes[0].legend()
+fig.tight_layout(); plt.show()
+m = PP.groupby(["irrigated", "population"])["yield"].mean().unstack()
+gain = (m[50] - m[15]).round(2).rename({False: "rainfed", True: "no water stress"})
+print("mean yield change from 15 to 50 plants/m² (t/ha):", gain.to_dict())"""),
 md("""## 8. Climate scenarios
 
 The training seasons included perturbations: +-1 to +4 °C on Tmax and Tmin, rain x0.7-1.3 and CO₂
@@ -431,8 +486,9 @@ md("""## Notes
 
 - The emulator reproduces the crop model, not field yields: model errors are inherited, and the
   crop model was not calibrated for these sites.
-- Fixed in training: 30 plants/m², 50 cm rows, no nitrogen stress, half of the available water 30
-  days before sowing. Seasons with other management are outside what the emulator knows.
+- Fixed in training: 50 cm rows, no nitrogen stress, half of the available water 30 days before
+  sowing; the plant population was sampled from 15 to 50 plants/m². Seasons with other management
+  are outside what the emulator knows.
 - Check `out_of_domain` and `rare_inputs` before trusting a season, and prefer the outputs of
   `recommended("caution")`."""),
     ]

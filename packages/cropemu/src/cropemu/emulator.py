@@ -199,11 +199,18 @@ class Emulator:
         """DSSAT: the emulator cultivar from the coefficients of a DSSAT cultivar (e.g.
         :func:`cropemu.io.read_cul`). ``mg`` is the maturity group if known, else estimated from
         CSDL (:meth:`mg_from_csdl`). Check :meth:`cultivar_domain`: calibrated cultivars often
-        have coefficients outside the training range."""
+        have coefficients outside the training range. v3 emulators: the plant population is not a
+        cultivar coefficient; it takes the default (30 plants/m²) unless ``coefficients`` has it."""
         if self.family != "dssat":
             raise ValueError("only for DSSAT emulators")
         mg = self.mg_from_csdl(coefficients["CSDL"]) if mg is None else float(mg)
-        return {"mg": mg, **{k: float(coefficients[k]) for k in self.cultivar_ if k != "mg"}}
+        out = {"mg": mg}
+        for k in self.cultivar_:
+            if k == "population" and k not in coefficients:
+                out[k] = float(self.card.get("population_default", 30.0))
+            elif k != "mg":
+                out[k] = float(coefficients[k])
+        return out
 
     def cultivar_domain(self, cultivar: dict) -> pd.DataFrame:
         """Each cultivar parameter against its training range: value, min, max, position in the

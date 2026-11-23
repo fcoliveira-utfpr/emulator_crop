@@ -767,8 +767,10 @@ Implementado, ainda sem publicar:
 
   Pior sítio em produtividade: Ames (DSSAT 0,68 t/ha, AquaCrop 0,60 t/ha, viés positivo). No AquaCrop em sequeiro o ganho médio com a população está certo, mas a variação entre safras é pouco reproduzida (r 0,55). O notebook `examples/compare_emulator_simulator.ipynb` foi passado para o v3 (25 safras por sítio; mediana RMSE/ficha 0,58 e 0,61).
 
+- **Biblioteca 0.5.0** (23/11): README do pacote em v3 (população, `res.curves()`), notebooks `dssat_soybean`, `aquacrop_soybean` e `your_data` regenerados em v3 (`tools/notebooks`), com seções novas de curvas diárias e de população de plantas. Nos ensaios de campo a densidade de cada parcela agora entra no emulador: em Paragominas o RMSE da produtividade calibrada caiu de 903 para 738 kg/ha (DSSAT) e de 2.369 para 1.510 kg/ha (AquaCrop). Correção: `cultivar_from_dssat` falhava no v3 (procurava `population` no .CUL). Wheel de 16,9 MB com os 6 emuladores, testada num ambiente limpo.
+
 **Pendente:**
-1. Biblioteca 0.5.0 no PyPI (README do pacote e demais notebooks ainda em v2).
+1. Enviar a 0.5.0 ao PyPI.
 2. Merge em `main` e deploy do app.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)

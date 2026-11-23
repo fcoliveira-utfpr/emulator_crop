@@ -19,7 +19,7 @@ pip install "cropemu[soil]"
 
 | Package | Purpose | Status |
 |---|---|---|
-| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/), 0.4.0 |
+| [`cropemu`](packages/cropemu) | Library for end users: the emulators (shipped inside), weather (NASA POWER) and soil (SoilGrids) anywhere, readers of your own data (spreadsheets, DSSAT files), prediction with validation levels and domain checks. Depends only on numpy, pandas and onnxruntime. | [on PyPI](https://pypi.org/project/cropemu/), 0.5.0 |
 | [`cropemu-bench`](packages/cropemu-bench) | Research package: crop model adapters (DSSAT, AquaCrop), experimental design, simulation, emulator training, benchmarking and export to ONNX. | in this repository |
 
 ## Emulators
