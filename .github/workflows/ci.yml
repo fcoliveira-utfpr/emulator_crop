@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/aquacrop-bin
-          key: aquacrop-${{ env.AQUACROP_TAG }}-${{ runner.os }}-generic-static
+          key: aquacrop-${{ env.AQUACROP_TAG }}-${{ runner.os }}-generic-static-simul
       - name: Build AquaCrop from the official source
         if: steps.aquacrop-cache.outputs.cache-hit != 'true'
         run: |
@@ -73,6 +73,7 @@ jobs:
           curl -sL "https://github.com/KUL-RSDA/AquaCrop/archive/refs/tags/${AQUACROP_TAG}.tar.gz" | tar xz
           make -C AquaCrop-*/src bin STATIC=1
           mkdir -p ~/aquacrop-bin && cp AquaCrop-*/src/aquacrop ~/aquacrop-bin/
+          cp -r AquaCrop-*/testcase/SIMUL ~/aquacrop-bin/          # MaunaLoa.CO2 and default files, as in the release zip
       - run: echo "CROPEMU_AQUACROP_EXE=$HOME/aquacrop-bin/aquacrop" >> "$GITHUB_ENV"
       - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e "packages/cropemu[soil,test]" -e "packages/cropemu-bench[test]"
       - name: Tests with AquaCrop
