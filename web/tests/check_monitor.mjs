@@ -29,3 +29,22 @@ for (const cp of res) {
   const rf = summary(cp.rainfed.map((r) => r.outputs.HWAM)), ir = summary(cp.potential.map((r) => r.outputs.HWAM));
   console.log(isoDate(cp.day), cp.forecast ? 'F' : ' ', Math.round(rf.p10), Math.round(rf.p50), Math.round(rf.p90), 'irr', Math.round(ir.p50), 'ok', cp.rainfed.filter((r) => r.ok).length);
 }
+
+// most similar years and the yield built along the cycle (% of the potential)
+const { similarYears, relativeCurves } = await import('../src/engine/monitor.js');
+const sim = similarYears(table, sowing, observedEnd, analogs);
+console.log('most similar years', sim.slice(0, 5).map((a) => `${a.year} (${a.dist.toFixed(2)})`).join(', '), '| least', sim.at(-1).year, sim.at(-1).dist.toFixed(2));
+const same = similarYears(table, sowing, observedEnd, analogs);
+if (!(same.length === analogs.length)) throw new Error('similarYears dropped analogs');
+const last = res.at(-1), rc = relativeCurves(emu, last, 140);
+const at = (d, key) => summary(rc[key].map((s) => s[d]));
+console.log('relative curves', rc.years.length, 'scenarios');
+for (const d of [0, 30, 60, 90, 120, 140]) console.log(`  DAS ${d}: rainfed ${at(d, 'rainfed').p50.toFixed(0)}% (${at(d, 'rainfed').p10.toFixed(0)}-${at(d, 'rainfed').p90.toFixed(0)}) potential ${at(d, 'potential').p50.toFixed(0)}% gap ${at(d, 'gap').p50.toFixed(0)}%`);
+const fin = rc.rainfed.map((s, i) => s[140]), yRf = last.rainfed.filter((r) => rc.years.includes(r.year)).map((r) => r.outputs.HWAM), yPt = last.potential.filter((r) => rc.years.includes(r.year)).map((r) => r.outputs.HWAM);
+const err = Math.max(...fin.map((v, i) => Math.abs(v - 100 * Math.min(yRf[i] / yPt[i], 1))));
+console.log('max |final % - yield ratio| =', err.toFixed(2), 'points');
+if (err > 0.5) throw new Error('relative curves do not end at the season yields');
+// the ranking in plain numbers: rain since 30 days before sowing and mean Tmax, this season vs. top and bottom years
+const stats = (shift) => { let r = 0, tx = 0, n = 0; for (let d = sowing - 30; d <= observedEnd; d++) { const i = d - shift - table.t0; r += table.cols.rain[i]; tx += table.cols.tmax[i]; n++; } return `rain ${r.toFixed(0)} mm, Tmax ${(tx / n).toFixed(1)}`; };
+console.log('this season:', stats(0));
+for (const a of [...sim.slice(0, 3), sim.at(-1)]) console.log(`  ${a.year} (${a.dist.toFixed(2)}):`, stats(a.shift));

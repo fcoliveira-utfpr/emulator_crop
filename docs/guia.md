@@ -116,6 +116,7 @@ Solo e cultivar ficam fixos; só o clima muda entre cenários. A safra é refeit
 
 **Quadros do topo**
 - **Produtividade esperada:** a mediana dos cenários, em sequeiro. O texto embaixo traz a faixa em que caem 80 % dos cenários; quanto mais estreita, menos o resultado depende do clima que ainda vai acontecer.
+- **Ano mais parecido até agora:** o ano passado cujo clima, de 30 dias antes da semeadura até o último dia observado, mais se pareceu com o desta safra. A comparação é semana a semana: chuva da semana, chuva acumulada e Tmax e Tmin médias, cada uma medida em relação à variação entre os anos, com mais peso nas semanas recentes. O texto traz a produtividade do cenário em que o resto do ciclo segue esse ano, em t/ha e em % do potencial (sem estresse hídrico), e os dois anos seguintes do ranking. É o **cenário mais provável** só no sentido de "a safra vem parecida com aquele ano até aqui"; o futuro ainda pode seguir outro caminho, por isso a faixa de 80 % continua sendo a referência.
 - **Variação desde a semeadura:** quanto a expectativa subiu ou caiu em relação à da data da semeadura. Uma queda indica que o clima até agora foi pior que o dos anos passados naquelas semanas.
 - **Yield gap (água):** a mediana, entre os cenários, da diferença *sem estresse hídrico − sequeiro*. É a produtividade que o modelo atribui à falta de água. Perto de zero, a água não está limitando.
 - **Fase da cultura:** dias após a semeadura e a fase esperada (vegetativa, reprodutiva, maturidade), com a média dos cenários.
@@ -128,6 +129,7 @@ Solo e cultivar ficam fixos; só o clima muda entre cenários. A safra é refeit
 - **Área vermelha:** o yield gap.
 - **Trecho tracejado:** a estimativa que já usa a previsão de 16 dias.
 - **Losango roxo com barra:** a estimativa com a previsão sazonal e a sua faixa de 80 %.
+- **Linha laranja:** o cenário do ano mais parecido em cada data.
 - **Linha vertical:** hoje.
 
 Como ler: uma linha que desce semana após semana indica que o clima está piorando a safra. Um losango abaixo da linha indica que a previsão sazonal é menos favorável que a média dos anos passados.
@@ -137,15 +139,26 @@ Como ler: uma linha que desce semana após semana indica que o clima está piora
 **Produtividade final em cada cenário.**
 - **Pontos azuis:** sequeiro, um por ano passado ("o resto do ciclo como no ano X").
 - **Círculos cinza:** sem estresse hídrico.
+- **Círculo laranja:** o ano mais parecido.
 - **Como ler:** a distância entre os dois é o yield gap daquele cenário. Anos com valores bem abaixo dos demais mostram o risco de o resto da safra ser seco ou quente.
 
 **Chuva acumulada desde a semeadura.**
 - **Linha azul:** esta safra (tracejada, a previsão).
 - **Linha tracejada cinza e faixa:** mediana e 80 % dos anos passados nos mesmos dias.
 - **Linha roxa:** chuva esperada até a maturidade no modo escolhido.
+- **Linha laranja fina:** a chuva do ano mais parecido, da semeadura até hoje (para comparar com a desta safra).
+- **Linha laranja tracejada:** esta safra completada com a chuva do ano mais parecido.
 - **Linhas verticais:** floração e maturidade esperadas.
 
 Como ler: abaixo da faixa cinza, a safra está mais seca que quase todos os anos.
+
+**Produtividade formada ao longo do ciclo, % do potencial.** O grão acumulado dia a dia em cada cenário (as curvas diárias do emulador), em % da produtividade sem estresse hídrico do mesmo cenário.
+- **Linha tracejada cinza:** sem estresse hídrico, chega a 100 % na maturidade.
+- **Linha azul e faixa:** sequeiro, mediana e 80 % dos cenários. Na maturidade, o valor é a produtividade relativa (sequeiro ÷ potencial).
+- **Linha laranja:** o ano mais parecido.
+- O grão começa a crescer perto do enchimento de grãos (depois da floração); antes disso as curvas ficam em zero.
+
+**Yield gap ao longo do ciclo, % do potencial.** O grão perdido por falta de água até cada dia (sem estresse hídrico − sequeiro), em % do potencial; na maturidade é o yield gap final de cada cenário. Mesma leitura: mediana, faixa de 80 % e ano mais parecido. As duas curvas são comparadas na mesma fase da cultura (a seca encurta o ciclo de sequeiro em alguns dias).
 
 **Temperatura diária.**
 - **Tmax e Tmin:** desta safra; esmaecidas, os dias de previsão.

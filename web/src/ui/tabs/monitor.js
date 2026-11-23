@@ -3,7 +3,7 @@
 // yield gap followed week by week from sowing.
 
 import { dayNumber, fromYMD, fullDate, isoDate, shortDate, today } from '../../engine/dates.js';
-import { analogYears, lastContinuous, monitor, scenarioDays, summary } from '../../engine/monitor.js';
+import { analogYears, lastContinuous, monitor, relativeCurves, scenarioDays, similarYears, summary } from '../../engine/monitor.js';
 import { fetchOpenMeteo, fetchSeasonal, PAST_DAYS } from '../../engine/openmeteo.js';
 import { combine, fillGaps, SRC } from '../../engine/weather.js';
 import { t } from '../../i18n.js';
@@ -62,12 +62,13 @@ export const monitorTab = {
       try { seasonal = await fetchSeasonal(site.lat, site.lon); } catch (e) { seasonalError = e.message; }
     }
     const cps = await monitor(emu, table, { lat: site.lat, elev: site.elev, soil: ctx.soil, sowing, cultivar: ctx.cultivar(), observedEnd, known, analogs, seasonal });
-    return { sowing, now, known, observedEnd, table, analogs, cps, n, openMeteo, error, seasonal, seasonalError };
+    const similar = similarYears(table, sowing, observedEnd, analogs);
+    return { sowing, now, known, observedEnd, table, analogs, cps, n, openMeteo, error, seasonal, seasonalError, similar };
   },
 
   render(ctx, data, el) {
     const { emu } = ctx, k = emu.keys, meta = emu.meta, my = meta[k.yield], st = ctx.tabState('monitor', { sowing: null });
-    const { sowing, now, known, observedEnd, table, analogs, cps, n, openMeteo, error, seasonal, seasonalError } = data;
+    const { sowing, now, known, observedEnd, table, analogs, cps, n, openMeteo, error, seasonal, seasonalError, similar = [] } = data;
     const val = (r) => r.outputs[k.yield] * my.scale;
     const RF = t('Rainfed', 'Sequeiro'), NS = t('No water stress', 'Sem estresse hídrico');
     const all = cps.map((cp) => {
@@ -85,6 +86,14 @@ export const monitorTab = {
     const stage = das < 0 ? t('before sowing', 'antes da semeadura') : das < flo ? t(`vegetative · flowering in ~${fmt(flo - das, 0)} days`, `vegetativo · floração em ~${fmt(flo - das, 0)} dias`)
       : das < mat ? t(`reproductive · maturity in ~${fmt(mat - das, 0)} days`, `reprodutivo · maturidade em ~${fmt(mat - das, 0)} dias`) : t('at or past maturity', 'maturidade atingida');
     const forecastEnd = known > observedEnd ? known : null;
+    // the most similar past year so far (weather from 30 days before sowing to the last observed day)
+    const best = similar[0] ?? null;
+    const bestOf = (cp) => {
+      const i = best ? cp.rainfed.findIndex((r) => r.year === best.year) : -1;
+      return i < 0 ? null : { rf: val(cp.rainfed[i]), pt: val(cp.potential[i]), pct: Math.min(100, 100 * val(cp.rainfed[i]) / val(cp.potential[i])) };
+    };
+    const bestCur = bestOf(cur);
+    const SIM = best ? t(`${best.year}, most similar year`, `${best.year}, ano mais parecido`) : '';
 
     // header and controls
     const input = h('input', { type: 'date', value: isoDate(sowing), max: isoDate(now), onchange: (e) => { st.sowing = e.target.value ? dayNumber(e.target.value) : null; ctx.refresh(); } });
@@ -92,13 +101,14 @@ export const monitorTab = {
     const exportRows = all.map((d) => ({ [t('date', 'data')]: isoDate(d.day), [t('weather_known_until', 'clima_conhecido_ate')]: isoDate(d.known), [t('forecast', 'previsao')]: d.forecast ? 1 : 0,
       [`${t('rainfed', 'sequeiro')}_p10`]: d.rf.p10, [`${t('rainfed', 'sequeiro')}_p50`]: d.rf.p50, [`${t('rainfed', 'sequeiro')}_p90`]: d.rf.p90,
       [`${t('no_stress', 'sem_estresse')}_p50`]: d.pt.p50, [t('yield_gap', 'yield_gap')]: d.gap, [t('yield_gap_pct', 'yield_gap_pct')]: d.gapPct,
+      [t('most_similar_year', 'ano_mais_parecido')]: best?.year ?? '', [`${t('rainfed', 'sequeiro')}_${t('most_similar_year', 'ano_mais_parecido')}`]: bestOf(d)?.rf ?? NaN,
       [t('rest_of_cycle', 'resto_do_ciclo')]: d.seasonal ? t('past years + ECMWF seasonal', 'anos passados + sazonal ECMWF') : t('past years', 'anos passados'), [t('unit', 'unidade')]: my.unit }));
     const modeSelect = seas ? h('label.inline', h('span', t('Rest of the cycle', 'Resto do ciclo')), h('select', { onchange: (e) => { st.mode = e.target.value; ctx.redraw(); } },
       h('option', { value: 'seasonal', selected: useSeasonal }, t('Seasonal forecast (ECMWF)', 'Previsão sazonal (ECMWF)')),
       h('option', { value: 'past', selected: !useSeasonal }, t('Past years only', 'Só anos passados')))) : null;
     el.append(header(t(`Season sown on ${fullDate(sowing)}`, `Safra semeada em ${fullDate(sowing)}`),
-      t(`Weather observed until ${fullDate(observedEnd)}${forecastEnd ? `, forecast until ${fullDate(forecastEnd)}` : ''}; the rest of the cycle comes from each of ${analogs.length} past years (${analogs[0].year}–${analogs.at(-1).year})${useSeasonal ? ', shifted month by month to the ECMWF seasonal forecast' : ''}. Soil and cultivar stay fixed; only the weather changes between scenarios.`,
-        `Clima observado até ${fullDate(observedEnd)}${forecastEnd ? `, previsão até ${fullDate(forecastEnd)}` : ''}; o resto do ciclo vem de cada um de ${analogs.length} anos passados (${analogs[0].year}–${analogs.at(-1).year})${useSeasonal ? ', deslocados mês a mês para a previsão sazonal do ECMWF' : ''}. Solo e cultivar ficam fixos; só o clima muda entre os cenários.`),
+      t(`Weather observed until ${fullDate(observedEnd)}${forecastEnd ? `, forecast until ${fullDate(forecastEnd)}` : ''}; the rest of the cycle comes from each of ${analogs.length} past years (${analogs[0].year}–${analogs.at(-1).year})${useSeasonal ? ', shifted month by month to the ECMWF seasonal forecast' : ''}. Soil and cultivar stay fixed; only the weather changes between scenarios.${best ? ` The most similar year so far is ${best.year}: of all past years, its weather from 30 days before sowing to ${fullDate(observedEnd)} (weekly rain, rain accumulated and temperature) was the closest to this season's.` : ''}`,
+        `Clima observado até ${fullDate(observedEnd)}${forecastEnd ? `, previsão até ${fullDate(forecastEnd)}` : ''}; o resto do ciclo vem de cada um de ${analogs.length} anos passados (${analogs[0].year}–${analogs.at(-1).year})${useSeasonal ? ', deslocados mês a mês para a previsão sazonal do ECMWF' : ''}. Solo e cultivar ficam fixos; só o clima muda entre os cenários.${best ? ` O ano mais parecido até agora é ${best.year}: entre todos os anos passados, foi o de clima mais próximo ao desta safra de 30 dias antes da semeadura até ${fullDate(observedEnd)} (chuva semanal, chuva acumulada e temperatura).` : ''}`),
       [h('label.inline', h('span', t('Sowing', 'Semeadura')), input), reset, modeSelect],
       exporter(`${t('monitoring', 'monitoramento')}_${isoDate(sowing)}_${emu.card.name}.csv`, exportRows)));
     if (seasonalError) el.append(h('p.note.warn', t(`Seasonal forecast unavailable (${seasonalError}): the rest of the cycle uses the past years only.`, `Previsão sazonal indisponível (${seasonalError}): o resto do ciclo usa só os anos passados.`)));
@@ -107,9 +117,11 @@ export const monitorTab = {
     // headline numbers
     const yu = my.unit, change = cur.rf.p50 - first.rf.p50;
     const tile = (label, value, unit, sub, cls = '') => h(`div.tile${cls}`, h('span.t-label', label), h('span.t-value', value, unit ? h('small', ` ${unit}`) : null), sub ? h('span.t-sub', sub) : null);
-    el.append(h('div.tiles',
+    el.append(h('div.tiles.compact',
       tile(finished ? t('Simulated yield of the season', 'Produtividade simulada da safra') : t('Expected yield (median of the scenarios)', 'Produtividade esperada (mediana dos cenários)'), fmt(cur.rf.p50, 2), yu,
         finished ? RF : `${t(`80 % of the scenarios between ${fmt(cur.rf.p10, 2)} and ${fmt(cur.rf.p90, 2)}`, `80 % dos cenários entre ${fmt(cur.rf.p10, 2)} e ${fmt(cur.rf.p90, 2)}`)}${seas ? ` · ${useSeasonal ? t('with the seasonal forecast', 'com a previsão sazonal') : t(`past years only (seasonal: ${fmt(seas.rf.p50, 2)})`, `só anos passados (sazonal: ${fmt(seas.rf.p50, 2)})`)}` : ''}`, '.hero'),
+      ...(bestCur && !finished ? [tile(t('Most similar year so far', 'Ano mais parecido até agora'), String(best.year), '',
+        `${t(`rest of the cycle like ${best.year}: ${fmt(bestCur.rf, 2)} ${yu}, ${fmt(bestCur.pct, 0)} % of the potential`, `resto do ciclo como ${best.year}: ${fmt(bestCur.rf, 2)} ${yu}, ${fmt(bestCur.pct, 0)} % do potencial`)}${similar.length > 2 ? ` · ${t('next', 'seguintes')}: ${similar[1].year}, ${similar[2].year}` : ''}`)] : []),
       tile(t('Change since sowing', 'Variação desde a semeadura'), `${change >= 0 ? '+' : '−'}${fmt(Math.abs(change), 2)}`, yu,
         t(`${change >= 0 ? '+' : '−'}${fmt(Math.abs(100 * change / first.rf.p50), 0)} % on the ${fmt(first.rf.p50, 2)} expected at sowing`, `${change >= 0 ? '+' : '−'}${fmt(Math.abs(100 * change / first.rf.p50), 0)} % sobre os ${fmt(first.rf.p50, 2)} esperados na semeadura`)),
       tile(t('Yield gap (water)', 'Yield gap (água)'), fmt(cur.gap, 2), yu, t(`${fmt(cur.gapPct, 0)} % of ${fmt(cur.pt.p50, 2)} without water stress`, `${fmt(cur.gapPct, 0)} % de ${fmt(cur.pt.p50, 2)} sem estresse hídrico`)),
@@ -121,16 +133,17 @@ export const monitorTab = {
     const f1 = figure(t('Expected yield along the season', 'Produtividade esperada ao longo da safra'),
       t('Each point re-runs the season with the weather known on that date and each past year for the rest. The band holds 80 % of the scenarios and narrows as the season advances; the red area is the yield gap (no water stress − rainfed). Dashed: with the forecast.',
         'Cada ponto refaz a safra com o clima conhecido naquela data e cada ano passado para o resto. A faixa contém 80 % dos cenários e estreita conforme a safra avança; a área vermelha é o yield gap (sem estresse hídrico − sequeiro). Tracejado: com a previsão.'),
-      { wide: true, legend: [[`${RF} (${t('median', 'mediana')})`, C.blue], [t('80 % of the scenarios', '80 % dos cenários'), C.blue, 'band'], [NS, C.gray, 'dash'], [t('Yield gap', 'Yield gap'), C.red, 'band'], ...(seas ? [[t('With the seasonal forecast (80 % range)', 'Com a previsão sazonal (faixa de 80 %)'), C.violet, 'dot']] : [])] });
+      { wide: true, legend: [[`${RF} (${t('median', 'mediana')})`, C.blue], [t('80 % of the scenarios', '80 % dos cenários'), C.blue, 'band'], [NS, C.gray, 'dash'], [t('Yield gap', 'Yield gap'), C.red, 'band'], ...(best ? [[t(`Rest of the cycle like ${best.year} (most similar year)`, `Resto do ciclo como ${best.year} (ano mais parecido)`), C.orange]] : []), ...(seas ? [[t('With the seasonal forecast (80 % range)', 'Com a previsão sazonal (faixa de 80 %)'), C.violet, 'dot']] : [])] });
     const f2 = figure(t('Yield gap along the season', 'Yield gap ao longo da safra'), t('Median over the scenarios of the yield lost to the lack of water.', 'Mediana, entre os cenários, da produtividade perdida por falta de água.'),
       { legend: [[t('Yield gap', 'Yield gap'), C.red, 'band']] });
     const f3 = figure(t('Final yield in each scenario', 'Produtividade final em cada cenário'),
       t(`With the weather known until ${fullDate(cur.known)}; each point takes the rest of the cycle from one past year${useSeasonal ? ', adjusted by the seasonal forecast' : ''}.`, `Com o clima conhecido até ${fullDate(cur.known)}; cada ponto toma o resto do ciclo de um ano passado${useSeasonal ? ', ajustado pela previsão sazonal' : ''}.`),
-      { legend: [[RF, C.blue, 'dot'], [NS, C.gray, 'dot']] });
+      { legend: [[RF, C.blue, 'dot'], [NS, C.gray, 'dot'], ...(best ? [[SIM, C.orange, 'dot']] : [])] });
     el.append(grid(f1.card, f2.card, f3.card));
     const cycleX = { label: null, domain: [asDate(sowing), asDate(sowing + Math.max(Math.round(mat) + 7, traj.at(-1).day - sowing))], ticks: 6 };
     const todayRule = [Plot.ruleX([asDate(Math.min(now, sowing + n))], { stroke: 'currentColor', strokeOpacity: 0.35, strokeDasharray: '2,3' })];
-    const tipText = (d) => `${fullDate(d.day)}${d.forecast ? ` (${t('with forecast', 'com previsão')})` : ''}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)} (${fmt(d.gapPct, 0)} %)`;
+    const bestTraj = traj.map((d) => ({ date: d.date, v: bestOf(d)?.rf })).filter((d) => Number.isFinite(d.v));
+    const tipText = (d) => `${fullDate(d.day)}${d.forecast ? ` (${t('with forecast', 'com previsão')})` : ''}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)} (${fmt(d.gapPct, 0)} %)${bestOf(d) ? `\n${t(`like ${best.year}`, `como ${best.year}`)}: ${fmt(bestOf(d).rf, 2)}` : ''}`;
     draw(f1.body, { height: 320, marginTop: 18, x: cycleX, y: { label: yu, zero: true }, marks: [
       Plot.areaY(traj, { x: 'date', y1: (d) => d.rf.p10, y2: (d) => d.rf.p90, fill: C.blue, fillOpacity: 0.13 }),
       Plot.areaY(traj, { x: 'date', y1: (d) => d.rf.p50, y2: (d) => Math.max(d.rf.p50, d.pt.p50), fill: C.red, fillOpacity: 0.14 }),
@@ -141,6 +154,8 @@ export const monitorTab = {
       Plot.lineY(fc, { x: 'date', y: (d) => d.rf.p50, stroke: C.blue, strokeWidth: 2, strokeDasharray: '4,3' }),
       Plot.dot(obs, { x: 'date', y: (d) => d.rf.p50, r: 3.5, fill: C.blue, stroke: 'var(--surface)', strokeWidth: 1 }),
       Plot.dot(traj.filter((d) => d.forecast), { x: 'date', y: (d) => d.rf.p50, r: 4.5, fill: 'var(--surface)', stroke: C.blue, strokeWidth: 2 }),
+      Plot.lineY(bestTraj, { x: 'date', y: 'v', stroke: C.orange, strokeWidth: 1.6 }),
+      Plot.dot(bestTraj, { x: 'date', y: 'v', r: 2.5, fill: C.orange }),
       ...(seas ? [Plot.ruleX([seas], { x: (d) => asDate(d.day + 2), y1: (d) => d.rf.p10, y2: (d) => d.rf.p90, stroke: C.violet, strokeWidth: 2 }),
         Plot.dot([seas], { x: (d) => asDate(d.day + 2), y: (d) => d.rf.p50, symbol: 'diamond', r: 6, fill: C.violet, stroke: 'var(--surface)', strokeWidth: 1, tip: true,
           title: (d) => `${t('With the ECMWF seasonal forecast', 'Com a previsão sazonal do ECMWF')}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)}` })] : []),
@@ -158,7 +173,9 @@ export const monitorTab = {
       Plot.dot(scen, { x: 'year', y: 'pt', r: 3.5, stroke: C.gray, strokeWidth: 1.5 }),
       Plot.dot(scen, { x: 'year', y: 'rf', r: 4, fill: C.blue, stroke: 'var(--surface)', strokeWidth: 1 }),
       Plot.ruleY([cur.rf.p50], { stroke: C.blue, strokeOpacity: 0.5, strokeDasharray: '4,3' }),
-      Plot.tip(scen, Plot.pointerX({ x: 'year', y: 'rf', title: (d) => `${t('rest of the cycle like', 'resto do ciclo como')} ${d.year}\n${RF}: ${fmt(d.rf, 2)} ${yu}\n${NS}: ${fmt(d.pt, 2)} ${yu}` })),
+      ...(best ? [Plot.dot(scen.filter((d) => d.year === best.year), { x: 'year', y: 'rf', r: 7.5, stroke: C.orange, strokeWidth: 2.2 }),
+        Plot.text(scen.filter((d) => d.year === best.year), { x: 'year', y: 'rf', text: (d) => String(d.year), dy: -13, fill: C.orange, fontSize: 10.5, fontWeight: 600 })] : []),
+      Plot.tip(scen, Plot.pointerX({ x: 'year', y: 'rf', title: (d) => `${t('rest of the cycle like', 'resto do ciclo como')} ${d.year}${d.year === best?.year ? ` (${t('most similar year', 'ano mais parecido')})` : ''}\n${RF}: ${fmt(d.rf, 2)} ${yu}\n${NS}: ${fmt(d.pt, 2)} ${yu}` })),
     ] });
 
     // 2. weather of the season against the past years
@@ -195,6 +212,21 @@ export const monitorTab = {
       }
       proj.unshift({ date: asDate(cutoff), day: cutoff, cum: cumKnown, tmax: NaN });
     }
+    // the most similar year: its own rain from sowing to today, and this season completed with its rain
+    const bestPast = [], bestProj = [];
+    if (best) {
+      let c = 0;
+      for (let k2 = 0; k2 <= Math.min(kn, nShow); k2++) { c += table.cols.rain[ix(sowing - best.shift + k2)]; bestPast.push({ date: asDate(sowing + k2), cum: c }); }
+      if (cutoff < sowing + nShow) {
+        c = cumKnown;
+        bestProj.push({ date: asDate(cutoff), cum: c });
+        for (let k2 = kn + 1; k2 <= nShow; k2++) {
+          const d = sowing + k2, a = adj(d);
+          c += table.cols.rain[ix(d - best.shift)] * (a ? a.rain : 1);
+          bestProj.push({ date: asDate(d), cum: c });
+        }
+      }
+    }
     const PROJ = useSeasonal ? t('Expected, with the seasonal forecast', 'Esperada, com a previsão sazonal') : t('Expected, past years', 'Esperada, anos passados');
     const events = [[t('flowering', 'floração'), flo], [t('maturity', 'maturidade'), mat]].filter(([, d]) => Number.isFinite(d))
       .map(([label, d]) => ({ label, date: asDate(sowing + Math.round(d)) }));
@@ -203,7 +235,8 @@ export const monitorTab = {
     const seg = (pred) => days.filter((d, i) => pred(d) || (days[i + 1] && pred(days[i + 1])));
     const after = days.filter((d) => d.cum != null);
     const w1 = figure(t('Rain accumulated since sowing', 'Chuva acumulada desde a semeadura'), t('This season against the same days of the past years (band: 80 % of the years). Dashed: forecast. Expected flowering and maturity: mean of the scenarios.', 'Esta safra contra os mesmos dias dos anos passados (faixa: 80 % dos anos). Tracejado: previsão. Floração e maturidade esperadas: média dos cenários.'),
-      { legend: [[t('This season', 'Esta safra'), C.blue], [t('Past years (median)', 'Anos passados (mediana)'), C.gray, 'dash'], [t('80 % of the years', '80 % dos anos'), C.gray, 'band'], ...(proj.length ? [[PROJ, C.violet, 'dash']] : [])] });
+      { legend: [[t('This season', 'Esta safra'), C.blue], [t('Past years (median)', 'Anos passados (mediana)'), C.gray, 'dash'], [t('80 % of the years', '80 % dos anos'), C.gray, 'band'], ...(proj.length ? [[PROJ, C.violet, 'dash']] : []),
+        ...(best ? [[t(`${best.year} (most similar year): its own rain, and this season completed with it`, `${best.year} (ano mais parecido): a chuva dele, e esta safra completada com ela`), C.orange, 'dash']] : [])] });
     const w2 = figure(t('Daily temperature', 'Temperatura diária'), t('Thin gray: median Tmax of the past years. Faded: forecast.', 'Cinza fino: Tmax mediana dos anos passados. Esmaecido: previsão.'), { legend: [['Tmax', C.orange], ['Tmin', C.blue], [t('Tmax, past years', 'Tmax, anos passados'), C.gray], ...(useSeasonal ? [[t('Tmax expected with the seasonal forecast', 'Tmax esperada com a previsão sazonal'), C.violet]] : [])] });
     el.append(grid(w1.card, w2.card));
     draw(w1.body, { marginTop: 18, x: { label: null, ticks: 6 }, y: { label: 'mm', zero: true }, marks: [
@@ -212,8 +245,10 @@ export const monitorTab = {
       Plot.lineY(after.filter((d) => !d.forecast), { x: 'date', y: 'cum', stroke: C.blue, strokeWidth: 2 }),
       Plot.lineY(seg((d) => d.forecast).filter((d) => d.cum != null), { x: 'date', y: 'cum', stroke: C.blue, strokeWidth: 2, strokeDasharray: '4,3' }),
       Plot.lineY(proj, { x: 'date', y: 'cum', stroke: C.violet, strokeWidth: 1.8, strokeDasharray: '2,3' }),
+      Plot.lineY(bestPast, { x: 'date', y: 'cum', stroke: C.orange, strokeWidth: 1.2, strokeOpacity: 0.55 }),
+      Plot.lineY(bestProj, { x: 'date', y: 'cum', stroke: C.orange, strokeWidth: 1.8, strokeDasharray: '5,3' }),
       ...evRules,
-      Plot.tip(after, Plot.pointerX({ x: 'date', y: 'cum', title: (d) => { const nm = normal[d.day - sowing]; return `${fullDate(d.day)}${d.forecast ? ` (${t('forecast', 'previsão')})` : ''}\n${t('this season', 'esta safra')}: ${fmt(d.cum, 0)} mm\n${t('past years', 'anos passados')}: ${fmt(nm.cum.p50, 0)} mm (${fmt(nm.cum.p10, 0)}–${fmt(nm.cum.p90, 0)})`; } })),
+      Plot.tip(after, Plot.pointerX({ x: 'date', y: 'cum', title: (d) => { const nm = normal[d.day - sowing], bp = bestPast[d.day - sowing]; return `${fullDate(d.day)}${d.forecast ? ` (${t('forecast', 'previsão')})` : ''}\n${t('this season', 'esta safra')}: ${fmt(d.cum, 0)} mm\n${t('past years', 'anos passados')}: ${fmt(nm.cum.p50, 0)} mm (${fmt(nm.cum.p10, 0)}–${fmt(nm.cum.p90, 0)})${bp ? `\n${best.year}: ${fmt(bp.cum, 0)} mm` : ''}`; } })),
     ] });
     draw(w2.body, { marginTop: 18, x: { label: null, ticks: 6 }, y: { label: '°C' }, marks: [
       Plot.lineY(normal, { x: 'date', y: 'tmax', stroke: C.gray, strokeWidth: 1 }),
@@ -224,6 +259,46 @@ export const monitorTab = {
       ...evRules,
       Plot.tip(days, Plot.pointerX({ x: 'date', y: 'tmax', title: (d) => `${fullDate(d.day)}${d.forecast ? ` (${t('forecast', 'previsão')})` : ''}\nTmax ${fmt(d.tmax, 1)} °C · Tmin ${fmt(d.tmin, 1)} °C\n${t('rain', 'chuva')} ${fmt(d.rain, 1)} mm` })),
     ] });
+
+    // 2b. yield and yield gap built day by day, % of the potential (v3 daily curves of every scenario)
+    const nCurve = Math.round((cycleX.domain[1] - cycleX.domain[0]) / 864e5);
+    const rc = relativeCurves(emu, cur, nCurve);
+    if (rc.years.length >= 3) {
+      const bi = best ? rc.years.indexOf(best.year) : -1;
+      const series = (key) => Array.from({ length: nCurve + 1 }, (_, d) => ({ day: sowing + d, date: asDate(sowing + d), ...summary(rc[key].map((s) => s[d])), best: bi >= 0 ? rc[key][bi][d] : NaN }));
+      const R = series('rainfed'), P = series('potential'), G = series('gap');
+      const BEST = best && bi >= 0 ? [[SIM, C.orange]] : [];
+      const BAND = t('80 % of the scenarios', '80 % dos cenários'), MED = t('median', 'mediana');
+      const p1 = figure(t('Yield built along the cycle, % of the potential', 'Produtividade formada ao longo do ciclo, % do potencial'),
+        t(`Grain accumulated day by day in each scenario (daily curves of the emulator), as % of the same scenario's yield without water stress, which reaches 100 % at maturity. Weather known until ${fullDate(cur.known)}, then each past year.`,
+          `Grão acumulado dia a dia em cada cenário (curvas diárias do emulador), em % da produtividade sem estresse hídrico do mesmo cenário, que chega a 100 % na maturidade. Clima conhecido até ${fullDate(cur.known)}, depois cada ano passado.`),
+        { legend: [[`${RF} (${MED})`, C.blue], [BAND, C.blue, 'band'], [NS, C.gray, 'dash'], ...BEST] });
+      const p2 = figure(t('Yield gap along the cycle, % of the potential', 'Yield gap ao longo do ciclo, % do potencial'),
+        t('Grain lost to the lack of water up to each day (no water stress − rainfed), as % of the yield without water stress. At maturity it is the final yield gap of each scenario.',
+          'Grão perdido por falta de água até cada dia (sem estresse hídrico − sequeiro), em % da produtividade sem estresse hídrico. Na maturidade é o yield gap final de cada cenário.'),
+        { legend: [[`${t('Yield gap', 'Yield gap')} (${MED})`, C.red], [BAND, C.red, 'band'], ...BEST] });
+      el.append(grid(p1.card, p2.card));
+      const pctTip = (label) => (d) => `${fullDate(d.day)} · ${fmt(d.day - sowing, 0)} ${t('DAS', 'DAS')}\n${label}: ${fmt(d.p50, 0)} % (${fmt(d.p10, 0)}–${fmt(d.p90, 0)} %)${Number.isFinite(d.best) ? `\n${t(`like ${best.year}`, `como ${best.year}`)}: ${fmt(d.best, 0)} %` : ''}`;
+      const end = R.at(-1);
+      const endLabels = (S, c) => Plot.text([S.at(-1)], { x: 'date', y: 'p50', text: (d) => `${fmt(d.p50, 0)} %`, dx: 4, textAnchor: 'start', fill: c, fontSize: 10.5, fontWeight: 600 });
+      draw(p1.body, { marginTop: 18, marginRight: 34, x: cycleX, y: { label: '%', zero: true, domain: [0, Math.max(105, end.p90 + 5)] }, marks: [
+        Plot.areaY(R, { x: 'date', y1: 'p10', y2: 'p90', fill: C.blue, fillOpacity: 0.13 }),
+        Plot.lineY(P, { x: 'date', y: 'p50', stroke: C.gray, strokeWidth: 1.5, strokeDasharray: '5,4' }),
+        Plot.lineY(R, { x: 'date', y: 'p50', stroke: C.blue, strokeWidth: 2 }),
+        ...(bi >= 0 ? [Plot.lineY(R, { x: 'date', y: 'best', stroke: C.orange, strokeWidth: 1.8 })] : []),
+        Plot.ruleY([100], { stroke: 'currentColor', strokeOpacity: 0.2 }), endLabels(R, C.blue),
+        ...evRules,
+        Plot.tip(R, Plot.pointerX({ x: 'date', y: 'p50', title: pctTip(RF) })),
+      ] });
+      draw(p2.body, { marginTop: 18, marginRight: 34, x: cycleX, y: { label: '%', zero: true }, marks: [
+        Plot.areaY(G, { x: 'date', y1: 'p10', y2: 'p90', fill: C.red, fillOpacity: 0.13 }),
+        Plot.lineY(G, { x: 'date', y: 'p50', stroke: C.red, strokeWidth: 2 }),
+        ...(bi >= 0 ? [Plot.lineY(G, { x: 'date', y: 'best', stroke: C.orange, strokeWidth: 1.8 })] : []),
+        Plot.ruleY([0]), endLabels(G, C.red),
+        ...evRules,
+        Plot.tip(G, Plot.pointerX({ x: 'date', y: 'p50', title: pctTip(t('yield gap', 'yield gap')) })),
+      ] });
+    }
 
     // seasonal forecast used
     if (seasonal && seas) {

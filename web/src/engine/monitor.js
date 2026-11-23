@@ -61,6 +61,76 @@ const quantile = (values, q) => {
 };
 export const summary = (values) => ({ p10: quantile(values, 0.1), p25: quantile(values, 0.25), p50: quantile(values, 0.5), p75: quantile(values, 0.75), p90: quantile(values, 0.9) });
 
+/** Past years ranked by how close their weather was to this season's, from 30 days before sowing to
+ * `end` (the last observed day), in whole weeks: rain of the week, rain accumulated since the first
+ * week, mean Tmax and Tmin of the week. Each feature is standardized by its spread across the past
+ * years and later weeks weigh more (up to twice the first), so the ranking follows the recent weather.
+ * Returns the analogs sorted by distance (0 = identical), [{year, shift, dist}]; [] when no whole week. */
+export function similarYears(table, sowing, end, analogs) {
+  const weeks = [];
+  for (let w = sowing - 30; w + 6 <= end; w += 7) weeks.push(w);
+  if (!weeks.length || analogs.length < 2) return [];
+  const { rain, tmax, tmin } = table.cols;
+  const feats = (shift) => {
+    const f = [];
+    let cum = 0;
+    for (const w of weeks) {
+      let r = 0, tx = 0, tn = 0;
+      for (let d = w; d < w + 7; d++) { const i = d - shift - table.t0; r += rain[i]; tx += tmax[i]; tn += tmin[i]; }
+      cum += r;
+      f.push(r, cum, tx / 7, tn / 7);
+    }
+    return f;
+  };
+  const cur = feats(0), past = analogs.map((a) => feats(a.shift)), m = cur.length;
+  const FLOOR = [2, 5, 0.3, 0.3], GROUP = [1, 1, 0.5, 0.5];      // mm, mm, °C, °C; weights per feature
+  const w = new Float64Array(m), sd = new Float64Array(m);
+  for (let j = 0; j < m; j++) {
+    const v = past.map((p) => p[j]), mu = v.reduce((a, b) => a + b, 0) / v.length;
+    sd[j] = Math.max(Math.sqrt(v.reduce((a, b) => a + (b - mu) ** 2, 0) / (v.length - 1)), FLOOR[j % 4]);
+    const k = Math.floor(j / 4);
+    w[j] = GROUP[j % 4] * (1 + (weeks.length > 1 ? k / (weeks.length - 1) : 1));
+  }
+  const W = w.reduce((a, b) => a + b, 0);
+  return analogs.map((a, i) => {
+    let s = 0;
+    for (let j = 0; j < m; j++) s += w[j] * ((past[i][j] - cur[j]) / sd[j]) ** 2;
+    return { ...a, dist: Math.sqrt(s / W) };
+  }).filter((a) => Number.isFinite(a.dist)).sort((a, b) => a.dist - b.dist);
+}
+
+/** Daily grain of each scenario of a checkpoint as % of the same scenario's yield without water stress
+ * (v3 curves), from sowing to day `nDays` after it. Each grain curve is rescaled to end exactly at its
+ * season yield, and the no-water-stress curve is read on the phenological calendar of the rainfed
+ * season (same crop stage on the same day; drought shortens the rainfed cycle by a few days), so the
+ * gap at maturity is the season's yield gap. After maturity the curves hold their final values.
+ * Returns {years, rainfed, potential, gap}: arrays of scenarios, each an array of `nDays + 1` values. */
+export function relativeCurves(emu, cp, nDays) {
+  const out = { years: [], rainfed: [], potential: [], gap: [] };
+  if (!emu.hasCurves) return out;
+  const byTau = (pts, tau) => {                              // grain at phenological time tau
+    if (tau <= pts[0].tau) return pts[0].grain;
+    if (tau >= pts.at(-1).tau) return pts.at(-1).grain;
+    let j = 1; while (pts[j].tau < tau) j++;
+    const a = pts[j - 1], b = pts[j];
+    return a.grain + (b.grain - a.grain) * (tau - a.tau) / (b.tau - a.tau);
+  };
+  cp.rainfed.forEach((r, i) => {
+    const p = cp.potential[i], cr = emu.curves(r), cpt = emu.curves(p);
+    const Y = emu.value(r, emu.keys.yield), P = emu.value(p, emu.keys.yield);
+    const gr = cr?.pts.at(-1).grain, gp = cpt?.pts.at(-1).grain;
+    if (!cr || !cpt || !(P > 0) || !(Y >= 0) || !(gr > 0) || !(gp > 0)) return;
+    const rf = [], pt = [], gap = [];
+    for (let d = 0; d <= nDays; d++) {
+      const q = cr.pts[Math.min(d, cr.pts.length - 1)];
+      const a = 100 * Math.min(Y / P, 1) * Math.min(q.grain / gr, 1), b = 100 * Math.min(byTau(cpt.pts, q.tau) / gp, 1);
+      rf.push(a); pt.push(b); gap.push(Math.max(b - a, 0));
+    }
+    out.years.push(r.year); out.rainfed.push(rf); out.potential.push(pt); out.gap.push(gap);
+  });
+  return out;
+}
+
 /** Monitoring dates: sowing, then every `step` days while the weather is observed, and the last
  * known day (forecast included) at the end. */
 export function checkpoints(sowing, observedEnd, known, n, step = 7) {

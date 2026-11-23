@@ -116,6 +116,7 @@ Soil and cultivar stay fixed; only the weather changes between scenarios. The se
 
 **Top tiles**
 - **Expected yield:** the median of the scenarios, rainfed. The line below gives the range of 80 % of the scenarios; the narrower it is, the less the result depends on the weather still to come.
+- **Most similar year so far:** the past year whose weather, from 30 days before sowing to the last observed day, was closest to this season's. The comparison is week by week: rain of the week, rain accumulated and mean Tmax and Tmin, each measured against the spread between the years, with more weight on the recent weeks. The text gives the yield of the scenario whose rest of the cycle follows that year, in t/ha and in % of the potential (no water stress), and the next two years of the ranking. It is the **most likely scenario** only in the sense of "the season looks like that year so far"; the future can still take another path, so the 80 % range remains the reference.
 - **Change since sowing:** how much the expectation rose or fell compared with the one at the sowing date. A fall means the weather so far was worse than that of the past years in those weeks.
 - **Yield gap (water):** the median, across the scenarios, of *no water stress − rainfed*. It is the yield the model attributes to the lack of water. Near zero, water is not limiting.
 - **Crop stage:** days after sowing and the expected stage (vegetative, reproductive, maturity), from the mean of the scenarios.
@@ -128,6 +129,7 @@ Soil and cultivar stay fixed; only the weather changes between scenarios. The se
 - **Red area:** the yield gap.
 - **Dashed segment:** the estimate that already uses the 16-day forecast.
 - **Violet diamond with a bar:** the estimate with the seasonal forecast and its 80 % range.
+- **Orange line:** the scenario of the most similar year at each date.
 - **Vertical line:** today.
 
 How to read it: a line that falls week after week means the weather is hurting the season. A diamond below the line means the seasonal forecast is less favourable than the average of the past years.
@@ -137,15 +139,26 @@ How to read it: a line that falls week after week means the weather is hurting t
 **Final yield in each scenario.**
 - **Blue dots:** rainfed, one per past year ("the rest of the cycle like year X").
 - **Gray circles:** no water stress.
+- **Orange circle:** the most similar year.
 - **How to read it:** the distance between the two is the yield gap of that scenario. Years well below the others show the risk of a dry or hot rest of the season.
 
 **Rain accumulated since sowing.**
 - **Blue line:** this season (dashed, the forecast).
 - **Dashed gray line and band:** median and 80 % of the past years on the same days.
 - **Violet line:** the rain expected until maturity in the chosen mode.
+- **Thin orange line:** the rain of the most similar year, from sowing to today (to compare with this season's).
+- **Dashed orange line:** this season completed with the rain of the most similar year.
 - **Vertical lines:** expected flowering and maturity.
 
 How to read it: below the gray band, the season is drier than almost every year.
+
+**Yield built along the cycle, % of the potential.** The grain accumulated day by day in each scenario (the emulator's daily curves), as % of the same scenario's yield without water stress.
+- **Dashed gray line:** no water stress, reaching 100 % at maturity.
+- **Blue line and band:** rainfed, median and 80 % of the scenarios. At maturity, the value is the relative yield (rainfed ÷ potential).
+- **Orange line:** the most similar year.
+- Grain starts to grow around seed filling (after flowering); before that the curves stay at zero.
+
+**Yield gap along the cycle, % of the potential.** The grain lost to the lack of water up to each day (no water stress − rainfed), as % of the potential; at maturity it is the final yield gap of each scenario. Same reading: median, 80 % band and most similar year. The two curves are compared at the same crop stage (drought shortens the rainfed cycle by a few days).
 
 **Daily temperature.**
 - **Tmax and Tmin:** of this season; faded, the forecast days.
