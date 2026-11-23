@@ -769,9 +769,9 @@ Implementado, ainda sem publicar:
 
 - **Biblioteca 0.5.0** (23/11): README do pacote em v3 (população, `res.curves()`), notebooks `dssat_soybean`, `aquacrop_soybean` e `your_data` regenerados em v3 (`tools/notebooks`), com seções novas de curvas diárias e de população de plantas. Nos ensaios de campo a densidade de cada parcela agora entra no emulador: em Paragominas o RMSE da produtividade calibrada caiu de 903 para 738 kg/ha (DSSAT) e de 2.369 para 1.510 kg/ha (AquaCrop). Correção: `cultivar_from_dssat` falhava no v3 (procurava `population` no .CUL). Wheel de 16,9 MB com os 6 emuladores, testada num ambiente limpo.
 
-**Pendente:**
-1. Enviar a 0.5.0 ao PyPI.
-2. Merge em `main` e deploy do app.
+- **Publicado (23/11):** merge de `phase2-trajectories` em `main`, app com os dois v3 no ar e `cropemu` 0.5.0 no PyPI (instalação conferida num ambiente limpo). Fase 2 (v3) concluída.
+- **Monitoramento da cultura (23/11):** ano mais parecido até agora (clima de 30 dias antes da semeadura até o último dia observado: chuva semanal, chuva acumulada e Tmax/Tmin semanais, padronizadas entre os anos, mais peso nas semanas recentes), destacado em laranja nos gráficos de produtividade, cenários finais e chuva acumulada (com a safra completada pela chuva dele). Dois gráficos novos com as curvas diárias do v3: produtividade formada ao longo do ciclo e yield gap, em % do potencial (sem estresse hídrico) de cada cenário, com faixa de 80 %, mediana e ano mais parecido.
+- **CI:** o executável Linux oficial do AquaCrop 7.3 parava com *Illegal instruction* em algumas máquinas do GitHub; o CI passou a compilá-lo do código-fonte da mesma versão (`make bin STATIC=1`, x86-64 genérico) e a guardar em cache.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
