@@ -81,3 +81,40 @@ entradas da safra. Comparação com v1 (MLP por grupos no DSSAT; MLP por grupos 
 Papel de cada conjunto: pontos da área de soja e de expansão (treino e validação cruzada por blocos de 5°);
 7 locais independentes (Londrina, Rio Verde, Sorriso, Passo Fundo, Pergamino, Ames, Harbin), fora do treino,
 para a comparação com novas rodadas dos executáveis (`examples/compare_emulator_simulator.ipynb`).
+
+## v3: população de plantas e curvas diárias (dados para o artigo, seção 3 "Plant population and daily curves")
+
+Segunda campanha (`data/dssat_v3`, `data/aquacrop_v3`): mesmas 117.720 safras do v1 com a população
+amostrada por safra em 15–50 plantas/m² (hipercubo latino com semente própria) e tabelas diárias. Métricas de
+`data/<nome>/benchmark/cnn_block_metrics.csv` e `traj_block_metrics.csv` (blocos de 5°, fora da amostra) e de
+`benchmark/validate_sites.py` (7 locais, 60 safras por local, `data/sites_v3/results`).
+
+| | DSSAT v2 (blocos) | DSSAT v3 (blocos) | DSSAT v3 (7 locais) | AquaCrop v2 (blocos) | AquaCrop v3 (blocos) | AquaCrop v3 (7 locais) |
+|---|---|---|---|---|---|---|
+| Floração (d) | 3,06 | 3,00 (R² 0,975) | 0,99 (0,996) | 1,01 | 1,00 (0,997) | 0,78 (0,997) |
+| Maturação (d) | 3,12 | 2,93 (0,985) | 1,64 (0,993) | 4,28 | 4,42 (0,984) | 1,33 (0,998) |
+| Produtividade (t/ha) | 0,335 | 0,343 (0,968) | 0,341 (0,951) | 0,497 | 0,510 (0,928) | 0,341 (0,921) |
+| ET (mm) | 22,7 | 23,7 (0,978) | 11,0 (0,992) | 44,8 | 46,7 (0,922) | 25,4 (0,930) |
+| Curva folha / dossel | – | 0,055 (0,976) | 0,035 (0,990) | – | 0,098 (0,930) | 0,056 (0,979) |
+| Curva biomassa | – | 0,107 (0,950) | 0,048 (0,988) | – | 0,058 (0,974) | 0,034 (0,991) |
+| Curva grãos | – | 0,026 (0,991) | 0,019 (0,995) | – | 0,046 (0,979) | 0,022 (0,995) |
+| Curva estresse hídrico | – | 0,084 (0,799) | 0,061 (0,756) | – | 0,144 (0,656) | 0,111 (0,650) |
+
+- Mediana da razão RMSE nos 7 locais / RMSE da ficha (todas as saídas): 0,62 (DSSAT) e 0,63 (AquaCrop).
+- Resposta à população (fora da amostra, desvios da média do local, por 10 plantas/m²): DSSAT sequeiro
+  +61 simulado / +63 emulado kg/ha, sem estresse +128 / +124; AquaCrop +0,133 t/ha nos dois. Mediana da
+  produtividade de sequeiro simulada de 15 para 50 plantas/m²: DSSAT 2,45 → 2,70 t/ha, AquaCrop 1,89 → 2,30.
+- 7 locais, mesmas safras a 15 e 50 plantas/m²: ganho médio DSSAT sequeiro 0,31 simulado / 0,30 emulado
+  t/ha (sem estresse 0,51 / 0,49), AquaCrop 0,53 / 0,51 (0,56 / 0,56); correlação safra a safra do ganho
+  DSSAT 0,91 / 0,95, AquaCrop 0,55 / 0,85.
+- Pior local em produtividade: Ames (DSSAT 0,68 t/ha, AquaCrop 0,60 t/ha, viés positivo).
+
+## Monitoramento (figura do app, `fig_app.mjs`, 23/11/2026)
+
+Londrina, DSSAT v3, semeadura 20/10/2026, clima observado até 22/11 e previsão até 08/12, 35 anos (1991–2025)
+com a previsão sazonal: produtividade esperada 5,64 t/ha (80 %: 4,86–5,88), −0,44 sobre os 6,08 da semeadura;
+yield gap 0; chuva desde a semeadura 125 mm (anos passados 134, 77–238). Ano mais parecido 1995 (depois 2018 e
+2005): 402 mm e Tmax 28,1 °C desde 30 dias antes da semeadura, contra 377 mm e 28,3 °C em 1995 e 149 mm e
+34,2 °C no menos parecido (1985); cenário completado com 1995: 5,61 t/ha (100 % do potencial). Projeção só
+com anos passados: mediana 6,0–6,1 t/ha até a maturidade, 80 % dos caminhos abrindo para 5,5–6,3 t/ha.
+

@@ -142,3 +142,10 @@ A aplicação é uma ferramenta de **determinação/estimativa**: recebe ou comp
 - **Motor reescrito** em `src/engine/` como port direto de `cropemu` (WeatherSeries, ΔT e fator de chuva, balde hídrico, tempo térmico do AquaCrop, cultivares, domínio). 64 casos de referência conferidos (`npm test`).
 - **Interface** com todas as configurações (cultivar completo, manejo, CO₂, cenário) e as análises dos notebooks: uma safra, série de anos, janela de semeadura, cultivares e sensibilidade, cenários climáticos, local, validação do modelo. Exportação CSV em todas as abas. Ajuda com a estrutura de cada planilha e modelo para download.
 - **Fora do escopo** (como antes): comparação com observações e calibração. **Pendente:** mapa regional (exige ~25 leituras de solo e 1 de clima por ponto; viável para grades pequenas).
+
+## Revisão de 2026-11-23 — emuladores v3 e monitoramento
+
+- **Emuladores v3** (`dssat-soybean-v3`, `aquacrop-soybean-v3`) são o padrão: população de plantas (15–50 plantas/m²) na barra lateral e curvas diárias (folha ou dossel, biomassa, grãos, estresse hídrico) como segunda saída ONNX; aba *Uma safra* com as curvas emuladas, gráfico de estresse e planta animada (`src/ui/plant.js`). O motor JS confere com o Python em 160 casos, incluindo as curvas (`npm test`).
+- **Monitoramento:** ano mais parecido até agora (`similarYears`: chuva semanal, chuva acumulada e Tmax/Tmin semanais desde 30 dias antes da semeadura, padronizadas entre os anos, mais peso nas semanas recentes), destacado nos gráficos; produtividade e yield gap formados ao longo do ciclo em % do potencial (`relativeCurves`, curvas diárias do v3, potencial lido no calendário fenológico do sequeiro); projeção da produtividade esperada até a maturidade (`projection`: cada ano passado como caminho, a cada 14 dias, 15 anos para o resto; ~3.000 safras calculadas depois do primeiro desenho). Verificação em `tests/check_monitor.mjs` (rede).
+- **Pendente / ideias:** projeção também para o yield gap; a mesma comparação em % com a biomassa (o grão só cresce depois da floração); eixo de produtividade a partir de zero deixa o cone da projeção estreito.
+
