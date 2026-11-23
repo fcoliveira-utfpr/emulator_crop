@@ -755,10 +755,21 @@ Implementado, ainda sem publicar:
 - **CH4EM** (metano) entrou como saída do DSSAT v3: no v1/v2 era texto e caía fora; a correção `_numeric_columns` o tornou numérico. Valores com overflow (até 99.447), nível *não recomendado*. Ganhou descrição e unidade e está em `NOT_TARGETS` para os próximos treinos.
 - **Exportados:** `dssat-soybean-v3` e `aquacrop-soybean-v3` (trajetória = 2ª saída ONNX, `population_default` 30) no zoo da biblioteca e em `web/public/models`. O app usa os dois v3: campo de população, curvas emuladas, gráfico de estresse e planta animada na aba *Uma safra*. O motor JS confere com o Python (160 casos).
 
+- **7 sítios independentes** (23/11, `benchmark/validate_sites.py`, 60 safras por sítio, população amostrada em 15–50 plantas/m², log em `logs/validate_sites_v3.log`): as entradas montadas pela biblioteca são idênticas às do pipeline de treino e nenhuma safra saiu do domínio. Erro nos sítios novos ≤ erro da validação por blocos (mediana RMSE/RMSE da ficha: DSSAT 0,62; AquaCrop 0,63).
+
+| | DSSAT v3 | AquaCrop v3 |
+|---|---|---|
+| Produtividade | 341 kg/ha (R² 0,95; ficha 343) | 0,34 t/ha (R² 0,92; ficha 0,51) |
+| Maturação | 1,6 d (R² 0,99) | 1,3 d (R² 1,00) |
+| Curvas (R²): folha, biomassa, grãos, estresse | 0,99; 0,99; 0,995; 0,76 | 0,98; 0,99; 0,995; 0,65 |
+| Ganho de 15 → 50 plantas/m², mesmas safras (simulado/emulado) | sequeiro +0,31/+0,30 t/ha; sem estresse +0,51/+0,49 t/ha | sequeiro +0,53/+0,51; sem estresse +0,56/+0,56 t/ha |
+| Correlação safra a safra desse ganho | 0,91 (sequeiro), 0,95 | 0,55 (sequeiro), 0,85 |
+
+  Pior sítio em produtividade: Ames (DSSAT 0,68 t/ha, AquaCrop 0,60 t/ha, viés positivo). No AquaCrop em sequeiro o ganho médio com a população está certo, mas a variação entre safras é pouco reproduzida (r 0,55). O notebook `examples/compare_emulator_simulator.ipynb` foi passado para o v3 (25 safras por sítio; mediana RMSE/ficha 0,58 e 0,61).
+
 **Pendente:**
-1. Validar nos 7 sítios independentes.
-2. Biblioteca 0.5.0 no PyPI (README do pacote, notebooks ainda em v2).
-3. Merge em `main` e deploy do app.
+1. Biblioteca 0.5.0 no PyPI (README do pacote e demais notebooks ainda em v2).
+2. Merge em `main` e deploy do app.
 
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 

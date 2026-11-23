@@ -167,7 +167,10 @@ tested on), against the crop model:
 By world region, the v2 yield error ranges from 223 kg/ha (Europe and Central Asia) to 439 kg/ha
 (North America) for DSSAT and from 0.38 to 0.59 t/ha for AquaCrop. At 7 sites outside the training
 data (Brazil, Argentina, USA, China), the v2 yield error against new runs of the crop models was
-224 kg/ha (DSSAT) and 0.33 t/ha (AquaCrop), about half of the values above.
+224 kg/ha (DSSAT) and 0.33 t/ha (AquaCrop), about half of the values above. For the v3 emulators (plant
+population sampled in 15-50 plants/m², 420 seasons) it was 341 kg/ha (DSSAT) and 0.34 t/ha
+(AquaCrop), and the yield gain from 15 to 50 plants/m² matched the crop models (rainfed: DSSAT
++0.31 t/ha simulated, +0.30 emulated; AquaCrop +0.53 and +0.51).
 
 - **Acceptance level of every output** (`emu.describe()`, `res.levels`):
   - *recommended*: dates with RMSE ≤ 5 days, other outputs with RMSE < 0.25 of the within-site standard deviation;
