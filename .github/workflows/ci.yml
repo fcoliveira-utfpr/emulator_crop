@@ -57,12 +57,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Download the official AquaCrop executable
+      # The released Linux executable stops with "Illegal instruction" on some runner CPUs, so
+      # AquaCrop is compiled from the official source of the same tag for generic x86-64
+      # (STATIC=1 of its Makefile: -O2 -mtune=generic, static) and cached until the tag changes.
+      - name: Cache the AquaCrop executable
+        id: aquacrop-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/aquacrop-bin
+          key: aquacrop-${{ env.AQUACROP_TAG }}-${{ runner.os }}-generic-static
+      - name: Build AquaCrop from the official source
+        if: steps.aquacrop-cache.outputs.cache-hit != 'true'
         run: |
-          curl -sL -o ac.zip "https://github.com/KUL-RSDA/AquaCrop/releases/download/${AQUACROP_TAG}/aquacrop-7.3-x86_64-linux.zip"
-          unzip -q ac.zip -d ~/aquacrop
-          chmod +x ~/aquacrop/*/aquacrop
-          echo "CROPEMU_AQUACROP_EXE=$(ls ~/aquacrop/*/aquacrop)" >> "$GITHUB_ENV"
+          command -v gfortran || { sudo apt-get update -q && sudo apt-get install -y -q gfortran; }
+          curl -sL "https://github.com/KUL-RSDA/AquaCrop/archive/refs/tags/${AQUACROP_TAG}.tar.gz" | tar xz
+          make -C AquaCrop-*/src bin STATIC=1
+          mkdir -p ~/aquacrop-bin && cp AquaCrop-*/src/aquacrop ~/aquacrop-bin/
+      - run: echo "CROPEMU_AQUACROP_EXE=$HOME/aquacrop-bin/aquacrop" >> "$GITHUB_ENV"
       - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e "packages/cropemu[soil,test]" -e "packages/cropemu-bench[test]"
       - name: Tests with AquaCrop
         run: pytest -q -m aquacrop
