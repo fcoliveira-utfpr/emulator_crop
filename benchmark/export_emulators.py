@@ -8,6 +8,7 @@ The daily-sequence emulator ("cnn") is not fitted here: it is read from
 data/<name>/benchmark/cnn_final.pkl (benchmark/train_sequence.py ... fit):
 
     python benchmark/export_emulators.py --name dssat_v1 --emulator cnn --zoo-name dssat-soybean-v2
+    python benchmark/export_emulators.py --name dssat_v3 --emulator cnn --zoo-name dssat-soybean-v3 --trajectory
 
 Writes data/zoo/<zoo-name>/: model.onnx and card.json (inputs, outputs, domain, acceptance
 levels of the block validation, training data). Load with ``cropemu.load``.
@@ -65,6 +66,8 @@ def main():
     ap.add_argument("--name", required=True)
     ap.add_argument("--emulator", required=True, choices=[*FACTORIES, "cnn"])
     ap.add_argument("--zoo-name", required=True)
+    ap.add_argument("--trajectory", action="store_true",
+                    help="cnn only: add the trajectory network (benchmark/traj_final.pkl) as a second output")
     args = ap.parse_args()
 
     data = ROOT / "data" / args.name
@@ -91,7 +94,9 @@ def main():
     aquacrop = model == "aquacrop"
     card = {
         "name": args.zoo_name, "model": meta.get("model") or "DSSAT 4.8 CROPGRO-Soybean (official executable)", "crop": "soybean",
-        "cultivar": ["cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS] if aquacrop else list(CULTIVAR_FEATURES),
+        "cultivar": (["cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS] if aquacrop else list(CULTIVAR_FEATURES))
+                    + (["population"] if "population" in X else []),
+        **({"population_default": 30.0, "population_range": [15.0, 50.0]} if "population" in X else {}),
         "thermal": "aquacrop_soybean" if aquacrop else None, "water_balance": True, "initial_water": 0.5,
         "hydraulics": DEFAULT_METHOD, **cultivar_info(aquacrop),
         "derived": {k: [n, d, f, DERIVED_FLOOR] for k, (n, d, f) in DERIVED.items() if n in Y and d in Y},
@@ -106,7 +111,15 @@ def main():
         "training": {"dataset": args.name, "seasons": len(X), "points": int(info["point"].nunique()),
                      "weather": meta.get("weather"), "soil": meta.get("soil"), "created": time.strftime("%Y-%m-%d")},
     }
-    out = export(em, X, ROOT / "data" / "zoo" / args.zoo_name, card, seq=seq)
+    traj = None
+    if args.trajectory:
+        from cropemu_bench.trajectory import card_entry
+
+        with open(data / "benchmark" / "traj_final.pkl", "rb") as f:
+            traj = pickle.load(f)
+        mpath = data / "benchmark" / "traj_block_metrics.csv"
+        card["trajectory"] = card_entry(model, pd.read_csv(mpath) if mpath.exists() else None)
+    out = export(em, X, ROOT / "data" / "zoo" / args.zoo_name, card, seq=seq, trajectory=traj)
     print(f"exported to {out}", flush=True)
 
 

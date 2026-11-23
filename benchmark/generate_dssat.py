@@ -16,7 +16,7 @@ import pandas as pd
 
 from cropemu_bench.design import SeasonDesign
 from cropemu_bench.inputs.points import PointDesign, grid_table, sample_points
-from cropemu_bench.pipeline import generate, prepare_inputs
+from cropemu_bench.pipeline import TRAJECTORY_COLUMNS, generate, prepare_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +29,9 @@ def main():
     ap.add_argument("--seed", type=int, default=20261108)
     ap.add_argument("--jobs", type=int, default=8, help="DSSAT processes")
     ap.add_argument("--sites", type=Path, help="sites.csv from the systematic review (optional)")
+    ap.add_argument("--population-range", type=float, nargs=2, metavar=("LO", "HI"),
+                    help="sample the plant population per season in [LO, HI] plants/m² (default: fixed 30)")
+    ap.add_argument("--daily", action="store_true", help="also keep the daily trajectories (TRAJECTORY_COLUMNS)")
     args = ap.parse_args()
 
     out = ROOT / "data" / args.name
@@ -48,8 +51,10 @@ def main():
     print(f"{pts['ok'].sum()} usable points of {len(pts)} ({time.time() - t0:.0f}s)", flush=True)
     print(pts.loc[~pts["ok"], ["id", "problem"]].to_string(), flush=True)
 
-    generate(pts, out, SeasonDesign(seasons_per_point=args.seasons, seed=args.seed), points_per_batch=50,
-             n_jobs=args.jobs)
+    pop_range = tuple(args.population_range) if args.population_range else None
+    design = SeasonDesign(seasons_per_point=args.seasons, seed=args.seed, population_range=pop_range)
+    generate(pts, out, design, points_per_batch=50, n_jobs=args.jobs,
+             daily=TRAJECTORY_COLUMNS if args.daily else None)
     print(f"done in {(time.time() - t0) / 60:.1f} min -> {out}", flush=True)
 
 

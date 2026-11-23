@@ -18,7 +18,8 @@ from .pipeline import WEATHER_END, WEATHER_START, load
 
 #: Summary.OUT columns that are identifiers or inputs, not model outputs.
 NOT_TARGETS = {"RUNNO", "TRNO", "R#", "O#", "P#", "CR", "MODEL", "EXNAME", "TNAM", "FNAM", "WSTA", "WYEAR",
-               "SOIL_ID", "XLAT", "LONG", "ELEV", "SDAT", "PDAT", "HYEAR"}
+               "SOIL_ID", "XLAT", "LONG", "ELEV", "SDAT", "PDAT", "HYEAR",
+               "CH4EM"}  # methane (flooded rice): overflows in DSSAT 4.8 soybean runs, meaningless here
 #: Categorical outputs (codes): left to classifiers, not regression targets.
 CATEGORICAL = {"CRST"}
 NOT_TARGETS |= CATEGORICAL
@@ -174,12 +175,14 @@ def build(out_dir, cache: bool = True, derived: bool = False,
     if cache and fpath.exists():
         X = pd.read_parquet(fpath)
     else:
+        # v3 campaigns sample the plant population: it becomes an input (after the cultivar ones)
+        management = ("population",) if "population" in design else ()
         if model == "aquacrop":
             from .design.aquacrop import AQ_PERTURBATIONS
-            X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS),
+            X = features(design, t["points"], ("cycle_factor", "gdd_maturity", *AQ_PERTURBATIONS, *management),
                          thermal="aquacrop_soybean")
         else:
-            X = features(design, t["points"], CULTIVAR_FEATURES)
+            X = features(design, t["points"], CULTIVAR_FEATURES + management)
         X.to_parquet(fpath)
     Y = targets_aquacrop(t["summary"]) if model == "aquacrop" else targets(t["summary"], derived=derived)
     info = design.set_index("sample")[["point"]].join(

@@ -33,8 +33,8 @@
       <section class="block">
         <h2><span class="step-n">1</span> <span data-pt="Modelo">Model</span></h2>
         <div class="segmented" role="radiogroup" aria-label="Model" data-pt-aria-label="Modelo">
-          <label><input type="radio" name="model" value="dssat-soybean-v2" checked /><span>DSSAT<small>CROPGRO-Soybean</small></span></label>
-          <label><input type="radio" name="model" value="aquacrop-soybean-v2" /><span>AquaCrop<small>FAO 7.3</small></span></label>
+          <label><input type="radio" name="model" value="dssat-soybean-v3" checked /><span>DSSAT<small>CROPGRO-Soybean</small></span></label>
+          <label><input type="radio" name="model" value="aquacrop-soybean-v3" /><span>AquaCrop<small>FAO 7.3</small></span></label>
         </div>
       </section>
 
@@ -122,12 +122,14 @@
           <label><input type="radio" name="water" value="rainfed" checked /><span data-pt="Sequeiro">Rainfed</span></label>
           <label><input type="radio" name="water" value="irrigated" /><span data-pt="Sem estresse hídrico">No water stress</span></label>
         </div>
+        <label class="field"><span><span data-pt="População de plantas (plantas/m²)">Plant population (plants/m²)</span> <b class="opt" data-pt="vazio: 30">blank: 30</b></span><input id="population" type="number" min="15" max="50" step="1" placeholder="30" /></label>
+        <p class="hint" id="population-hint"></p>
         <label class="field"><span>CO₂ (ppm) <b class="opt" data-pt="vazio: Mauna Loa">blank: Mauna Loa</b></span><input id="co2" type="number" min="300" max="900" step="10" placeholder="observed in the season" data-pt-placeholder="observado na safra" /></label>
         <div class="two">
           <label class="field"><span>ΔT (°C)</span><input id="dt" type="number" min="-1" max="4" step="0.5" value="0" /></label>
           <label class="field"><span data-pt="Chuva ×">Rain ×</span><input id="rain-factor" type="number" min="0.7" max="1.3" step="0.05" value="1" /></label>
         </div>
-        <p class="hint" data-pt="Faixas do treino: ΔT −1 a +4 °C nas temperaturas, chuva ×0,7 a ×1,3, CO₂ 350–800 ppm. Fixos no treino: 30 plantas/m², 50 cm entre linhas, sem estresse de nitrogênio.">Training ranges: ΔT −1 to +4 °C on the temperatures, rain ×0.7 to ×1.3, CO₂ 350–800 ppm. Fixed in training: 30 plants/m², 50 cm rows, no nitrogen stress.</p>
+        <p class="hint" data-pt="Faixas do treino: ΔT −1 a +4 °C nas temperaturas, chuva ×0,7 a ×1,3, CO₂ 350–800 ppm. Fixos no treino: 50 cm entre linhas, sem estresse de nitrogênio.">Training ranges: ΔT −1 to +4 °C on the temperatures, rain ×0.7 to ×1.3, CO₂ 350–800 ppm. Fixed in training: 50 cm rows, no nitrogen stress.</p>
       </section>
     </aside>
 

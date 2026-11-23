@@ -1,0 +1,1233 @@
+{
+ "card_version": 1,
+ "name": "aquacrop-soybean-v3",
+ "model": "AquaCrop 7.3 (official executable)",
+ "crop": "soybean",
+ "cultivar": [
+  "cycle_factor",
+  "gdd_maturity",
+  "ccx",
+  "cgc_gdd",
+  "cdc_gdd",
+  "wp",
+  "hio",
+  "zmax",
+  "kctr",
+  "p_exp_upper",
+  "p_exp_lower",
+  "p_sto",
+  "p_sen",
+  "population"
+ ],
+ "population_default": 30.0,
+ "population_range": [
+  15.0,
+  50.0
+ ],
+ "thermal": "aquacrop_soybean",
+ "water_balance": true,
+ "initial_water": 0.5,
+ "hydraulics": "hybrid",
+ "mg_by_lat": [
+  [
+   0.0,
+   9.0
+  ],
+  [
+   15.0,
+   8.5
+  ],
+  [
+   23.0,
+   6.5
+  ],
+  [
+   30.0,
+   5.5
+  ],
+  [
+   35.0,
+   4.5
+  ],
+  [
+   40.0,
+   3.0
+  ],
+  [
+   45.0,
+   1.0
+  ],
+  [
+   50.0,
+   -1.5
+  ],
+  [
+   60.0,
+   -2.0
+  ]
+ ],
+ "cultivar_defaults": {
+  "cycle_factor": 1.0,
+  "ccx": 0.895,
+  "cgc_gdd": 1.0,
+  "cdc_gdd": 1.0,
+  "wp": 15.5,
+  "hio": 39.0,
+  "zmax": 1.5,
+  "kctr": 1.075,
+  "p_exp_upper": 0.15000000000000002,
+  "p_exp_lower": 0.65,
+  "p_sto": 0.575,
+  "p_sen": 0.7
+ },
+ "derived": {},
+ "acceptance": {
+  "Rain": {
+   "level": "not recommended",
+   "rmse": 133.89287720894777,
+   "r2": 0.9272773015216016,
+   "relative_rmse": 0.5022766650278983,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "ETo": {
+   "level": "not recommended",
+   "rmse": 83.81767719569224,
+   "r2": 0.9563270923241771,
+   "relative_rmse": 0.6218615502287695,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "GD": {
+   "level": "not recommended",
+   "rmse": 244.06948029968927,
+   "r2": 0.9797490165245979,
+   "relative_rmse": 0.7166666546457255,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "CO2": {
+   "level": "recommended",
+   "rmse": 10.322214288007894,
+   "r2": 0.9919961056688309,
+   "relative_rmse": 0.08893173048125337,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Irri": {
+   "level": "recommended",
+   "rmse": 15.987179188686811,
+   "r2": 0.9920594737916365,
+   "relative_rmse": 0.09079502138468364,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Infilt": {
+   "level": "not recommended",
+   "rmse": 110.41359342400085,
+   "r2": 0.928375886685907,
+   "relative_rmse": 0.6286717865584266,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Runoff": {
+   "level": "not recommended",
+   "rmse": 75.79956504503646,
+   "r2": 0.9165190865372772,
+   "relative_rmse": 0.584397087512908,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Drain": {
+   "level": "not recommended",
+   "rmse": 71.45096863000727,
+   "r2": 0.8899863462322425,
+   "relative_rmse": 0.5593475985399698,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "E": {
+   "level": "not recommended",
+   "rmse": 55.93677387979963,
+   "r2": 0.8838188795827774,
+   "relative_rmse": 0.7187521351109936,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "E/Ex": {
+   "level": "not recommended",
+   "rmse": 5.558941348845459,
+   "r2": 0.9286078505851061,
+   "relative_rmse": 0.5832241906357697,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Tr": {
+   "level": "caution",
+   "rmse": 33.9884276178562,
+   "r2": 0.944423205412888,
+   "relative_rmse": 0.2753693502063664,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "TrW": {
+   "level": "caution",
+   "rmse": 33.953759486543525,
+   "r2": 0.9445333969174079,
+   "relative_rmse": 0.2750991759888782,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Tr/Trx": {
+   "level": "not recommended",
+   "rmse": 9.619496916646698,
+   "r2": 0.7830838395913498,
+   "relative_rmse": 0.6068894258729682,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "SaltOut": {
+   "level": "not recommended",
+   "rmse": 0.00023633495297512955,
+   "r2": -0.04447208995663465,
+   "relative_rmse": 1.0222716358672481,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Cycle": {
+   "level": "caution",
+   "rmse": 19.466638673396023,
+   "r2": 0.8853986642642097,
+   "relative_rmse": 0.3912084878257451,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "TempStr": {
+   "level": "caution",
+   "rmse": 4.570254670536581,
+   "r2": 0.9020885854720262,
+   "relative_rmse": 0.3625038192435502,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "ExpStr": {
+   "level": "caution",
+   "rmse": 10.930396128410804,
+   "r2": 0.8396349856598277,
+   "relative_rmse": 0.4809817516454813,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "StoStr": {
+   "level": "not recommended",
+   "rmse": 9.518688506833977,
+   "r2": 0.7214396596154492,
+   "relative_rmse": 0.694588381763719,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "BioMass": {
+   "level": "caution",
+   "rmse": 1.269125350878803,
+   "r2": 0.9285975866904844,
+   "relative_rmse": 0.32089991887566804,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Brelative": {
+   "level": "caution",
+   "rmse": 10.117687488329658,
+   "r2": 0.9130097935052677,
+   "relative_rmse": 0.36533354742953017,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "HI": {
+   "level": "not recommended",
+   "rmse": 6.084837326297799,
+   "r2": 0.7581839161202271,
+   "relative_rmse": 0.5652909446985755,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Y(dry)": {
+   "level": "caution",
+   "rmse": 0.5103163485538965,
+   "r2": 0.9280870333799411,
+   "relative_rmse": 0.32155982049244997,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Y(fresh)": {
+   "level": "caution",
+   "rmse": 0.6005361655470877,
+   "r2": 0.9280478064103608,
+   "relative_rmse": 0.32164749370716217,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "WPet": {
+   "level": "caution",
+   "rmse": 0.11126145121547086,
+   "r2": 0.906492270641797,
+   "relative_rmse": 0.39352868547360376,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "EMR_dap": {
+   "level": "recommended",
+   "rmse": 1.0599289737105813,
+   "r2": 0.9854530398474906,
+   "relative_rmse": 0.052996448685529066,
+   "criterion": "RMSE <= 5 d"
+  },
+  "FLO_dap": {
+   "level": "recommended",
+   "rmse": 1.0042501749249018,
+   "r2": 0.9971444906817686,
+   "relative_rmse": 0.05021250874624509,
+   "criterion": "RMSE <= 5 d"
+  },
+  "YLD_dap": {
+   "level": "recommended",
+   "rmse": 4.956753755864918,
+   "r2": 0.96269267228833,
+   "relative_rmse": 0.24783768779324591,
+   "criterion": "RMSE <= 5 d"
+  },
+  "MAT_dap": {
+   "level": "recommended",
+   "rmse": 4.421663118786374,
+   "r2": 0.9842151918102164,
+   "relative_rmse": 0.2210831559393187,
+   "criterion": "RMSE <= 5 d"
+  },
+  "Rain_crop": {
+   "level": "caution",
+   "rmse": 73.83760024878056,
+   "r2": 0.9475071587882333,
+   "relative_rmse": 0.3370766406529744,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Irri_crop": {
+   "level": "recommended",
+   "rmse": 16.016783701186853,
+   "r2": 0.9920300057429694,
+   "relative_rmse": 0.09096338490316348,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Infilt_crop": {
+   "level": "caution",
+   "rmse": 58.96474600653984,
+   "r2": 0.9386150001666005,
+   "relative_rmse": 0.41065085830351494,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "RO_crop": {
+   "level": "not recommended",
+   "rmse": 59.9489741741401,
+   "r2": 0.9212142817422564,
+   "relative_rmse": 0.5341340800658875,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Drain_crop": {
+   "level": "caution",
+   "rmse": 38.6490405868319,
+   "r2": 0.9232655684026363,
+   "relative_rmse": 0.4221764992314093,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "E_crop": {
+   "level": "not recommended",
+   "rmse": 34.4725077627891,
+   "r2": 0.7842288820283481,
+   "relative_rmse": 0.6228734944948088,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Tr_crop": {
+   "level": "caution",
+   "rmse": 33.99568335612286,
+   "r2": 0.9444144830149136,
+   "relative_rmse": 0.27540283560381046,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "ET_crop": {
+   "level": "caution",
+   "rmse": 46.652785556807274,
+   "r2": 0.9216420473403815,
+   "relative_rmse": 0.34825785979585827,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "ETo_crop": {
+   "level": "not recommended",
+   "rmse": 100.82773745664274,
+   "r2": 0.8995013747135583,
+   "relative_rmse": 0.5330948049351137,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "GD_crop": {
+   "level": "not recommended",
+   "rmse": 298.0967603683342,
+   "r2": 0.910518400903213,
+   "relative_rmse": 0.525030446269951,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "StExp_mean": {
+   "level": "caution",
+   "rmse": 5.11283617348592,
+   "r2": 0.8418129079061728,
+   "relative_rmse": 0.46057583913944794,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "StSto_mean": {
+   "level": "not recommended",
+   "rmse": 7.271008210542379,
+   "r2": 0.7593930036155531,
+   "relative_rmse": 0.6541403310130305,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "StSen_mean": {
+   "level": "not recommended",
+   "rmse": 2.905316089833939,
+   "r2": 0.44922070139402126,
+   "relative_rmse": 0.8167519337085071,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "StTr_mean": {
+   "level": "caution",
+   "rmse": 3.84454643120405,
+   "r2": 0.9169625407211475,
+   "relative_rmse": 0.33843551337985994,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "CC_max": {
+   "level": "caution",
+   "rmse": 9.907832699972122,
+   "r2": 0.9136756961499226,
+   "relative_rmse": 0.37212209490299647,
+   "criterion": "RMSE < 0.25 within-site SD"
+  },
+  "Z_max": {
+   "level": "caution",
+   "rmse": 0.13659949109844313,
+   "r2": 0.8782397681921086,
+   "relative_rmse": 0.41976165303193985,
+   "criterion": "RMSE < 0.25 within-site SD"
+  }
+ },
+ "validation": "5-fold cross-validation by 5-degree spatial blocks (out-of-fold metrics)",
+ "emulator": {
+  "type": "cnn",
+  "offsets": {
+   "EMR_dap": "td_emergence",
+   "FLO_dap": "td_flowering",
+   "MAT_dap": "td_maturity"
+  },
+  "fit_minutes": 95.1126146197319,
+  "description": "development dates: mean of 4 MLPs (seeds 0-3) on the season inputs; other outputs: 1-D convolutional network over the daily weather (30 days before to 170 after sowing) joined to the season inputs"
+ },
+ "training": {
+  "dataset": "aquacrop_v3",
+  "seasons": 117720,
+  "points": 1962,
+  "weather": "NASA POWER 1984-01-01..2025-12-31; ETo FAO-56 PM",
+  "soil": "SoilGrids 2.0 1 km, 3x3 km median; hybrid hydraulics (Reichert et al. 2009 / Saxton & Rawls 2006 by latitude); top layers merged to 5 horizons",
+  "created": "2026-11-19"
+ },
+ "trajectory": {
+  "description": "curve shapes in phenological time (0 emergence, 1 flowering, 2 maturity, linear in days within each phase): growth curves at the grid points divided by the season output named in 'curves'; water stress (0 none to 1 full) as the mean of each grid interval",
+  "grid": [
+   0.0,
+   0.09090909090909091,
+   0.18181818181818182,
+   0.2727272727272727,
+   0.36363636363636365,
+   0.4545454545454546,
+   0.5454545454545454,
+   0.6363636363636364,
+   0.7272727272727273,
+   0.8181818181818182,
+   0.9090909090909092,
+   1.0,
+   1.0909090909090908,
+   1.1818181818181819,
+   1.2727272727272727,
+   1.3636363636363638,
+   1.4545454545454546,
+   1.5454545454545454,
+   1.6363636363636362,
+   1.7272727272727273,
+   1.8181818181818183,
+   1.9090909090909092,
+   2.0
+  ],
+  "phase_points": 12,
+  "curves": {
+   "leaf": {
+    "daily": "CC",
+    "scale": "CC_max"
+   },
+   "biomass": {
+    "daily": "Biomass",
+    "scale": "BioMass"
+   },
+   "grain": {
+    "daily": "Y(dry)",
+    "scale": "Y(dry)"
+   }
+  },
+  "stress": {
+   "daily": "StSto",
+   "intervals": 22
+  },
+  "dates": {
+   "emergence": "EMR_dap",
+   "flowering": "FLO_dap",
+   "maturity": "MAT_dap"
+  },
+  "validation": {
+   "biomass": {
+    "rmse": 0.05827018995715734,
+    "r2": 0.9742604304153321
+   },
+   "grain": {
+    "rmse": 0.04565646293079753,
+    "r2": 0.9792228155964775
+   },
+   "leaf": {
+    "rmse": 0.09837502465374498,
+    "r2": 0.9301533959087284
+   },
+   "stress": {
+    "rmse": 0.14438839007231344,
+    "r2": 0.6559059002280576
+   }
+  },
+  "output": "trajectory",
+  "targets": [
+   "leaf_t00",
+   "leaf_t01",
+   "leaf_t02",
+   "leaf_t03",
+   "leaf_t04",
+   "leaf_t05",
+   "leaf_t06",
+   "leaf_t07",
+   "leaf_t08",
+   "leaf_t09",
+   "leaf_t10",
+   "leaf_t11",
+   "leaf_t12",
+   "leaf_t13",
+   "leaf_t14",
+   "leaf_t15",
+   "leaf_t16",
+   "leaf_t17",
+   "leaf_t18",
+   "leaf_t19",
+   "leaf_t20",
+   "leaf_t21",
+   "leaf_t22",
+   "biomass_t00",
+   "biomass_t01",
+   "biomass_t02",
+   "biomass_t03",
+   "biomass_t04",
+   "biomass_t05",
+   "biomass_t06",
+   "biomass_t07",
+   "biomass_t08",
+   "biomass_t09",
+   "biomass_t10",
+   "biomass_t11",
+   "biomass_t12",
+   "biomass_t13",
+   "biomass_t14",
+   "biomass_t15",
+   "biomass_t16",
+   "biomass_t17",
+   "biomass_t18",
+   "biomass_t19",
+   "biomass_t20",
+   "biomass_t21",
+   "biomass_t22",
+   "grain_t00",
+   "grain_t01",
+   "grain_t02",
+   "grain_t03",
+   "grain_t04",
+   "grain_t05",
+   "grain_t06",
+   "grain_t07",
+   "grain_t08",
+   "grain_t09",
+   "grain_t10",
+   "grain_t11",
+   "grain_t12",
+   "grain_t13",
+   "grain_t14",
+   "grain_t15",
+   "grain_t16",
+   "grain_t17",
+   "grain_t18",
+   "grain_t19",
+   "grain_t20",
+   "grain_t21",
+   "grain_t22",
+   "stress_b00",
+   "stress_b01",
+   "stress_b02",
+   "stress_b03",
+   "stress_b04",
+   "stress_b05",
+   "stress_b06",
+   "stress_b07",
+   "stress_b08",
+   "stress_b09",
+   "stress_b10",
+   "stress_b11",
+   "stress_b12",
+   "stress_b13",
+   "stress_b14",
+   "stress_b15",
+   "stress_b16",
+   "stress_b17",
+   "stress_b18",
+   "stress_b19",
+   "stress_b20",
+   "stress_b21"
+  ],
+  "max_rel_error_check": 0.0003399965315252938
+ },
+ "inputs": [
+  "lat",
+  "abs_lat",
+  "elev",
+  "paw_mm",
+  "paw30_mm",
+  "clay30",
+  "sand30",
+  "soc30",
+  "bdod30",
+  "depth_cm",
+  "tmax_-30_0",
+  "tmin_-30_0",
+  "srad_-30_0",
+  "rain_-30_0",
+  "vpd_-30_0",
+  "dayl_-30_0",
+  "hot32_-30_0",
+  "hot35_-30_0",
+  "tmax_0_30",
+  "tmin_0_30",
+  "srad_0_30",
+  "rain_0_30",
+  "vpd_0_30",
+  "dayl_0_30",
+  "hot32_0_30",
+  "hot35_0_30",
+  "tmax_30_60",
+  "tmin_30_60",
+  "srad_30_60",
+  "rain_30_60",
+  "vpd_30_60",
+  "dayl_30_60",
+  "hot32_30_60",
+  "hot35_30_60",
+  "tmax_60_90",
+  "tmin_60_90",
+  "srad_60_90",
+  "rain_60_90",
+  "vpd_60_90",
+  "dayl_60_90",
+  "hot32_60_90",
+  "hot35_60_90",
+  "tmax_90_130",
+  "tmin_90_130",
+  "srad_90_130",
+  "rain_90_130",
+  "vpd_90_130",
+  "dayl_90_130",
+  "hot32_90_130",
+  "hot35_90_130",
+  "eto_-30_0",
+  "wstr_-30_0",
+  "eto_0_30",
+  "wstr_0_30",
+  "eto_30_60",
+  "wstr_30_60",
+  "eto_60_90",
+  "wstr_60_90",
+  "eto_90_130",
+  "wstr_90_130",
+  "dayl_sowing",
+  "sowing_sin",
+  "sowing_cos",
+  "cycle_factor",
+  "gdd_maturity",
+  "ccx",
+  "cgc_gdd",
+  "cdc_gdd",
+  "wp",
+  "hio",
+  "zmax",
+  "kctr",
+  "p_exp_upper",
+  "p_exp_lower",
+  "p_sto",
+  "p_sen",
+  "population",
+  "water",
+  "co2",
+  "td_emergence",
+  "td_flowering",
+  "td_senescence",
+  "td_maturity"
+ ],
+ "outputs": [
+  "Rain",
+  "ETo",
+  "GD",
+  "CO2",
+  "Irri",
+  "Infilt",
+  "Runoff",
+  "Drain",
+  "E",
+  "E/Ex",
+  "Tr",
+  "TrW",
+  "Tr/Trx",
+  "SaltOut",
+  "Cycle",
+  "TempStr",
+  "ExpStr",
+  "StoStr",
+  "BioMass",
+  "Brelative",
+  "HI",
+  "Y(dry)",
+  "Y(fresh)",
+  "WPet",
+  "EMR_dap",
+  "FLO_dap",
+  "YLD_dap",
+  "MAT_dap",
+  "Rain_crop",
+  "Irri_crop",
+  "Infilt_crop",
+  "RO_crop",
+  "Drain_crop",
+  "E_crop",
+  "Tr_crop",
+  "ET_crop",
+  "ETo_crop",
+  "GD_crop",
+  "StExp_mean",
+  "StSto_mean",
+  "StSen_mean",
+  "StTr_mean",
+  "CC_max",
+  "Z_max"
+ ],
+ "domain": {
+  "lat": {
+   "q005": -38.25,
+   "q995": 54.75,
+   "min": -43.75,
+   "max": 62.75
+  },
+  "abs_lat": {
+   "q005": 0.75,
+   "q995": 54.75,
+   "min": 0.25,
+   "max": 62.75
+  },
+  "elev": {
+   "q005": 3.78,
+   "q995": 3371.08,
+   "min": -11.86,
+   "max": 4936.43
+  },
+  "paw_mm": {
+   "q005": 148.79160580800007,
+   "q995": 349.0065104588,
+   "min": 113.74897610400006,
+   "max": 362.21107644866595
+  },
+  "paw30_mm": {
+   "q005": 28.874310684000026,
+   "q995": 54.416046096421255,
+   "min": 23.959866235602547,
+   "max": 58.58361077436862
+  },
+  "clay30": {
+   "q005": 9.95,
+   "q995": 55.483333333333334,
+   "min": 5.0,
+   "max": 64.95
+  },
+  "sand30": {
+   "q005": 3.4166666666666665,
+   "q995": 77.95,
+   "min": 0.8,
+   "max": 85.85
+  },
+  "soc30": {
+   "q005": 0.41000000000000003,
+   "q995": 8.203333333333335,
+   "min": 0.16833333333333336,
+   "max": 21.941666666666666
+  },
+  "bdod30": {
+   "q005": 0.9766666666666666,
+   "q995": 1.6883333333333332,
+   "min": 0.9033333333333334,
+   "max": 1.7566666666666668
+  },
+  "depth_cm": {
+   "q005": 200.0,
+   "q995": 200.0,
+   "min": 200.0,
+   "max": 200.0
+  },
+  "tmax_-30_0": {
+   "q005": -0.07639583664774373,
+   "q995": 44.94554112166567,
+   "min": -9.657333333333336,
+   "max": 50.301969243799924
+  },
+  "tmin_-30_0": {
+   "q005": -10.239170924403354,
+   "q995": 30.96064349509138,
+   "min": -22.025333333333332,
+   "max": 35.854090579118754
+  },
+  "srad_-30_0": {
+   "q005": 8.494198333333333,
+   "q995": 29.66456499999999,
+   "min": 4.308666666666667,
+   "max": 34.52633333333333
+  },
+  "rain_-30_0": {
+   "q005": 0.157299012022126,
+   "q995": 491.8142999999999,
+   "min": 0.0,
+   "max": 1474.51
+  },
+  "vpd_-30_0": {
+   "q005": 0.1001821405149809,
+   "q995": 5.638681474182463,
+   "min": -0.02403315150648765,
+   "max": 7.777794358539195
+  },
+  "dayl_-30_0": {
+   "q005": 11.682325502112882,
+   "q995": 17.030532782489875,
+   "min": 10.04839537563594,
+   "max": 21.080254457803342
+  },
+  "hot32_-30_0": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "hot35_-30_0": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "tmax_0_30": {
+   "q005": 10.39292,
+   "q995": 42.87635127493207,
+   "min": -1.414307229157842,
+   "max": 51.047302577133266
+  },
+  "tmin_0_30": {
+   "q005": -1.6316833333333332,
+   "q995": 30.230013087051905,
+   "min": -12.310640562491178,
+   "max": 36.67034196300851
+  },
+  "srad_0_30": {
+   "q005": 10.475261666666666,
+   "q995": 30.355476666666668,
+   "min": 4.548,
+   "max": 34.465
+  },
+  "rain_0_30": {
+   "q005": 0.11848192482451973,
+   "q995": 590.491117882314,
+   "min": 0.0,
+   "max": 1665.342013498064
+  },
+  "vpd_0_30": {
+   "q005": 0.27114593607842047,
+   "q995": 4.72994448281012,
+   "min": 0.05233907391150168,
+   "max": 7.8142217203638955
+  },
+  "dayl_0_30": {
+   "q005": 12.375080474781846,
+   "q995": 18.32261474329573,
+   "min": 10.04839537563594,
+   "max": 24.0
+  },
+  "hot32_0_30": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "hot35_0_30": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "tmax_30_60": {
+   "q005": 16.249000000000002,
+   "q995": 41.84780166666667,
+   "min": 6.100999999999998,
+   "max": 51.727412744816775
+  },
+  "tmin_30_60": {
+   "q005": 4.072396666666667,
+   "q995": 29.080231666666663,
+   "min": -6.240333333333333,
+   "max": 36.83889259252799
+  },
+  "srad_30_60": {
+   "q005": 11.37073,
+   "q995": 30.110666666666663,
+   "min": 5.106666666666666,
+   "max": 34.83266666666667
+  },
+  "rain_30_60": {
+   "q005": 0.01,
+   "q995": 565.4438391103498,
+   "min": 0.0,
+   "max": 2170.8329763802567
+  },
+  "vpd_30_60": {
+   "q005": 0.3041010792032795,
+   "q995": 4.4272773850922915,
+   "min": 0.1037268072842214,
+   "max": 8.908251337900937
+  },
+  "dayl_30_60": {
+   "q005": 12.50211236637752,
+   "q995": 18.895166967474932,
+   "min": 10.328268595066202,
+   "max": 24.0
+  },
+  "hot32_30_60": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "hot35_30_60": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "tmax_60_90": {
+   "q005": 18.014537519165614,
+   "q995": 41.6767651204247,
+   "min": 6.011,
+   "max": 51.73107941148346
+  },
+  "tmin_60_90": {
+   "q005": 6.104261666666668,
+   "q995": 28.546828977222216,
+   "min": -3.263333333333333,
+   "max": 36.72216781837888
+  },
+  "srad_60_90": {
+   "q005": 12.356,
+   "q995": 29.204341666666664,
+   "min": 7.365666666666668,
+   "max": 33.44133333333333
+  },
+  "rain_60_90": {
+   "q005": 0.0,
+   "q995": 513.8134944896916,
+   "min": 0.0,
+   "max": 2722.7300000000005
+  },
+  "vpd_60_90": {
+   "q005": 0.3140651909616244,
+   "q995": 4.355563361924177,
+   "min": 0.10207622258829127,
+   "max": 8.901810809250595
+  },
+  "dayl_60_90": {
+   "q005": 12.410539006183813,
+   "q995": 18.718768660504722,
+   "min": 11.32800395670252,
+   "max": 24.0
+  },
+  "hot32_60_90": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "hot35_60_90": {
+   "q005": 0.0,
+   "q995": 30.0,
+   "min": 0.0,
+   "max": 30.0
+  },
+  "tmax_90_130": {
+   "q005": 13.763024190735367,
+   "q995": 40.73083959748587,
+   "min": 1.985,
+   "max": 52.27291433150369
+  },
+  "tmin_90_130": {
+   "q005": 2.4026525000000007,
+   "q995": 27.897610066323715,
+   "min": -6.963500000000001,
+   "max": 35.49841781837887
+  },
+  "srad_90_130": {
+   "q005": 9.887392500000002,
+   "q995": 26.883607499999997,
+   "min": 5.86425,
+   "max": 31.3735
+  },
+  "rain_90_130": {
+   "q005": 0.0,
+   "q995": 596.6281043368815,
+   "min": 0.0,
+   "max": 3696.0484811619112
+  },
+  "vpd_90_130": {
+   "q005": 0.3097118597682858,
+   "q995": 4.1364699850954585,
+   "min": 0.09792028704136972,
+   "max": 8.885886204815147
+  },
+  "dayl_90_130": {
+   "q005": 11.712245098594767,
+   "q995": 17.145155390503895,
+   "min": 10.813973472392309,
+   "max": 22.076066333988667
+  },
+  "hot32_90_130": {
+   "q005": 0.0,
+   "q995": 40.0,
+   "min": 0.0,
+   "max": 40.0
+  },
+  "hot35_90_130": {
+   "q005": 0.0,
+   "q995": 40.0,
+   "min": 0.0,
+   "max": 40.0
+  },
+  "eto_-30_0": {
+   "q005": 25.202477053680617,
+   "q995": 336.2543123082461,
+   "min": 9.478416939600953,
+   "max": 412.39612107651266
+  },
+  "wstr_-30_0": {
+   "q005": 0.0,
+   "q995": 0.6872024274357075,
+   "min": 0.0,
+   "max": 0.7794924109234879
+  },
+  "eto_0_30": {
+   "q005": 55.08308676230067,
+   "q995": 302.31780036544666,
+   "min": 9.505119993129139,
+   "max": 467.37899073728926
+  },
+  "wstr_0_30": {
+   "q005": 0.0,
+   "q995": 0.9323970913158123,
+   "min": 0.0,
+   "max": 0.9858931568182308
+  },
+  "eto_30_60": {
+   "q005": 76.54220397178501,
+   "q995": 298.89139323245604,
+   "min": 11.801031512622009,
+   "max": 470.84284668121325
+  },
+  "wstr_30_60": {
+   "q005": 0.0,
+   "q995": 0.983620253394255,
+   "min": 0.0,
+   "max": 0.9983469112345194
+  },
+  "eto_60_90": {
+   "q005": 79.36241730840712,
+   "q995": 291.7183833036048,
+   "min": 23.065378376374905,
+   "max": 478.09616970244423
+  },
+  "wstr_60_90": {
+   "q005": 0.0,
+   "q995": 0.9956798397537737,
+   "min": 0.0,
+   "max": 0.9999027510271922
+  },
+  "eto_90_130": {
+   "q005": 66.86100201913155,
+   "q995": 357.58760831208104,
+   "min": 25.934229279997922,
+   "max": 622.1132578733043
+  },
+  "wstr_90_130": {
+   "q005": 0.0,
+   "q995": 0.9978987175694919,
+   "min": 0.0,
+   "max": 0.9999841780519461
+  },
+  "dayl_sowing": {
+   "q005": 12.16294253394325,
+   "q995": 17.83060661742596,
+   "min": 10.010410774320494,
+   "max": 24.0
+  },
+  "sowing_sin": {
+   "q005": -0.9986126020839734,
+   "q995": 0.9999300657962057,
+   "min": -0.9999994220246925,
+   "max": 0.9999855506507186
+  },
+  "sowing_cos": {
+   "q005": -0.9999422030204416,
+   "q995": 0.9992510374388481,
+   "min": -0.9999791929590823,
+   "max": 0.9999907524084426
+  },
+  "cycle_factor": {
+   "q005": 0.7526962951920282,
+   "q995": 1.2471016339054377,
+   "min": 0.7500051441277665,
+   "max": 1.249998502238141
+  },
+  "gdd_maturity": {
+   "q005": 793.6237473620334,
+   "q995": 4090.92457624544,
+   "min": 153.7354505197864,
+   "max": 5919.727490001174
+  },
+  "ccx": {
+   "q005": 0.800917023919219,
+   "q995": 0.9890749213629431,
+   "min": 0.8000019403653109,
+   "max": 0.9899995609294068
+  },
+  "cgc_gdd": {
+   "q005": 0.8019688436253756,
+   "q995": 1.1980024271716259,
+   "min": 0.8000023892116507,
+   "max": 1.1999973082940918
+  },
+  "cdc_gdd": {
+   "q005": 0.8020971675461532,
+   "q995": 1.1980992956607406,
+   "min": 0.800001602820568,
+   "max": 1.1999997961346371
+  },
+  "wp": {
+   "q005": 13.024761700407824,
+   "q995": 17.97528910781415,
+   "min": 13.000060907033289,
+   "max": 17.9999218267912
+  },
+  "hio": {
+   "q005": 30.095845182047555,
+   "q995": 47.90873060990141,
+   "min": 30.00001607274594,
+   "max": 47.9998832430735
+  },
+  "zmax": {
+   "q005": 1.005105221263613,
+   "q995": 1.9950756993161107,
+   "min": 1.0000087433085447,
+   "max": 1.9999983831141361
+  },
+  "kctr": {
+   "q005": 1.0007788825912427,
+   "q995": 1.1492653799188455,
+   "min": 1.0000009180137757,
+   "max": 1.1499977655485947
+  },
+  "p_exp_upper": {
+   "q005": 0.10049609192065137,
+   "q995": 0.19951069040592775,
+   "min": 0.10000113187293205,
+   "max": 0.1999993747859114
+  },
+  "p_exp_lower": {
+   "q005": 0.5509954094482692,
+   "q995": 0.7490524100573919,
+   "min": 0.5500027964784946,
+   "max": 0.7499988709106377
+  },
+  "p_sto": {
+   "q005": 0.4511598429918618,
+   "q995": 0.6987984346211357,
+   "min": 0.45000036441799884,
+   "max": 0.6999997727062917
+  },
+  "p_sen": {
+   "q005": 0.6010176046694976,
+   "q995": 0.7990048756785525,
+   "min": 0.6000003206146189,
+   "max": 0.7999990184924318
+  },
+  "population": {
+   "q005": 15.2,
+   "q995": 49.8,
+   "min": 15.0,
+   "max": 50.0
+  },
+  "water": {
+   "q005": 0.0,
+   "q995": 1.0,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "co2": {
+   "q005": 345.9039999999999,
+   "q995": 792.9877878624047,
+   "min": 345.36533333333335,
+   "max": 799.9919212700127
+  },
+  "td_emergence": {
+   "q005": 9.0,
+   "q995": 57.0,
+   "min": 8.0,
+   "max": 150.0
+  },
+  "td_flowering": {
+   "q005": 38.0,
+   "q995": 141.0,
+   "min": 21.0,
+   "max": 194.0
+  },
+  "td_senescence": {
+   "q005": 55.0,
+   "q995": 302.40499999999884,
+   "min": 36.0,
+   "max": 453.0
+  },
+  "td_maturity": {
+   "q005": 67.0,
+   "q995": 403.0,
+   "min": 44.0,
+   "max": 471.0
+  }
+ },
+ "onnx": {
+  "file": "model.onnx",
+  "input": "inputs",
+  "output": "outputs",
+  "max_rel_error_check": 3.2228447085928734e-05,
+  "sequence_input": "sequence"
+ },
+ "sequence": {
+  "channels": [
+   "tmax",
+   "tmin",
+   "srad",
+   "rain",
+   "eto",
+   "vpd",
+   "dayl",
+   "stress",
+   "das"
+  ],
+  "days": [
+   -30,
+   170
+  ]
+ }
+}

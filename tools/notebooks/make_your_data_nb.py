@@ -43,9 +43,9 @@ files in `my_data/` and skip section 2.**
 9. export."""),
 code("""try:
     import cropemu
-    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 4)
+    assert tuple(int(v) for v in cropemu.__version__.split(".")[:2]) >= (0, 5)
 except (ImportError, AssertionError):     # install from PyPI (Intel Macs need --prefer-binary for rasterio)
-    %pip install --quiet --prefer-binary "cropemu>=0.4"
+    %pip install --quiet --prefer-binary "cropemu>=0.5"
     import cropemu
 
 import time, warnings
@@ -110,7 +110,7 @@ for name in FILES:
             (DATA / name).write_bytes(Path(src).read_bytes())
 print(sorted(p.name for p in DATA.iterdir()))
 print((DATA / "clima_H.csv").read_text().splitlines()[:3])"""),
-code("""emu = cropemu.load("dssat-soybean-v2")
+code("""emu = cropemu.load("dssat-soybean-v3")
 CATALOGUE = {"Cultivar 5.5": 5.5, "Cultivar 6.4": 6.4, "Cultivar 7.4": 7.4, "Cultivar 8.3": 8.3}
 TRUE = pd.read_csv(DATA / "hidden_cultivars.csv", index_col="cultivar").T.to_dict()   # only to check the calibration
 YEARS = range(1994, 2024)                                     # sowing years of the example
@@ -329,7 +329,7 @@ md("""## 8. The same data with the AquaCrop emulator
 AquaCrop's cycle is a thermal time: for each cultivar it is the mean growing degrees between sowing
 and the observed maturity of the calibration years (`cropemu.gdd_between`); the other crop
 parameters keep the middle of their training range."""),
-code("""aq = cropemu.load("aquacrop-soybean-v2")
+code("""aq = cropemu.load("aquacrop-soybean-v3")
 gdd = {}
 for cv, g in seasons[cal & seasons["obs_maturity"].notna()].groupby("cultivar"):
     gdd[cv] = np.mean([cropemu.gdd_between(weather[r.site], r.sowing, r.sowing + pd.Timedelta(days=int(r.obs_maturity)))

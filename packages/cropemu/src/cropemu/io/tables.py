@@ -93,11 +93,17 @@ def _table(source, sheet=None) -> pd.DataFrame:
     p = Path(source)
     if p.suffix.lower() in (".xlsx", ".xls", ".xlsm", ".ods"):
         return pd.read_excel(p, sheet_name=sheet or 0)
-    text = p.read_text(errors="replace")
+    raw = p.read_bytes()
+    try:                          # UTF-8 (with or without BOM), else Latin-1: CSV saved by Excel on Windows
+        raw.decode("utf-8")
+        encoding = "utf-8-sig"
+    except UnicodeDecodeError:
+        encoding = "latin-1"
+    text = raw.decode(encoding)
     first = text.splitlines()[0] if text else ""
     sep = ";" if first.count(";") > first.count(",") else ("\t" if "\t" in first else ",")
     decimal = "," if sep == ";" else "."
-    return pd.read_csv(p, sep=sep, decimal=decimal)
+    return pd.read_csv(p, sep=sep, decimal=decimal, encoding=encoding)
 
 
 def _convert(df, col, cond, factor, offset, msg, log):

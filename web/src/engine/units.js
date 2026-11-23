@@ -30,6 +30,7 @@ const DSSAT = {
   GNAM: ["Grain nitrogen at maturity", 'Nitrogênio dos grãos na maturidade', 'kg N/ha', 'nitrogen and carbon'],
   OCTAM: ["Total organic carbon at maturity", 'Carbono orgânico total na maturidade', 'kg C/ha', 'nitrogen and carbon'],
   OCAM: ["Soil organic carbon at maturity", 'Carbono orgânico do solo na maturidade', 'kg C/ha', 'nitrogen and carbon'],
+  CH4EM: ["Cumulative methane emission (flooded-soil process; unreliable for soybean)", 'Emissão acumulada de metano (processo de solo alagado; pouco confiável para soja)', 'kg C/ha', 'nitrogen and carbon'],
   DMPEM: ["Dry matter per mm of evapotranspiration", 'Matéria seca por mm de evapotranspiração', 'kg/ha/mm', 'efficiency'],
   DMPTM: ["Dry matter per mm of transpiration", 'Matéria seca por mm de transpiração', 'kg/ha/mm', 'efficiency'],
   YPEM: ["Yield per mm of evapotranspiration", 'Produtividade por mm de evapotranspiração', 'kg/ha/mm', 'efficiency'],

@@ -276,8 +276,9 @@ soil, its cultivar, its sowing date and its water regime (`irrigated=True` means
 the trials with limited irrigation are not exactly that). CO₂ follows the Mauna Loa record, with
 the 1978 value (335 ppm) raised to the training minimum (345 ppm).
 
-What the emulator does **not** know: plant density and row spacing (fixed at 30 plants/m² and
-50 cm in training), nitrogen, pests and diseases. The comparison mixes the error of the emulator
+The plant density of each treatment goes in as `population` (trained on 15-50 plants/m²; the 10
+plants/m² plots of Paragominas fall outside). What the emulator does **not** know: row spacing (fixed
+at 50 cm in training), nitrogen, pests and diseases. The comparison mixes the error of the emulator
 (validation: {"~340 kg/ha and ~3 days" if dssat else "~0.5 t/ha and ~4 days"}) with the error of the crop model itself, which was not
 calibrated for these sites."""),
 code(f"""CO2_MIN = emu.card["domain"]["co2"]["min"]
@@ -290,7 +291,9 @@ for t, (x, obs) in trials.items():
         w = season_weather(sid, r["sowing"])
         {cult_line}
         co2 = max(co2_at(r["sowing"] + pd.Timedelta(days=60)), CO2_MIN)
-        p = emu.predict(w, lat=s["lat"], elev=s["elev"], soil=soils[sid], sowing=r["sowing"], cultivar=cv,
+        pop = float(r["plants_m2"]) if pd.notna(r["plants_m2"]) else 30.0
+        p = emu.predict(w, lat=s["lat"], elev=s["elev"], soil=soils[sid], sowing=r["sowing"],
+                        cultivar={{**cv, "population": pop}},
                         irrigated=r["irrigated"], co2=co2)
         rows.append({{"trial": t, "trno": trno, "site": s["name"], "cultivar": r["CNAME"].strip(),
                      "sowing": r["sowing"], "plants_m2": r["plants_m2"], "irrigated": r["irrigated"],
@@ -322,23 +325,24 @@ fig.suptitle("emulator vs. field observations (hollow: some input out of the tra
 fig.tight_layout(); plt.show()
 pd.concat({{v: field.groupby("trial")[["obs_" + v, v]].apply(lambda d, v=v: scores(d, "obs_" + v, v))
            for v in ("yield", "anthesis", "maturity")}}, axis=1).round(1)"""),
-md("""**Plant density.** At Paragominas the observed yield rises with density, from 10 to 40 plants/m²; the
-emulator, trained at 30 plants/m², gives one value per sowing date and cultivar:"""),
+md("""**Plant density.** At Paragominas the observed yield rises with density, from 10 to 40 plants/m².
+The emulator takes the density of each plot (dotted lines; the 10 plants/m² plots are below the
+training range of 15-50 plants/m²):"""),
 code("""d = field[field["trial"] == "PARA1801"]
 fig, ax = plt.subplots(figsize=(9, 3.6))
 for i, ((cv, sow), g) in enumerate(d.groupby(["cultivar", "sowing"])):
     g = g.sort_values("plants_m2")
     ax.plot(g["plants_m2"], g["obs_yield"], marker="o", color=SERIES[i % len(SERIES)], label=f"{cv[:6]} {sow:%d %b %Y}")
-    ax.axhline(g["yield"].iloc[0], color=SERIES[i % len(SERIES)], lw=1, ls=":")
-ax.axvline(30, color="0.5", lw=1)
-ax.set(xlabel="plants/m²", ylabel="yield (kg/ha)", title="observed (lines) vs. emulated at the training density of 30 plants/m² (dotted)")
+    ax.plot(g["plants_m2"], g["yield"], marker="s", markerfacecolor="white", color=SERIES[i % len(SERIES)], lw=1, ls=":")
+ax.axvspan(g["plants_m2"].min() - 2, 15, color="0.92", lw=0)
+ax.set(xlabel="plants/m²", ylabel="yield (kg/ha)", title="observed (solid) vs. emulated (dotted); grey: below the training range")
 ax.legend(ncol=2, fontsize=7, loc="upper left", bbox_to_anchor=(1.0, 1.0))
 fig.tight_layout(); plt.show()"""),
     ]
 
     out += [md("""**Reading the comparison.** """ + ("""The dates are close to the observations (anthesis within a
 few days); the yields scatter more, as expected from a crop model that was not calibrated for these
-sites and from what the emulator does not see (density, nitrogen, diseases, the exact irrigation).
+sites and from what the emulator does not see (nitrogen, diseases, the exact irrigation).
 The hollow points warn where the inputs left the training data: the sandy soil of Gainesville and
 the calibrated cultivars of the studies. Their predictions are extrapolations."""
         if dssat else """The maturity dates are close because the cycle (`gdd_maturity`)
@@ -375,7 +379,8 @@ s = SITES["PARA"]
 def season_table(rows, cultivar):
     \"\"\"Emulator inputs of each season (one row per treatment) for a starting cultivar.\"\"\"
     X = [emu.inputs(season_weather("PARA", r.sowing), lat=s["lat"], elev=s["elev"], soil=soils["PARA"],
-                    sowing=r.sowing, cultivar=cultivar) for r in rows.itertuples()]
+                    sowing=r.sowing, cultivar={**cultivar, "population": float(r.plants_m2)})
+         for r in rows.itertuples()]
     return pd.concat(X, ignore_index=True)
 
 t0 = time.time()
@@ -383,9 +388,10 @@ calib = {}
 for cv in ("MG77PA (13)", "MG88PA (13)"):
     cal, val = para[(para["cultivar"] == cv) & (para["year"] == 2018)], para[(para["cultivar"] == cv) & (para["year"] == 2019)]
     Xc, Xv = season_table(cal, emu.cultivar(mg=8)), season_table(val, emu.cultivar(mg=8))
+    coefs = lambda c: {k: v for k, v in c.items() if k != "population"}   # keep the density of each plot
     # step 1: MG from the dates
     mgs = np.round(np.arange(5.0, 10.0001, 0.05), 2)
-    big = pd.concat([Xc.assign(**emu.cultivar(mg=m)) for m in mgs], ignore_index=True)
+    big = pd.concat([Xc.assign(**coefs(emu.cultivar(mg=m))) for m in mgs], ignore_index=True)
     P = emu.predict_inputs(big).outputs
     err = ((P["ADAT_dap"].to_numpy() - np.tile(cal["obs_anthesis"].to_numpy(), len(mgs))) ** 2 +
            (P["MDAT_dap"].to_numpy() - np.tile(cal["obs_maturity"].to_numpy(), len(mgs))) ** 2).reshape(len(mgs), -1)
@@ -395,13 +401,13 @@ for cv in ("MG77PA (13)", "MG88PA (13)"):
     d = emu.card["domain"]
     grid = [(a, b) for a in np.linspace(d["LFMAX"]["min"], d["LFMAX"]["max"], 15)
             for b in np.linspace(d["SFDUR"]["min"], d["SFDUR"]["max"], 15)]
-    big = pd.concat([Xc.assign(**emu.cultivar(mg=mg, LFMAX=a, SFDUR=b)) for a, b in grid], ignore_index=True)
+    big = pd.concat([Xc.assign(**coefs(emu.cultivar(mg=mg, LFMAX=a, SFDUR=b))) for a, b in grid], ignore_index=True)
     Y = emu.predict_inputs(big).outputs["HWAM"].to_numpy().reshape(len(grid), -1)
     rmse_y = np.sqrt(((Y - cal["obs_yield"].to_numpy()) ** 2).mean(axis=1))
     a, b = grid[int(rmse_y.argmin())]
     best = emu.cultivar(mg=mg, LFMAX=a, SFDUR=b)
     calib[cv] = dict(cultivar=best, rmse_mg=rmse_mg, mgs=mgs, rmse_y=rmse_y.reshape(15, 15), grid=grid,
-                     val=val.assign(**{k + "_cal": v for k, v in emu.predict_inputs(Xv.assign(**best)).outputs[
+                     val=val.assign(**{k + "_cal": v for k, v in emu.predict_inputs(Xv.assign(**coefs(best))).outputs[
                          ["HWAM", "ADAT_dap", "MDAT_dap"]].set_axis(val.index).items()}),
                      n=len(big) + len(mgs) * len(Xc))
     print(f"{cv}: MG {mg:.2f}, LFMAX {a:.3f}, SFDUR {b:.2f}  ({calib[cv]['n']} emulated seasons)")
@@ -464,7 +470,8 @@ s = SITES["PARA"]
 def season_table(rows, cultivar):
     \"\"\"Emulator inputs of each season (one row per treatment) for a cultivar.\"\"\"
     X = [emu.inputs(season_weather("PARA", r.sowing), lat=s["lat"], elev=s["elev"], soil=soils["PARA"],
-                    sowing=r.sowing, cultivar=cultivar) for r in rows.itertuples()]
+                    sowing=r.sowing, cultivar={**cultivar, "population": float(r.plants_m2)})
+         for r in rows.itertuples()]
     return pd.concat(X, ignore_index=True)
 
 t0 = time.time()

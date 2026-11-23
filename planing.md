@@ -699,6 +699,80 @@ Implementado, ainda sem publicar:
     - Falta avaliar a habilidade da previsão sazonal (hindcast).
   - **Sobre o CropEmu:** finalidade, uso sem fins comerciais, resumo da metodologia e link para o GitHub.
 
+### 5.2.3 Trajetórias diárias: piloto (17/11/2026)
+
+**Objetivo.** Emular as curvas ao longo do ciclo (área foliar ou cobertura do dossel, biomassa, grãos, estresse hídrico), não só os valores da safra. As curvas do aplicativo hoje são esquemáticas. Com curvas emuladas, uma animação da planta (porte, folhas, amarelecimento no déficit) passa a mostrar o comportamento do modelo, incluindo a queda de IAF num veranico.
+
+**Dados.** As campanhas `dssat_v1` e `aquacrop_v1` não guardaram as tabelas diárias: precisam ser refeitas. O design é determinístico (sementes), então as mesmas 117.720 safras podem ser reproduzidas.
+- `pipeline.generate(daily=TRAJECTORY_COLUMNS)` grava o `PlantGro` do DSSAT: GSTD, LAID, LWAD, SWAD, GWAD, PWAD, CWAD, P#AD, WSPD, WSGD, NSTD, CHTD e RDPD.
+- `pipeline_aquacrop.generate(daily=TRAJECTORY_COLUMNS)` grava Stage, CC, Biomass, Y(dry), Z, StExp, StSto, StSen e Tr/Trx.
+- Ausentes (-99 no DSSAT, -9 no AquaCrop) viram NaN.
+- No AquaCrop, `DAP` é recalculado pelo calendário (`crop_days`): o `DAP` do modelo recomeça quando a germinação atrasa e vale -9 depois do ciclo.
+
+**Piloto** (`benchmark/trajectory/`: 36 pontos do `dssat_v1` espalhados por faixa de latitude, 60 safras cada, 2.160 safras; Windows, 8 processos):
+
+| | DSSAT | AquaCrop |
+|---|---|---|
+| Custo com tabela diária | 65 ms/safra (35 sem): ~2,1 h para 117.720 | ~igual sem e com (já lia a tabela diária): ~2–3 h |
+| Disco (parquet) | 0,18 GB para 117.720 | 0,09 GB |
+| Coerência com o resumo | GWAD final = HWAM; máx. LAID − LAIX: 0,025 | Y(dry) final = Y(dry); máx. CC = CC_max; último dia = MAT_dap |
+| Safras sem maturação | 231 (11 %) | 277 (13 %) |
+
+- **Representação proposta: tempo fenológico.** 0 na emergência, 1 na floração, 2 na maturação, com 12 pontos por fase (23 no total). As datas vêm das redes de fenologia que já existem.
+- **Erro de reconstrução das curvas diárias** (RMSE relativo ao máximo, mediana/p95):
+  - DSSAT: LAID 0,6/2,0 %, CWAD 0,4/1,1 %, GWAD 0,5/0,9 %;
+  - AquaCrop: CC 0,5/1,9 %, Biomass 0,2/0,6 %, Y(dry) 0,4/0,5 %.
+- **Último dia do AquaCrop:** o modelo zera o CC no último dia (fim do ciclo, não senescência). A curva vai até o dia anterior, e o último dia vira a colheita na animação.
+- **Estresse hídrico:** oscila de um dia para o outro (WSPD, StSto). Vai como média por intervalo de tempo fenológico (22 intervalos). O erro contra a média móvel de 7 dias é de 0,05 (DSSAT) e 0,03 (AquaCrop) na escala 0–1.
+
+**Próximos passos:**
+1. Refazer as duas campanhas com as tabelas diárias.
+2. Treinar um ramo de saída da rede v2 para as curvas normalizadas pelo valor final, escalado pelas saídas já emuladas para manter a coerência com elas.
+3. Validar por bloco de 5° e nos 7 sítios independentes.
+4. Exportar a v3 e a biblioteca 0.5.0.
+5. Fazer a animação no aplicativo.
+
+**Portabilidade.**
+- O runner do DSSAT agora roda no Windows: junction em vez de link simbólico, perfil `DSSATPRO.V48`.
+- O `EnvSum.OUT` não é escrito pelo DSSAT 4.8.5 do Windows; não é usado no treino.
+- O AquaCrop 7.3 do Windows vem da mesma release (`v7.3_typofix`) e passa nos testes.
+- `cropemu.io` lê CSV em Latin-1 (salvo pelo Excel no Windows), além de UTF-8.
+
+### 5.2.4 Emuladores v3: população de plantas e curvas diárias (19–23/11/2026)
+
+**Campanha v3** (Windows, 19/11): as 117.720 safras do v1, com a população de plantas sorteada entre 15 e 50 plantas/m² (LHS com semente própria; o resto do design é idêntico ao v1) e as tabelas diárias. DSSAT 124 min, AquaCrop 157 min. Dados publicados nas releases `data-v3` (e `data-v1`).
+
+**Treino** (rede v2 com a população como entrada + segunda rede para as formas das curvas no tempo fenológico), validação por blocos de 5°:
+
+| | DSSAT v3 | AquaCrop v3 |
+|---|---|---|
+| Maturação | 2,9 d (R² 0,99) | 4,4 d (R² 0,98) |
+| Produtividade | 343 kg/ha (R² 0,97; v2: 335) | 0,51 t/ha (R² 0,93; v2: 0,50) |
+| Evapotranspiração | 24 mm (R² 0,98) | 47 mm (R² 0,92) |
+| Curvas (R²): folha, biomassa, grãos, estresse | 0,98; 0,95; 0,99; 0,80 | 0,93; 0,97; 0,98; 0,66 |
+| Resposta à população (+10 plantas/m², fora da amostra; simulado/emulado) | sequeiro +61/+63 kg/ha; sem estresse +128/+124 kg/ha | +0,133 t/ha (simulado = emulado) |
+
+- **CH4EM** (metano) entrou como saída do DSSAT v3: no v1/v2 era texto e caía fora; a correção `_numeric_columns` o tornou numérico. Valores com overflow (até 99.447), nível *não recomendado*. Ganhou descrição e unidade e está em `NOT_TARGETS` para os próximos treinos.
+- **Exportados:** `dssat-soybean-v3` e `aquacrop-soybean-v3` (trajetória = 2ª saída ONNX, `population_default` 30) no zoo da biblioteca e em `web/public/models`. O app usa os dois v3: campo de população, curvas emuladas, gráfico de estresse e planta animada na aba *Uma safra*. O motor JS confere com o Python (160 casos).
+
+- **7 sítios independentes** (23/11, `benchmark/validate_sites.py`, 60 safras por sítio, população amostrada em 15–50 plantas/m², log em `logs/validate_sites_v3.log`): as entradas montadas pela biblioteca são idênticas às do pipeline de treino e nenhuma safra saiu do domínio. Erro nos sítios novos ≤ erro da validação por blocos (mediana RMSE/RMSE da ficha: DSSAT 0,62; AquaCrop 0,63).
+
+| | DSSAT v3 | AquaCrop v3 |
+|---|---|---|
+| Produtividade | 341 kg/ha (R² 0,95; ficha 343) | 0,34 t/ha (R² 0,92; ficha 0,51) |
+| Maturação | 1,6 d (R² 0,99) | 1,3 d (R² 1,00) |
+| Curvas (R²): folha, biomassa, grãos, estresse | 0,99; 0,99; 0,995; 0,76 | 0,98; 0,99; 0,995; 0,65 |
+| Ganho de 15 → 50 plantas/m², mesmas safras (simulado/emulado) | sequeiro +0,31/+0,30 t/ha; sem estresse +0,51/+0,49 t/ha | sequeiro +0,53/+0,51; sem estresse +0,56/+0,56 t/ha |
+| Correlação safra a safra desse ganho | 0,91 (sequeiro), 0,95 | 0,55 (sequeiro), 0,85 |
+
+  Pior sítio em produtividade: Ames (DSSAT 0,68 t/ha, AquaCrop 0,60 t/ha, viés positivo). No AquaCrop em sequeiro o ganho médio com a população está certo, mas a variação entre safras é pouco reproduzida (r 0,55). O notebook `examples/compare_emulator_simulator.ipynb` foi passado para o v3 (25 safras por sítio; mediana RMSE/ficha 0,58 e 0,61).
+
+- **Biblioteca 0.5.0** (23/11): README do pacote em v3 (população, `res.curves()`), notebooks `dssat_soybean`, `aquacrop_soybean` e `your_data` regenerados em v3 (`tools/notebooks`), com seções novas de curvas diárias e de população de plantas. Nos ensaios de campo a densidade de cada parcela agora entra no emulador: em Paragominas o RMSE da produtividade calibrada caiu de 903 para 738 kg/ha (DSSAT) e de 2.369 para 1.510 kg/ha (AquaCrop). Correção: `cultivar_from_dssat` falhava no v3 (procurava `population` no .CUL). Wheel de 16,9 MB com os 6 emuladores, testada num ambiente limpo.
+
+**Pendente:**
+1. Enviar a 0.5.0 ao PyPI.
+2. Merge em `main` e deploy do app.
+
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
 - Código aberto (GitHub + DOI no Zenodo), licença MIT ou Apache-2.0.

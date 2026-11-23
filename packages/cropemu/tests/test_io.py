@@ -148,6 +148,9 @@ def test_cultivar_from_dssat_and_domain(tmp_path):
     d = emu.cultivar_domain({**cv, "LFMAX": 1.5})
     assert d.loc["LFMAX", "status"] == "out of domain" and d.loc["CSDL", "status"] == "ok"
     assert emu.fixed_inputs() == {"depth_cm": 200.0}
+    v3 = cropemu.load("dssat-soybean-v3")                        # population is not a DSSAT coefficient
+    cv3 = v3.cultivar_from_dssat(c)
+    assert cv3["population"] == 30.0 and cv3["CSDL"] == 12.58 and list(cv3) == v3.cultivar_
 
 
 def test_gdd_between():

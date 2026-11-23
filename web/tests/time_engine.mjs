@@ -12,7 +12,7 @@ import { dayNumber } from '../src/engine/dates.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const data = path.join(here, '../../examples/data/your_data');
 const fetcher = async (p) => { const b = fs.readFileSync(path.join(here, '../public', p)); return { json: async () => JSON.parse(b), arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length) }; };
-const [name = 'dssat-soybean-v2', n = '2000'] = process.argv.slice(2);
+const [name = 'dssat-soybean-v3', n = '2000'] = process.argv.slice(2);
 const { table } = readWeather(fs.readFileSync(path.join(data, 'clima_A.csv'), 'utf8'));
 fillGaps(table);
 const ws = new WeatherSeries(table, -23.3, 600);

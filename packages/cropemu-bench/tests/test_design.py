@@ -80,3 +80,18 @@ def test_design_seasons(table):
     assert t[k].environment.co2 == pytest.approx(seasons["co2"].iloc[k])
     assert t[0].initial_water == d.initial_water
     assert isinstance(seasons["sowing"].iloc[0], date)
+
+
+def test_sampled_population(table):
+    points = pd.DataFrame({"id": ["a", "b"], "lat": [-23.25, 42.25]})
+    cal = pd.DataFrame({"id": ["a", "b"], "planting_doy": [304, 123]})
+    fixed, _ = design_seasons(points, cal, table, SeasonDesign(seasons_per_point=40))
+    d = SeasonDesign(seasons_per_point=40, population_range=(15, 50))
+    sampled, _ = design_seasons(points, cal, table, d)
+    assert "population" not in fixed                                          # v1 design unchanged
+    pd.testing.assert_frame_equal(sampled.drop(columns="population"), fixed)  # own seed: same other inputs
+    for _, g in sampled.groupby("point"):                                     # spread by LHS in each point
+        assert g["population"].between(15, 50).all() and g["population"].std() > 8
+    t = to_treatments(sampled, {"a": "SOILA00001", "b": "SOILB00001"}, d)
+    assert [x.population for x in t] == sampled["population"].tolist()
+    assert to_treatments(fixed, {"a": "SOILA00001", "b": "SOILB00001"})[0].population == 30.0

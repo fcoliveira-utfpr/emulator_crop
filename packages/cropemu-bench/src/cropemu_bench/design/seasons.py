@@ -32,7 +32,10 @@ class SeasonDesign:
     rain_factor_range: tuple = (0.7, 1.3)
     co2_range: tuple = (350.0, 800.0)
     initial_water: float = 0.5       # fixed: unknown to library users
-    population: float = 30.0         # fixed, plants/m²
+    population: float = 30.0         # plants/m², used when population_range is None
+    # (lo, hi) plants/m²: population sampled per season (Latin hypercube with its own seed, so the
+    # other inputs are the same as with a fixed population); None keeps it fixed (v1 campaigns)
+    population_range: tuple | None = None
     row_spacing: int = 50            # fixed, cm
     start_days_before_sowing: int = 30
     seed: int = 20261108
@@ -60,6 +63,13 @@ def design_seasons(points: pd.DataFrame, calendar: pd.DataFrame, table: MGTable,
         years = design.first_year + np.floor(u["year"] * (design.last_year - design.first_year + 1)).astype(int)
         offsets = np.round((u["sowing"] * 2 - 1) * design.sowing_half_width).astype(int)
         mgs = np.clip(mg_center(p.lat) + (u["mg"] * 2 - 1) * design.mg_half_width, MG_MIN, MG_MAX)
+        if design.population_range:
+            lo_p, hi_p = design.population_range
+            u_pop = qmc.LatinHypercube(d=1, seed=np.random.default_rng([design.seed, k, 1])).random(
+                design.seasons_per_point)[:, 0]
+            pops = np.round(lo_p + u_pop * (hi_p - lo_p), 1)
+        else:
+            pops = np.full(design.seasons_per_point, design.population)
         for s in range(design.seasons_per_point):
             sid = len(rows)
             sowing = date(int(years[s]), 1, 1) + timedelta(days=min(int(doy), 365) - 1 + int(offsets[s]))
@@ -78,6 +88,7 @@ def design_seasons(points: pd.DataFrame, calendar: pd.DataFrame, table: MGTable,
                          "dt": lo_dt + u.loc[s, "dt"] * (hi_dt - lo_dt) if perturbed else 0.0,
                          "rain_factor": lo_r + u.loc[s, "rain"] * (hi_r - lo_r) if perturbed else 1.0,
                          "co2": lo_c + u.loc[s, "co2"] * (hi_c - lo_c) if perturbed else np.nan,
+                         **({"population": float(pops[s])} if design.population_range else {}),
                          **cul.coefficients})
     table_ = pd.DataFrame(rows)
     table_.attrs["design"] = asdict(design)
@@ -96,6 +107,7 @@ def to_treatments(seasons: pd.DataFrame, soil_ids: dict, design: SeasonDesign = 
         out.append(Treatment(r.point, soil_ids[r.point], r.cultivar, r.sowing,
                              start=r.sowing - timedelta(days=design.start_days_before_sowing),
                              water=bool(r.water), initial_water=design.initial_water,
-                             population=design.population, row_spacing=design.row_spacing,
+                             population=float(getattr(r, "population", design.population)),
+                             row_spacing=design.row_spacing,
                              environment=env, name=f"S{r.sample}"))
     return out

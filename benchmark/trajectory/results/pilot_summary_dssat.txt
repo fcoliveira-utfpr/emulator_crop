@@ -1,0 +1,11 @@
+== dssat ==
+seasons: 2160, daily rows: 295491 (137 per season)
+last GWAD vs season HWAM: median rel. diff 0.0000, 99th pct 0.0000
+max LAID vs LAIX: median abs diff 0.025
+seasons without maturity: 231 of 2160
+missing share: GSTD 0.000, LAID 0.000, LWAD 0.000, SWAD 0.000, GWAD 0.000, PWAD 0.000, CWAD 0.000, P#AD 0.000, WSPD 0.000, WSGD 0.000, NSTD 0.000, CHTD 0.000, RDPD 0.000
+K= 8 per phase: rel. RMSE LAID 0.013 (p95 0.034), CWAD 0.007 (p95 0.020), GWAD 0.010 (p95 0.017), stress bins 0.057 (p95 0.109)  [stress WSPD bins: abs. RMSE on 0..1]
+K=12 per phase: rel. RMSE LAID 0.006 (p95 0.020), CWAD 0.004 (p95 0.011), GWAD 0.005 (p95 0.009), stress bins 0.048 (p95 0.083)  [stress WSPD bins: abs. RMSE on 0..1]
+K=16 per phase: rel. RMSE LAID 0.004 (p95 0.014), CWAD 0.003 (p95 0.007), GWAD 0.003 (p95 0.006), stress bins 0.047 (p95 0.085)  [stress WSPD bins: abs. RMSE on 0..1]
+K=24 per phase: rel. RMSE LAID 0.003 (p95 0.010), CWAD 0.002 (p95 0.005), GWAD 0.002 (p95 0.004), stress bins 0.055 (p95 0.100)  [stress WSPD bins: abs. RMSE on 0..1]
+daily parquet: 3.2 MB for 2160 seasons -> 0.18 GB for 117,720

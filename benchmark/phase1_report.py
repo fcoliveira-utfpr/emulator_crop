@@ -36,6 +36,8 @@ def main():
         P.index = Y.index if len(P) == len(Y) else P.index
         P = derive(P.drop(columns=[c for c in DERIVED if c in P]))   # with the current DERIVED_FLOOR
         cols = [c for c in P.columns if c in Y]
+        if not cols:                      # e.g. traj_block_oof: curve shapes (train_trajectory.py metrics)
+            continue
         a = acceptance(Y[cols], P[cols], info["point"])
         a.to_csv(out / f"acceptance_{emu}_{val}.csv")
         rows.append({"emulator": emu, "validation": val, "outputs": len(a), "recommended": int(a["recommended"].sum()),

@@ -61,7 +61,7 @@ export const typicalMg = (card, lat) => interp(Math.abs(lat), card.mg_by_lat.map
 /** DSSAT: default coefficients of a maturity group (CROPGRO-Soybean cultivar file). */
 export function dssatCultivar(card, mg) {
   const t = card.cultivar_by_mg;
-  return Object.fromEntries(card.cultivar.map((k) => [k, k === 'mg' ? Number(mg) : interp(mg, t.mg, t[k])]));
+  return Object.fromEntries(card.cultivar.map((k) => [k, k === 'mg' ? Number(mg) : k === 'population' ? card.population_default : interp(mg, t.mg, t[k])]));
 }
 
 /** DSSAT: maturity group whose default critical short day length is `csdl`. */
@@ -78,6 +78,7 @@ export function aquacropCultivar(card, { ws, sowingDoy, cycleDays = 120, mg = nu
   if (mg != null && lat != null) out.cycle_factor = 1 + 0.125 * Math.min(2, Math.max(-2, mg - typicalMg(card, lat)));
   if (cycleFactor != null) out.cycle_factor = cycleFactor;
   out.gdd_maturity = gddMaturity ?? ws.seasonGdd(sowingDoy, cycleDays) * out.cycle_factor;
+  if (card.population_default != null) out.population = card.population_default;   // v3: plants/m²
   return Object.fromEntries(card.cultivar.map((k) => [k, out[k]]));
 }
 

@@ -8,15 +8,24 @@ import { t } from '../../i18n.js';
 import { C, draw, figure, Plot } from '../charts.js';
 import { domainSummary, exporter, grid, header, levelBadge, table } from '../common.js';
 import { auto, fmt, h, mean } from '../dom.js';
+import { plantCard } from '../plant.js';
 
 /** Beta growth function (Yin et al., 2003): 0 at x=0, wmax at x=te, inflection at tm (0 < tm < te). */
 const beta = (x, te, tm, wmax) => (x <= 0 ? 0 : x >= te ? wmax : wmax * (1 + (te - x) / (te - tm)) * (x / te) ** (te / (te - tm)));
 
-/** Schematic seasonal curves through the emulator's points: biomass and grain (beta growth) and
- * leaf area index or canopy cover (beta rise to the maximum, then senescence to maturity).
- * The emulator predicts season summaries only; the shape between the points is assumed. */
+/** Seasonal curves of biomass, grain and leaf area index or canopy cover. v3 emulators predict them
+ * (daily shapes in phenological time scaled by the season outputs: `emulated`, with the water stress);
+ * for v2 they are schematic curves through the emulator's points (beta growth; beta rise to the
+ * maximum, then senescence to maturity), since those emulators predict season summaries only. */
 function curves(emu, row) {
   const o = row.outputs, k = emu.keys, dssat = emu.family === 'dssat', m = emu.meta;
+  const em = emu.curves(row);
+  if (em) {
+    const pts = em.pts.map((p) => ({ das: p.das, tau: p.tau, bio: p.biomass, grain: p.grain, canopy: p.leaf, stress: p.stress }));
+    const top = pts.reduce((a, b) => (b.canopy > a.canopy ? b : a), pts[0]);
+    return { pts, emr: em.emr, flo: em.flo, mat: em.mat, peak: top.das, emulated: true,
+      bio: o[k.biomass] * m[k.biomass].scale, grain: o[k.yield] * m[k.yield].scale, canopyMax: dssat ? o.LAIX : o.CC_max };
+  }
   const emr = Math.max(1, o[dssat ? 'EDAT_dap' : 'EMR_dap']), flo = o[k.flowering], mat = o[k.maturity];
   const bio = o[k.biomass] * m[k.biomass].scale, grain = o[k.yield] * m[k.yield].scale;
   const canopyMax = dssat ? o.LAIX : o.CC_max;
@@ -41,14 +50,20 @@ function growthCharts(ctx, main, potential, el) {
   const label = main.irrigated ? t('No water stress', 'Sem estresse hídrico') : t('Rainfed', 'Sequeiro');
   const noStress = t('No water stress', 'Sem estresse hídrico');
   const date = (das) => new Date((main.sowing + das) * 864e5);
-  const note = t('Points: values predicted by the emulator. Line: schematic curve (beta growth function) through the points — the emulator predicts season values, not the daily series.',
-    'Pontos: valores previstos pelo emulador. Linha: curva esquemática (função beta de crescimento) passando pelos pontos — o emulador prevê os valores da safra, não a série diária.');
+  const note = c.emulated
+    ? t('Lines: daily curves predicted by the emulator (shape in phenological time × the season values). Points: season values.',
+      'Linhas: curvas diárias previstas pelo emulador (forma em tempo fenológico × os valores da safra). Pontos: valores da safra.')
+    : t('Points: values predicted by the emulator. Line: schematic curve (beta growth function) through the points — this emulator (v2) predicts season values, not the daily series.',
+      'Pontos: valores previstos pelo emulador. Linha: curva esquemática (função beta de crescimento) passando pelos pontos — este emulador (v2) prevê os valores da safra, não a série diária.');
   const fb = figure(t('Above-ground biomass and grain through the cycle', 'Biomassa aérea e grãos ao longo do ciclo'), note,
     { legend: [[`${t('Biomass', 'Biomassa')} (${label.toLowerCase()})`, C.green], [t('Grain', 'Grãos'), C.yellow], ...(main.irrigated ? [] : [[noStress, C.gray, 'dash']])] });
   const canopyLabel = dssat ? t('Leaf area index (LAI)', 'Índice de área foliar (IAF)') : t('Canopy cover', 'Cobertura do dossel');
-  const fl = figure(`${canopyLabel} ${t('through the cycle', 'ao longo do ciclo')}`, dssat
-    ? t('Point: predicted maximum LAI (LAIX); the date of the maximum is assumed between flowering and maturity.', 'Ponto: IAF máximo previsto (LAIX); a data do máximo é suposta entre a floração e a maturidade.')
-    : t('Point: predicted maximum canopy cover (CC_max); the date of the maximum is assumed between flowering and maturity.', 'Ponto: cobertura máxima prevista (CC_max); a data do máximo é suposta entre a floração e a maturidade.'),
+  const fl = figure(`${canopyLabel} ${t('through the cycle', 'ao longo do ciclo')}`, c.emulated
+    ? (dssat ? t('Line: daily LAI predicted by the emulator. Point: predicted maximum LAI (LAIX).', 'Linha: IAF diário previsto pelo emulador. Ponto: IAF máximo previsto (LAIX).')
+      : t('Line: daily canopy cover predicted by the emulator. Point: predicted maximum (CC_max).', 'Linha: cobertura do dossel diária prevista pelo emulador. Ponto: máximo previsto (CC_max).'))
+    : dssat
+      ? t('Point: predicted maximum LAI (LAIX); the date of the maximum is assumed between flowering and maturity.', 'Ponto: IAF máximo previsto (LAIX); a data do máximo é suposta entre a floração e a maturidade.')
+      : t('Point: predicted maximum canopy cover (CC_max); the date of the maximum is assumed between flowering and maturity.', 'Ponto: cobertura máxima prevista (CC_max); a data do máximo é suposta entre a floração e a maturidade.'),
   { legend: [[label, C.aqua], ...(main.irrigated ? [] : [[noStress, C.gray, 'dash']])] });
   el.append(grid(fb.card, fl.card));
   const names = stageNames();
@@ -79,6 +94,21 @@ function growthCharts(ctx, main, potential, el) {
     p && !main.irrigated ? Plot.dot([{ x: date(p.peak), y: p.canopyMax }], { x: 'x', y: 'y', r: 4.5, fill: 'var(--surface)', stroke: C.gray, strokeWidth: 1.5, tip: true, title: () => `${noStress}: ${fmt(p.canopyMax, dssat ? 2 : 0)} ${cu}` }) : null,
     Plot.ruleY([0]),
   ] });
+  if (!c.emulated) return;
+  // v3: water stress through the cycle and the animated plant
+  const fs = figure(t('Water stress through the cycle', 'Estresse hídrico ao longo do ciclo'),
+    t(`Emulated ${dssat ? 'water stress on photosynthesis (DSSAT WSPD)' : 'stomatal stress (AquaCrop StSto)'}, 0 = none, 1 = full; mean of each stretch of the cycle (it changes from day to day). Block validation R² ${fmt(emu.card.trajectory.validation?.stress?.r2, 2)}: the pattern, not the exact days.`,
+      `${dssat ? 'Estresse hídrico na fotossíntese (WSPD do DSSAT)' : 'Estresse estomático (StSto do AquaCrop)'} emulado, 0 = nenhum, 1 = total; média de cada trecho do ciclo (varia de um dia para o outro). R² na validação por blocos ${fmt(emu.card.trajectory.validation?.stress?.r2, 2)}: o padrão, não os dias exatos.`));
+  const fp = h('div');
+  el.append(grid(fs.card, fp));
+  draw(fs.body, { marginTop: 18, height: 220, x: { label: null }, y: { label: '0–1', domain: [0, 1] }, marks: [
+    ...stageMarks,
+    Plot.areaY(c.pts, { x: (d) => date(d.das), y: 'stress', fill: C.red, fillOpacity: 0.15, curve: 'step-after' }),
+    Plot.lineY(c.pts, { x: (d) => date(d.das), y: 'stress', stroke: C.red, strokeWidth: 1.8, curve: 'step-after' }),
+    Plot.ruleY([0]),
+    Plot.tip(c.pts, Plot.pointerX({ x: (d) => date(d.das), y: 'stress', title: (d) => `${d.das} ${t('DAS', 'DAS')}: ${fmt(100 * d.stress, 0)} %` })),
+  ] });
+  fp.replaceWith(plantCard(ctx, c, main));
 }
 
 const sourceName = (s) => ['', t('your spreadsheet', 'sua planilha'), 'NASA POWER', t('gap-filled', 'preenchido')][s];
