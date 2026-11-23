@@ -18,7 +18,8 @@ from .pipeline import WEATHER_END, WEATHER_START, load
 
 #: Summary.OUT columns that are identifiers or inputs, not model outputs.
 NOT_TARGETS = {"RUNNO", "TRNO", "R#", "O#", "P#", "CR", "MODEL", "EXNAME", "TNAM", "FNAM", "WSTA", "WYEAR",
-               "SOIL_ID", "XLAT", "LONG", "ELEV", "SDAT", "PDAT", "HYEAR"}
+               "SOIL_ID", "XLAT", "LONG", "ELEV", "SDAT", "PDAT", "HYEAR",
+               "CH4EM"}  # methane (flooded rice): overflows in DSSAT 4.8 soybean runs, meaningless here
 #: Categorical outputs (codes): left to classifiers, not regression targets.
 CATEGORICAL = {"CRST"}
 NOT_TARGETS |= CATEGORICAL

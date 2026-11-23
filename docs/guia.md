@@ -2,7 +2,7 @@
 
 O [CropEmu](https://fcoliveira-utfpr.github.io/emulator_crop/) simula safras de soja com emuladores de dois modelos de cultura, o DSSAT CROPGRO-Soybean e o FAO AquaCrop 7.3. Este guia explica, aba por aba, o que cada gráfico e cada número mostra, como lê-los e quais cuidados tomar.
 
-Uma regra vale para todas as abas: **o resultado é o que o modelo de cultura simularia para aquele clima, solo e cultivar, não uma medida da lavoura**. Pragas, doenças, plantas daninhas, nitrogênio, densidade de plantas e o manejo real ficam de fora. Use o CropEmu para comparar opções (datas, cultivares, anos, cenários) e entender riscos, não para prever a produtividade exata de um talhão.
+Uma regra vale para todas as abas: **o resultado é o que o modelo de cultura simularia para aquele clima, solo e cultivar, não uma medida da lavoura**. Pragas, doenças, plantas daninhas, nitrogênio e o manejo real ficam de fora. Use o CropEmu para comparar opções (datas, cultivares, anos, cenários) e entender riscos, não para prever a produtividade exata de um talhão.
 
 [English version](guide.md)
 
@@ -42,6 +42,7 @@ A barra lateral define a safra; as abas mostram análises diferentes da mesma co
    - **CO₂:** em branco, usa o valor observado em Mauna Loa no ano.
    - **ΔT:** soma graus às temperaturas máxima e mínima.
    - **Chuva ×:** multiplica a chuva.
+   - **População de plantas:** plantas por m², de 15 a 50 (a faixa do treino); em branco usa 30. Nos dois modelos, mais plantas aumentam um pouco a produtividade (no DSSAT, cerca de +60 kg/ha a cada 10 plantas/m² no sequeiro e +125 kg/ha sem estresse hídrico).
 
 **Faixas do treino:** ΔT de −1 a +4 °C, chuva de ×0,7 a ×1,3 e CO₂ de 350 a 800 ppm. Fora delas, o emulador extrapola.
 
@@ -65,13 +66,19 @@ Todas as saídas de uma única safra: o ano escolhido em *Ano da safra*, semeada
 **Confiabilidade.** Diz se alguma entrada da safra (clima, solo, cultivar) está fora da faixa do treino ou entre os 0,5 % mais extremos dela. Fora do domínio, o resultado é uma extrapolação e não deve ser usado; entradas raras pedem mais cautela.
 
 **Biomassa aérea e grãos ao longo do ciclo.**
-- **Pontos:** os valores previstos pelo emulador (biomassa e grãos na maturidade). A linha tracejada cinza é a biomassa sem estresse hídrico.
-- **Linha:** uma curva esquemática que passa pelos pontos. **O emulador prevê os valores da safra, não a série diária**, então a forma da curva entre os pontos é ilustrativa.
+- **Linhas:** as curvas diárias previstas pelo emulador. Uma segunda rede prevê a forma de cada curva no tempo fenológico (semeadura, emergência, floração, maturidade), escalada pelos valores da safra; na validação por blocos, as formas chegam a R² 0,95–0,99 para biomassa e grãos.
+- **Pontos:** os valores da safra (biomassa e grãos na maturidade). A linha tracejada cinza é a biomassa sem estresse hídrico.
 - **Como ler:** compare a altura final de sequeiro com a sem estresse para ver quanto a água limitou.
 
 **Índice de área foliar (DSSAT) ou Cobertura do dossel (AquaCrop) ao longo do ciclo.**
-- **Ponto:** o máximo previsto. A curva é esquemática, como a da biomassa.
+- **Linha:** o índice de área foliar ou a cobertura do dossel diários previstos pelo emulador. **Ponto:** o máximo previsto.
 - **Referências:** um IAF máximo acima de 3–4 indica dossel fechado; valores baixos indicam estresse ou ciclo curto.
+
+**Estresse hídrico ao longo do ciclo.**
+- **O que mostra:** o estresse hídrico emulado, de 0 (nenhum) a 1 (total): estresse na fotossíntese (WSPD) no DSSAT, estresse estomático (StSto) no AquaCrop, como a média de cada trecho do ciclo.
+- **Como ler:** o estresse perto da floração e do enchimento de grãos é o que mais tira produtividade. O R² na validação é 0,80 (DSSAT) e 0,66 (AquaCrop): confie no padrão, não nos dias exatos.
+
+**A planta ao longo da safra.** Um desenho ilustrativo movido pelas curvas emuladas: a altura acompanha a biomassa, as folhas acompanham a área foliar ou a cobertura do dossel, as flores aparecem na floração, as vagens enchem com os grãos, e as folhas murcham e amarelam com o estresse hídrico e caem na senescência. Mova o controle deslizante ou aperte *Animar* para seguir o ciclo dia a dia; o painel ao lado traz o estádio e os valores emulados do dia.
 
 **Clima do ciclo.** São os dados que entraram no cálculo, do 30º dia antes da semeadura até depois da maturidade:
 - **Temperatura diária (Tmax, Tmin):** dias acima de 35 °C na floração e no enchimento de grãos reduzem a produtividade.
@@ -84,7 +91,7 @@ Todas as saídas de uma única safra: o ano escolhido em *Ano da safra*, semeada
   - um VPD alto (ar seco) aumenta a demanda de água;
   - os graus-dia (base 5 °C, teto 30 °C) mostram a velocidade com que o ciclo avança.
 
-**Todas as saídas do modelo.** É a tabela com todas as saídas (41 no DSSAT, 44 no AquaCrop). Para cada saída mostra:
+**Todas as saídas do modelo.** É a tabela com todas as saídas (42 no DSSAT, 44 no AquaCrop). Para cada saída mostra:
 - o valor e a unidade;
 - o **nível de aceitação** e o erro da validação.
 
@@ -321,7 +328,7 @@ O clima e o solo do local, para entender os resultados das outras abas.
 
 **Saídas, unidades e erro de validação.**
 - **O que mostra:** a lista de saídas com a unidade, o erro (RMSE) e o nível.
-- **Referência:** o erro de produtividade do DSSAT v2 é de cerca de 335 kg/ha e o do AquaCrop v2 de 0,50 t/ha.
+- **Referência:** o erro de produtividade do DSSAT v3 é de cerca de 343 kg/ha e o do AquaCrop v3 de 0,51 t/ha (um pouco acima do v2, 335 kg/ha e 0,50 t/ha, porque o v3 também aprende a população de plantas).
 
 **Onde a sua safra está no domínio de treino.** Cada entrada da última safra calculada aparece sobre a faixa do treino. Entradas perto das bordas ou fora delas explicam alertas e pedem cautela.
 

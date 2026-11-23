@@ -31,6 +31,7 @@ DSSAT = {
     "GNAM": ("grain nitrogen at maturity", "kg N/ha"),
     "OCTAM": ("total organic carbon at maturity", "kg C/ha"),
     "OCAM": ("soil organic carbon at maturity", "kg C/ha"),
+    "CH4EM": ("cumulative methane emission (flooded-soil process; unreliable for soybean)", "kg C/ha"),
     "DMPEM": ("dry matter per mm of evapotranspiration", "kg/ha/mm"),
     "DMPTM": ("dry matter per mm of transpiration", "kg/ha/mm"),
     "YPEM": ("yield per mm of evapotranspiration", "kg/ha/mm"),

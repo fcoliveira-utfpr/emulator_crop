@@ -15,7 +15,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const fetcher = async (p) => { const b = fs.readFileSync(path.join(here, '../public', p)); return { json: async () => JSON.parse(b), arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length) }; };
 const [lat = -23.19, lon = -51.18, sow = '2026-10-20'] = process.argv.slice(2);
 const sowing = dayNumber(sow);
-const [power, om, soil, emu] = await Promise.all([fetchPower(lat, lon, POWER_FIRST_DAY, today()), fetchOpenMeteo(lat, lon), fetchSoilGrids(lat, lon), Emulator.load('dssat-soybean-v2', '', fetcher)]);
+const [power, om, soil, emu] = await Promise.all([fetchPower(lat, lon, POWER_FIRST_DAY, today()), fetchOpenMeteo(lat, lon), fetchSoilGrids(lat, lon), Emulator.load('dssat-soybean-v3', '', fetcher)]);
 const { table } = combine(power.table, om.table);
 fillGaps(table);
 const observedEnd = Math.min(lastContinuous(table, sowing - 30), today() - 1), known = lastContinuous(table, sowing - 30);

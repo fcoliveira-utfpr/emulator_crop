@@ -10,7 +10,7 @@ ort.env.wasm.numThreads = 1;              // no cross-origin isolation needed (G
 const BATCH = 2048;                       // rows per run (the v2 sequence input is 1809 floats per row)
 
 export const EMULATORS = {
-  'dssat-soybean-v2': 'DSSAT CROPGRO-Soybean',
+  'dssat-soybean-v3': 'DSSAT CROPGRO-Soybean',
   'aquacrop-soybean-v3': 'AquaCrop soybean',
 };
 

@@ -17,7 +17,7 @@ translateDom();
 
 // ------------------------------------------------------------------ state
 const state = {
-  model: 'dssat-soybean-v2',
+  model: 'dssat-soybean-v3',
   emulators: {},           // name -> Emulator (loaded on demand)
   site: null,              // {lat, lon, elev, ws, table, info, profile, soilSource}
   tab: 'safra',

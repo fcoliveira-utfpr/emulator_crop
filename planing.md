@@ -738,6 +738,28 @@ Implementado, ainda sem publicar:
 - O AquaCrop 7.3 do Windows vem da mesma release (`v7.3_typofix`) e passa nos testes.
 - `cropemu.io` lê CSV em Latin-1 (salvo pelo Excel no Windows), além de UTF-8.
 
+### 5.2.4 Emuladores v3: população de plantas e curvas diárias (19–23/11/2026)
+
+**Campanha v3** (Windows, 19/11): as 117.720 safras do v1, com a população de plantas sorteada entre 15 e 50 plantas/m² (LHS com semente própria; o resto do design é idêntico ao v1) e as tabelas diárias. DSSAT 124 min, AquaCrop 157 min. Dados publicados nas releases `data-v3` (e `data-v1`).
+
+**Treino** (rede v2 com a população como entrada + segunda rede para as formas das curvas no tempo fenológico), validação por blocos de 5°:
+
+| | DSSAT v3 | AquaCrop v3 |
+|---|---|---|
+| Maturação | 2,9 d (R² 0,99) | 4,4 d (R² 0,98) |
+| Produtividade | 343 kg/ha (R² 0,97; v2: 335) | 0,51 t/ha (R² 0,93; v2: 0,50) |
+| Evapotranspiração | 24 mm (R² 0,98) | 47 mm (R² 0,92) |
+| Curvas (R²): folha, biomassa, grãos, estresse | 0,98; 0,95; 0,99; 0,80 | 0,93; 0,97; 0,98; 0,66 |
+| Resposta à população (+10 plantas/m², fora da amostra; simulado/emulado) | sequeiro +61/+63 kg/ha; sem estresse +128/+124 kg/ha | +0,133 t/ha (simulado = emulado) |
+
+- **CH4EM** (metano) entrou como saída do DSSAT v3: no v1/v2 era texto e caía fora; a correção `_numeric_columns` o tornou numérico. Valores com overflow (até 99.447), nível *não recomendado*. Ganhou descrição e unidade e está em `NOT_TARGETS` para os próximos treinos.
+- **Exportados:** `dssat-soybean-v3` e `aquacrop-soybean-v3` (trajetória = 2ª saída ONNX, `population_default` 30) no zoo da biblioteca e em `web/public/models`. O app usa os dois v3: campo de população, curvas emuladas, gráfico de estresse e planta animada na aba *Uma safra*. O motor JS confere com o Python (160 casos).
+
+**Pendente:**
+1. Validar nos 7 sítios independentes.
+2. Biblioteca 0.5.0 no PyPI (README do pacote, notebooks ainda em v2).
+3. Merge em `main` e deploy do app.
+
 ### 5.3 Requisitos de qualidade (GMD/JOSS)
 
 - Código aberto (GitHub + DOI no Zenodo), licença MIT ou Apache-2.0.

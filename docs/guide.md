@@ -2,7 +2,7 @@
 
 [CropEmu](https://fcoliveira-utfpr.github.io/emulator_crop/) simulates soybean seasons with emulators of two crop models, DSSAT CROPGRO-Soybean and FAO AquaCrop 7.3. This guide explains, tab by tab, what each chart and number shows, how to read it and what to keep in mind.
 
-One rule applies to every tab: **the result is what the crop model would simulate for that weather, soil and cultivar, not a measurement of the field**. Pests, diseases, weeds, nitrogen, plant density and the actual management are outside it. Use CropEmu to compare options (dates, cultivars, years, scenarios) and to understand risk, not to predict the exact yield of a field.
+One rule applies to every tab: **the result is what the crop model would simulate for that weather, soil and cultivar, not a measurement of the field**. Pests, diseases, weeds, nitrogen and the actual management are outside it. Use CropEmu to compare options (dates, cultivars, years, scenarios) and to understand risk, not to predict the exact yield of a field.
 
 [Versão em português](guia.md)
 
@@ -42,6 +42,7 @@ The sidebar defines the season; the tabs show different analyses of the same set
    - **CO₂:** blank uses the value observed at Mauna Loa in that year.
    - **ΔT:** adds degrees to the maximum and minimum temperatures.
    - **Rain ×:** multiplies the rain.
+   - **Plant population:** plants per m², from 15 to 50 (the training range); blank uses 30. In both crop models more plants raise the yield a little (in DSSAT, about +60 kg/ha per 10 plants/m² in rainfed seasons and +125 kg/ha without water stress).
 
 **Training ranges:** ΔT from −1 to +4 °C, rain from ×0.7 to ×1.3 and CO₂ from 350 to 800 ppm. Outside them, the emulator extrapolates.
 
@@ -65,13 +66,19 @@ All the outputs of a single season: the year chosen in *Season year*, sown on th
 **Reliability.** Says whether any input of the season (weather, soil, cultivar) is outside the training range or among its 0.5 % most extreme values. Outside the domain, the result is an extrapolation and should not be used; rare inputs call for more caution.
 
 **Above-ground biomass and grain through the cycle.**
-- **Points:** the values predicted by the emulator (biomass and grain at maturity). The dashed gray line is the biomass without water stress.
-- **Line:** a schematic curve through the points. **The emulator predicts season values, not the daily series**, so the shape of the curve between the points is illustrative.
+- **Lines:** the daily curves predicted by the emulator. A second network predicts the shape of each curve in phenological time (sowing, emergence, flowering, maturity), scaled to the season values; in the block validation the shapes reach R² 0.95–0.99 for biomass and grain.
+- **Points:** the season values (biomass and grain at maturity). The dashed gray line is the biomass without water stress.
 - **How to read it:** compare the final rainfed height with the no-stress height to see how much water limited the crop.
 
 **Leaf area index (DSSAT) or Canopy cover (AquaCrop) through the cycle.**
-- **Point:** the predicted maximum. The curve is schematic, like the biomass one.
+- **Line:** the daily leaf area index or canopy cover predicted by the emulator. **Point:** the predicted maximum.
 - **Reference values:** a maximum LAI above 3–4 indicates a closed canopy; low values indicate stress or a short cycle.
+
+**Water stress through the cycle.**
+- **What it shows:** the emulated water stress, from 0 (none) to 1 (full): stress on photosynthesis (WSPD) in DSSAT, stomatal stress (StSto) in AquaCrop, as the mean of each stretch of the cycle.
+- **How to read it:** stress around flowering and grain filling costs the most yield. The validation R² is 0.80 (DSSAT) and 0.66 (AquaCrop): trust the pattern, not the exact days.
+
+**The plant through the season.** An illustrative drawing driven by the emulated curves: the height follows the biomass, the leaves follow the leaf area or canopy cover, flowers appear at flowering, pods fill with the grain, and the leaves droop and turn yellow with water stress and fall at senescence. Move the slider or press *Play* to follow the cycle day by day; the panel beside it gives the stage and the emulated values of the day.
 
 **Weather of the cycle.** These are the data that went into the calculation, from 30 days before sowing to after maturity:
 - **Daily temperature (Tmax, Tmin):** days above 35 °C at flowering and grain filling reduce yield.
@@ -84,7 +91,7 @@ All the outputs of a single season: the year chosen in *Season year*, sown on th
   - a high VPD (dry air) raises the water demand;
   - growing degrees (base 5 °C, upper 30 °C) show how fast the cycle advances.
 
-**All model outputs.** The table of every output (41 in DSSAT, 44 in AquaCrop). For each output it shows:
+**All model outputs.** The table of every output (42 in DSSAT, 44 in AquaCrop). For each output it shows:
 - the value and unit;
 - the **acceptance level** and the validation error.
 
@@ -321,7 +328,7 @@ The weather and soil of the site, to understand the results of the other tabs.
 
 **Outputs, units and validation error.**
 - **What it shows:** the list of outputs with the unit, the error (RMSE) and the level.
-- **Reference values:** the yield error of DSSAT v2 is about 335 kg/ha and that of AquaCrop v2 is 0.50 t/ha.
+- **Reference values:** the yield error of DSSAT v3 is about 343 kg/ha and that of AquaCrop v3 is 0.51 t/ha (slightly above v2, 335 kg/ha and 0.50 t/ha, because v3 also learns the plant population).
 
 **Where your season sits in the training domain.** Each input of the last computed season is shown over the training range. Inputs near or beyond the edges explain warnings and call for caution.
 
