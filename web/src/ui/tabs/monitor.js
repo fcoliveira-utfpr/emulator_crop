@@ -3,7 +3,7 @@
 // yield gap followed week by week from sowing.
 
 import { dayNumber, fromYMD, fullDate, isoDate, shortDate, today } from '../../engine/dates.js';
-import { analogYears, lastContinuous, monitor, relativeCurves, scenarioDays, similarYears, summary } from '../../engine/monitor.js';
+import { analogYears, lastContinuous, monitor, projection, relativeCurves, scenarioDays, similarYears, summary } from '../../engine/monitor.js';
 import { fetchOpenMeteo, fetchSeasonal, PAST_DAYS } from '../../engine/openmeteo.js';
 import { combine, fillGaps, SRC } from '../../engine/weather.js';
 import { t } from '../../i18n.js';
@@ -131,9 +131,13 @@ export const monitorTab = {
     // 1. expected yield along the season
     const obs = traj.filter((d) => !d.forecast), fc = traj.filter((d, i) => d.forecast || (traj[i + 1]?.forecast));
     const f1 = figure(t('Expected yield along the season', 'Produtividade esperada ao longo da safra'),
-      t('Each point re-runs the season with the weather known on that date and each past year for the rest. The band holds 80 % of the scenarios and narrows as the season advances; the red area is the yield gap (no water stress − rainfed). Dashed: with the forecast.',
-        'Cada ponto refaz a safra com o clima conhecido naquela data e cada ano passado para o resto. A faixa contém 80 % dos cenários e estreita conforme a safra avança; a área vermelha é o yield gap (sem estresse hídrico − sequeiro). Tracejado: com a previsão.'),
-      { wide: true, legend: [[`${RF} (${t('median', 'mediana')})`, C.blue], [t('80 % of the scenarios', '80 % dos cenários'), C.blue, 'band'], [NS, C.gray, 'dash'], [t('Yield gap', 'Yield gap'), C.red, 'band'], ...(best ? [[t(`Rest of the cycle like ${best.year} (most similar year)`, `Resto do ciclo como ${best.year} (ano mais parecido)`), C.orange]] : []), ...(seas ? [[t('With the seasonal forecast (80 % range)', 'Com a previsão sazonal (faixa de 80 %)'), C.violet, 'dot']] : [])] });
+      t('Each point re-runs the season with the weather known on that date and each past year for the rest. The band holds 80 % of the scenarios and narrows as the season advances; the red area is the yield gap (no water stress − rainfed). Dashed: with the forecast. After today, the projection: each past year in turn is taken as the weather to come, and the expected yield is re-computed every 2 weeks along it (light band: 80 % of these paths; at maturity, the final yields).',
+        'Cada ponto refaz a safra com o clima conhecido naquela data e cada ano passado para o resto. A faixa contém 80 % dos cenários e estreita conforme a safra avança; a área vermelha é o yield gap (sem estresse hídrico − sequeiro). Tracejado: com a previsão. Depois de hoje, a projeção: cada ano passado, um de cada vez, é tomado como o clima que vai acontecer, e a produtividade esperada é recalculada a cada 2 semanas ao longo dele (faixa clara: 80 % desses caminhos; na maturidade, as produtividades finais).'),
+      { wide: true, legend: [[`${RF} (${t('median', 'mediana')})`, C.blue], [t('80 % of the scenarios', '80 % dos cenários'), C.blue, 'band'], [NS, C.gray, 'dash'], [t('Yield gap', 'Yield gap'), C.red, 'band'],
+        ...(finished ? [] : [[t('Projection until maturity: median', 'Projeção até a maturidade: mediana'), C.blue, 'dash'], [t('80 % of the paths', '80 % dos caminhos'), C.blue, 'band light']]),
+        ...(best && !finished ? [[t(`If the season goes on like ${best.year} (most similar year)`, `Se a safra seguir como ${best.year} (ano mais parecido)`), C.orange, 'dash']] : []), ...(seas ? [[t('With the seasonal forecast (80 % range)', 'Com a previsão sazonal (faixa de 80 %)'), C.violet, 'dot']] : [])] });
+    const projNote = h('p.hint.proj-status');
+    f1.card.append(projNote);
     const f2 = figure(t('Yield gap along the season', 'Yield gap ao longo da safra'), t('Median over the scenarios of the yield lost to the lack of water.', 'Mediana, entre os cenários, da produtividade perdida por falta de água.'),
       { legend: [[t('Yield gap', 'Yield gap'), C.red, 'band']] });
     const f3 = figure(t('Final yield in each scenario', 'Produtividade final em cada cenário'),
@@ -142,9 +146,35 @@ export const monitorTab = {
     el.append(grid(f1.card, f2.card, f3.card));
     const cycleX = { label: null, domain: [asDate(sowing), asDate(sowing + Math.max(Math.round(mat) + 7, traj.at(-1).day - sowing))], ticks: 6 };
     const todayRule = [Plot.ruleX([asDate(Math.min(now, sowing + n))], { stroke: 'currentColor', strokeOpacity: 0.35, strokeDasharray: '2,3' })];
-    const bestTraj = traj.map((d) => ({ date: d.date, v: bestOf(d)?.rf })).filter((d) => Number.isFinite(d.v));
-    const tipText = (d) => `${fullDate(d.day)}${d.forecast ? ` (${t('with forecast', 'com previsão')})` : ''}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)} (${fmt(d.gapPct, 0)} %)${bestOf(d) ? `\n${t(`like ${best.year}`, `como ${best.year}`)}: ${fmt(bestOf(d).rf, 2)}` : ''}`;
-    draw(f1.body, { height: 320, marginTop: 18, x: cycleX, y: { label: yu, zero: true }, marks: [
+    const tipText = (d) => `${fullDate(d.day)}${d.forecast ? ` (${t('with forecast', 'com previsão')})` : ''}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)} (${fmt(d.gapPct, 0)} %)`;
+    // projection after the last known day (past-year paths; computed after the first drawing)
+    const matMean = mean(last.rainfed.map((r) => r.outputs[k.maturity]));
+    const projSeries = () => {
+      const pj = data.proj;
+      if (!pj?.paths.length) return null;
+      const s = my.scale, start = { day: last.day, date: last.date, p10: last.rf.p50, p50: last.rf.p50, p90: last.rf.p50, best: last.rf.p50 };
+      const mid = pj.days.map((d, j) => {
+        const v = pj.paths.map((p) => p.values[j] * s), b = pj.paths.find((p) => p.year === best?.year);
+        return { day: d, date: asDate(d), ...summary(v), best: b ? b.values[j] * s : NaN };
+      });
+      const md = sowing + Math.round(matMean), fin = last.rainfed.map(val);
+      const end = { day: md, date: asDate(md), ...summary(fin), best: best ? val(last.rainfed.find((r) => r.year === best.year) ?? { outputs: {} }) : NaN };
+      return [start, ...mid, end];
+    };
+    const drawF1 = () => {
+      const PJ = projSeries();
+      projNote.textContent = finished ? '' : data.projError ? t(`Projection unavailable (${data.projError}).`, `Projeção indisponível (${data.projError}).`)
+        : PJ ? '' : t('Computing the projection until maturity…', 'Calculando a projeção até a maturidade…');
+      const pjTip = (d) => `${fullDate(d.day)} · ${t('projection', 'projeção')}
+${t('median of the paths', 'mediana dos caminhos')}: ${fmt(d.p50, 2)} ${yu} (${fmt(d.p10, 2)}–${fmt(d.p90, 2)})${Number.isFinite(d.best) ? `
+${t(`like ${best.year}`, `como ${best.year}`)}: ${fmt(d.best, 2)}` : ''}`;
+      draw(f1.body, { height: 320, marginTop: 18, x: cycleX, y: { label: yu, zero: true }, marks: [
+      ...(PJ ? [Plot.areaY(PJ, { x: 'date', y1: 'p10', y2: 'p90', fill: C.blue, fillOpacity: 0.07, stroke: C.blue, strokeOpacity: 0.25, strokeWidth: 0.8 }),
+        Plot.lineY(PJ, { x: 'date', y: 'p50', stroke: C.blue, strokeWidth: 1.8, strokeOpacity: 0.75, strokeDasharray: '6,4' }),
+        Plot.lineY(PJ.filter((d) => Number.isFinite(d.best)), { x: 'date', y: 'best', stroke: C.orange, strokeWidth: 1.8, strokeDasharray: '6,4' }),
+        Plot.dot([PJ.at(-1)].filter((d) => Number.isFinite(d.best)), { x: 'date', y: 'best', r: 4, fill: C.orange, stroke: 'var(--surface)', strokeWidth: 1 }),
+        Plot.text([PJ.at(-1)], { x: 'date', y: 'p50', text: () => t('maturity', 'maturidade'), dx: 6, textAnchor: 'start', fill: 'currentColor', fillOpacity: 0.6, fontSize: 10.5 }),
+        Plot.tip(PJ.slice(1), Plot.pointerX({ x: 'date', y: 'p50', title: pjTip }))] : []),
       Plot.areaY(traj, { x: 'date', y1: (d) => d.rf.p10, y2: (d) => d.rf.p90, fill: C.blue, fillOpacity: 0.13 }),
       Plot.areaY(traj, { x: 'date', y1: (d) => d.rf.p50, y2: (d) => Math.max(d.rf.p50, d.pt.p50), fill: C.red, fillOpacity: 0.14 }),
       Plot.ruleY([first.rf.p50], { stroke: C.blue, strokeOpacity: 0.4, strokeDasharray: '1,3' }),
@@ -154,14 +184,19 @@ export const monitorTab = {
       Plot.lineY(fc, { x: 'date', y: (d) => d.rf.p50, stroke: C.blue, strokeWidth: 2, strokeDasharray: '4,3' }),
       Plot.dot(obs, { x: 'date', y: (d) => d.rf.p50, r: 3.5, fill: C.blue, stroke: 'var(--surface)', strokeWidth: 1 }),
       Plot.dot(traj.filter((d) => d.forecast), { x: 'date', y: (d) => d.rf.p50, r: 4.5, fill: 'var(--surface)', stroke: C.blue, strokeWidth: 2 }),
-      Plot.lineY(bestTraj, { x: 'date', y: 'v', stroke: C.orange, strokeWidth: 1.6 }),
-      Plot.dot(bestTraj, { x: 'date', y: 'v', r: 2.5, fill: C.orange }),
       ...(seas ? [Plot.ruleX([seas], { x: (d) => asDate(d.day + 2), y1: (d) => d.rf.p10, y2: (d) => d.rf.p90, stroke: C.violet, strokeWidth: 2 }),
         Plot.dot([seas], { x: (d) => asDate(d.day + 2), y: (d) => d.rf.p50, symbol: 'diamond', r: 6, fill: C.violet, stroke: 'var(--surface)', strokeWidth: 1, tip: true,
           title: (d) => `${t('With the ECMWF seasonal forecast', 'Com a previsão sazonal do ECMWF')}\n${RF}: ${fmt(d.rf.p50, 2)} ${yu} (${fmt(d.rf.p10, 2)}–${fmt(d.rf.p90, 2)})\n${NS}: ${fmt(d.pt.p50, 2)}\n${t('yield gap', 'yield gap')}: ${fmt(d.gap, 2)}` })] : []),
       ...todayRule,
       Plot.tip(traj, Plot.pointerX({ x: 'date', y: (d) => d.rf.p50, title: tipText })),
     ] });
+    };
+    drawF1();
+    data.onProj = () => { if (f1.card.isConnected) drawF1(); };
+    if (!finished && !data.proj && !data.projRun) {
+      data.projRun = projection(emu, table, { lat: ctx.site.lat, elev: ctx.site.elev, soil: ctx.soil, sowing, cultivar: ctx.cultivar(), known: last.known, analogs, maturity: matMean })
+        .then((p) => { data.proj = p; }).catch((e) => { data.projError = e.message; }).finally(() => data.onProj?.());
+    }
     draw(f2.body, { marginTop: 18, x: cycleX, y: { label: yu, zero: true }, marks: [
       Plot.areaY(traj, { x: 'date', y: 'gap', fill: C.red, fillOpacity: 0.18, curve: 'step-after' }),
       Plot.lineY(traj, { x: 'date', y: 'gap', stroke: C.red, strokeWidth: 2, curve: 'step-after' }), Plot.ruleY([0]), ...todayRule,

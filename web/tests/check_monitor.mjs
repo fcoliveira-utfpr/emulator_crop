@@ -48,3 +48,15 @@ if (err > 0.5) throw new Error('relative curves do not end at the season yields'
 const stats = (shift) => { let r = 0, tx = 0, n = 0; for (let d = sowing - 30; d <= observedEnd; d++) { const i = d - shift - table.t0; r += table.cols.rain[i]; tx += table.cols.tmax[i]; n++; } return `rain ${r.toFixed(0)} mm, Tmax ${(tx / n).toFixed(1)}`; };
 console.log('this season:', stats(0));
 for (const a of [...sim.slice(0, 3), sim.at(-1)]) console.log(`  ${a.year} (${a.dist.toFixed(2)}):`, stats(a.shift));
+
+// projection of the expected yield after the last known day (paths = past years)
+const { projection } = await import('../src/engine/monitor.js');
+const matMean = last.rainfed.reduce((a, r) => a + r.outputs.MDAT_dap, 0) / last.rainfed.length;
+const tp = performance.now();
+const pj = await projection(emu, table, { lat: +lat, elev: power.elevation ?? 0, soil: sf, sowing, cultivar: dssatCultivar(emu.card, typicalMg(emu.card, +lat)), known, analogs, maturity: matMean });
+console.log('projection', pj.days.length, 'dates x', pj.paths.length, 'paths in', (performance.now() - tp).toFixed(0), 'ms');
+const finals = Object.fromEntries(last.rainfed.map((r) => [r.year, r.outputs.HWAM]));
+pj.days.forEach((d, j) => { const s = summary(pj.paths.map((p) => p.values[j])); console.log('  ', isoDate(d), Math.round(s.p10), Math.round(s.p50), Math.round(s.p90)); });
+const sF = summary(Object.values(finals)); console.log('   maturity', Math.round(sF.p10), Math.round(sF.p50), Math.round(sF.p90));
+const p0 = summary(last.rainfed.map((r) => r.outputs.HWAM)).p50, first = summary(pj.paths.map((p) => p.values[0])).p50;
+if (Math.abs(first - p0) / p0 > 0.1) throw new Error('projection does not start near the current expectation');

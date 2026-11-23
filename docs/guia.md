@@ -129,7 +129,7 @@ Solo e cultivar ficam fixos; só o clima muda entre cenários. A safra é refeit
 - **Área vermelha:** o yield gap.
 - **Trecho tracejado:** a estimativa que já usa a previsão de 16 dias.
 - **Losango roxo com barra:** a estimativa com a previsão sazonal e a sua faixa de 80 %.
-- **Linha laranja:** o cenário do ano mais parecido em cada data.
+- **Projeção até a maturidade (depois de hoje):** cada ano passado, um de cada vez, é tomado como o clima que vai acontecer (um "caminho"); a cada 2 semanas, a safra é refeita com o clima que seria conhecido naquela data e os outros anos para o resto. **Linha azul tracejada:** a mediana dos caminhos; **faixa clara:** 80 % dos caminhos, que abre até a maturidade, onde mostra as produtividades finais; **linha laranja tracejada:** o caminho do ano mais parecido, que termina na produtividade final daquele ano. A projeção usa os anos passados como foram (sem a previsão sazonal) e é calculada depois do resto da aba (alguns segundos).
 - **Linha vertical:** hoje.
 
 Como ler: uma linha que desce semana após semana indica que o clima está piorando a safra. Um losango abaixo da linha indica que a previsão sazonal é menos favorável que a média dos anos passados.

@@ -50,6 +50,18 @@ export function scenarioSeries(table, lat, elev, sowing, known, shift, n, adjust
   return new WeatherSeries(out, lat, elev);
 }
 
+/** Weather series of one projection path: `table` up to day `known`, then the path year (`pathShift`
+ * days earlier) up to day `until`, then another past year (`restShift`) for the rest of the cycle. */
+export function pathSeries(table, lat, elev, sowing, known, pathShift, until, restShift, n) {
+  const t0 = sowing - 30, len = n + 31, out = emptyTable(t0, len);
+  for (let k = 0; k < len; k++) {
+    const d = t0 + k, i = (d <= known ? d : d <= until ? d - pathShift : d - restShift) - table.t0;
+    if (i < 0 || i >= table.n) continue;
+    for (const c of COLUMNS) { out.cols[c][k] = table.cols[c][i]; out.src[c][k] = table.src[c][i]; }
+  }
+  return new WeatherSeries(out, lat, elev);
+}
+
 /** Adjustment of a day by the seasonal forecast of its month (null outside the forecast months). */
 export const seasonalAdjust = (seasonal) => (day) => seasonal?.byMonth.get(isoDate(day).slice(0, 7)) ?? null;
 
@@ -139,6 +151,34 @@ export function checkpoints(sowing, observedEnd, known, n, step = 7) {
   if (out.length && out.at(-1).day < end) out.push({ day: end, known: end, forecast: false });
   if (known > observedEnd && observedEnd < sowing + n) out.push({ day: Math.min(known, sowing + n), known, forecast: true });
   return out;
+}
+
+/** Projection of the expected yield (rainfed) after the last known day `known`. Each past year in turn is
+ * a "path", the weather that will happen. On future dates every `step` days before maturity, the season
+ * is re-run with the weather known by then (observed, then the path year) and `inner` past years for
+ * the rest of the cycle; their median is the expected yield on that date along that path (at maturity it
+ * becomes the path's final yield, which the caller has). Returns {days, paths: [{year, values}]}
+ * (`values[j]`: expected yield on `days[j]`, in the emulator unit of the yield output). */
+export async function projection(emu, table, { lat, elev, soil, sowing, cultivar, known, analogs, maturity, step = 14, inner = 15, co2 = NaN, onProgress = null }) {
+  const n = scenarioDays(emu.card), end = sowing + Math.round(maturity), days = [];
+  for (let d = known + step; d < end - step / 2; d += step) days.push(d);
+  if (!days.length || analogs.length < 3) return { days, paths: [] };
+  const m = Math.min(inner, analogs.length), rest = Array.from({ length: m }, (_, i) => analogs[Math.round(i * (analogs.length - 1) / Math.max(m - 1, 1))]);
+  const records = [], index = [];
+  const season = [{ sowing, cultivar, irrigated: false, co2 }];
+  analogs.forEach((p, ip) => {
+    days.forEach((D, j) => {
+      for (const r of rest) {
+        records.push(emu.inputs(pathSeries(table, lat, elev, sowing, known, p.shift, D, r.shift, n), soil, season)[0]);
+        index.push([ip, j]);
+      }
+    });
+    onProgress?.(ip + 1, analogs.length);
+  });
+  const rows = await emu.predict(records), y = emu.keys.yield;
+  const vals = analogs.map(() => days.map(() => []));
+  rows.forEach((r, i) => { const [ip, j] = index[i]; vals[ip][j].push(r.outputs[y]); });
+  return { days, paths: analogs.map((p, ip) => ({ year: p.year, values: vals[ip].map((v) => summary(v).p50) })) };
 }
 
 /** Runs the scenarios of every monitoring date. Returns, per checkpoint, the rows of each analog

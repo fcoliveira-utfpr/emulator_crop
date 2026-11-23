@@ -129,7 +129,7 @@ Soil and cultivar stay fixed; only the weather changes between scenarios. The se
 - **Red area:** the yield gap.
 - **Dashed segment:** the estimate that already uses the 16-day forecast.
 - **Violet diamond with a bar:** the estimate with the seasonal forecast and its 80 % range.
-- **Orange line:** the scenario of the most similar year at each date.
+- **Projection until maturity (after today):** each past year in turn is taken as the weather to come (a "path"); every 2 weeks, the season is re-run with the weather that would be known on that date and the other years for the rest. **Dashed blue line:** the median of the paths; **light band:** 80 % of the paths, opening up to maturity, where it shows the final yields; **dashed orange line:** the path of the most similar year, ending at that year's final yield. The projection uses the past years as they were (no seasonal forecast) and is computed after the rest of the tab (a few seconds).
 - **Vertical line:** today.
 
 How to read it: a line that falls week after week means the weather is hurting the season. A diamond below the line means the seasonal forecast is less favourable than the average of the past years.
