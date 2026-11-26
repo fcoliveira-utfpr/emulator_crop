@@ -73,6 +73,16 @@ const quantile = (values, q) => {
 };
 export const summary = (values) => ({ p10: quantile(values, 0.1), p25: quantile(values, 0.25), p50: quantile(values, 0.5), p75: quantile(values, 0.75), p90: quantile(values, 0.9) });
 
+/** 10–90 % range of the scenarios widened by the emulation error: `sigma` (the spatial-validation RMSE of
+ * the output, same unit) is added in quadrature to each half-width, as a normal error (z = 1.2816).
+ * The scenarios carry only the uncertainty of the weather; in the hindcast of the paper their range held
+ * 20–32 % of the crop-model yields near maturity, and 78–96 % along the season once widened. */
+export function widen(s, sigma) {
+  if (!(sigma > 0) || !Number.isFinite(s.p50)) return s;
+  const e = 1.2816 * sigma;
+  return { ...s, p10: Math.max(0, s.p50 - Math.hypot(s.p50 - s.p10, e)), p90: s.p50 + Math.hypot(s.p90 - s.p50, e) };
+}
+
 /** Past years ranked by how close their weather was to this season's, from 30 days before sowing to
  * `end` (the last observed day), in whole weeks: rain of the week, rain accumulated since the first
  * week, mean Tmax and Tmin of the week. Each feature is standardized by its spread across the past

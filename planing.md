@@ -788,7 +788,7 @@ Implementado, ainda sem publicar:
 
 | Produto | Revista-alvo | Observação |
 |---|---|---|
-| Artigo principal: benchmark multi-modelo, saídas completas, emuladores consolidados | *GMD* ou *EMS* | Pergunta científica (H1–H6) |
+| Artigo principal: benchmark multi-modelo, saídas completas, emuladores consolidados | ~~*GMD* ou *EMS*~~ → **Computers and Electronics in Agriculture** (decidido com a entrada do app e do monitoramento; `artigo/main.tex`) | Pergunta científica (H1–H6); revisão pré-submissão na seção 10 |
 | Conjunto de dados + emuladores | NeurIPS *Datasets & Benchmarks* (prazo ~maio/junho) | Ambicioso; exige dados bem documentados |
 | Nota de software | *JOSS* ou *SoftwareX* | Depois da biblioteca estável |
 | Fenologia diferenciável + HMC | *EMS*, *AFM* ou *GMD* | Possível artigo separado |
@@ -854,3 +854,156 @@ Cronograma em meses: a definir.
   - SPAM / MIRCA2000 / EarthStat (máscaras de área cultivada);
   - mapa de Köppen-Geiger de Beck et al.
 - Conferir os dados bibliográficos completos (volume, páginas, DOI) de Blanc, Franke, Han e Jägermeyr antes de citar, e as licenças de redistribuição das bases.
+
+## 10. Revisão do artigo antes da submissão (plano de 25/11/2026)
+
+Revista: *Computers and Electronics in Agriculture* (Elsevier). Texto em `artigo/main.tex` (pasta fora do git).
+Diagnóstico de uma leitura como revisor: hoje o resultado provável é *major revision*. O artigo é forte na
+emulação (blocos espaciais, dois modelos, respostas ao clima, sítios independentes, software aberto) e fraco em
+três pontos que o próprio texto expõe: (1) o monitoramento, que está no título, não tem avaliação de acerto;
+(2) a seção de usos potenciais promete seguro e zoneamento de risco, mas o emulador regride à média na cauda
+baixa (erro relativo de 38% e 106% no tercil inferior); (3) contra ensaios de campo (S4) o erro é de 1–2,6 t/ha
+e o texto principal não diz isso. O plano abaixo resolve esses pontos com análises que rodam nesta máquina,
+em cerca de 6–8 dias de trabalho.
+
+### 10.1 Decisões do autor (antes de começar)
+
+| # | Decisão | Opções | Impacto |
+|---|---|---|---|
+| D1 | Avaliar a previsão sazonal do ECMWF no hindcast? | (a) não: declarar como limitação, avaliar só o modo "anos passados"; (b) sim: baixar os hindcasts SEAS5 (1993–2016) do Copernicus CDS (precisa de conta), +1–2 dias | (b) responde a crítica inteira; (a) basta para a primeira submissão |
+| D2 | Coautores e declarações | quem entra, CRediT, financiamento (números de processo CAPES/Araucária), texto da declaração de IA | bloqueia a submissão |
+| D3 | Lista de cortes (10.3, R9) | aprovar o que vai para o suplementar | tamanho final do artigo |
+| D4 | Sementes da CNN (R5b) | (a) só desvio entre dobras; (b) +2 sementes em uma dobra por modelo (~2 h de CPU); (c) +2 sementes em todas as dobras (~16 h) | robustez da comparação v1 × v2 |
+| D5 | Estudo de caso | manter Londrina 2026/27 (sem desfecho) e acrescentar uma safra passada com desfecho conhecido (seca de 2021/22 no Sul, La Niña) | mostra o método funcionando num caso real |
+
+### 10.2 Frentes de trabalho
+
+Scripts novos seguem a numeração de `analises/` e escrevem em `analises/tables` e `analises/figures`; os
+resultados entram em `analises/RESULTADOS.md` antes de ir para o artigo.
+
+**R1. Pendências editoriais (0,5 dia; bloqueiam a submissão)**
+- Preencher `[CONFERIR E INCLUIR OS COAUTORES]`, conflito de interesses, declaração de IA (texto exato do
+  *Guide for Authors*), financiamento.
+- Conferir no *Guide for Authors* (o site recusa acesso automático; ler no navegador): limite do resumo (hoje
+  ~305 palavras; provável limite de 250), destaques (≤ 85 caracteres, 3–5 itens), resumo gráfico, palavras-chave,
+  limites de páginas/figuras, formato dos arquivos de figura.
+- `hoogenboom2019` sem páginas; revisar o `.bib` inteiro (DOIs).
+- Depositar no Zenodo **já na submissão** (não "após a aceitação"): dados data-v1 e data-v3, e a versão do
+  software (tag do `cropemu` 0.5.0 pela integração GitHub–Zenodo); pôr os DOIs em *Data availability*.
+
+**R2. Hindcast do monitoramento (2–2,5 dias; o item mais importante)** — *feito em 25/11/2026*: referências
+A e B (`benchmark/hindcast_sims.py`, `web/tests/hindcast_monitor.mjs`, `analises/06_hindcast.py`), caso
+2021/22 e texto no artigo (métodos 2.10, resultados "Skill of the monitoring", Figs. 12–13, resumo, destaque,
+usos, limitações, conclusão). Pendências que saíram dele: (i) o app deve somar o erro de emulação à faixa de
+80% (cobertura contra o modelo de cultura cai para 20–32% perto da maturidade sem isso; volta a 78–96% com
+isso); (ii) cortar produtividades negativas do AquaCrop em 0 na biblioteca e no app; (iii) hindcast com a
+previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, campo `nonnegative` nos cards; guia atualizado).
+- Pergunta: quão boa é a produtividade esperada em cada data da safra, e a faixa de 80% é confiável?
+- Implementação: `web/tests/hindcast_monitor.mjs`, que reusa `monitor()` de `web/src/engine/monitor.js` (o
+  mesmo código do app) com o "hoje" no passado; clima NASA POWER em cache; `analises/09_hindcast.py` para as
+  métricas e a figura.
+- Desenho: 7 sítios independentes (Londrina, Rio Verde, Sorriso, Passo Fundo, Pergamino, Ames, Harbin) ×
+  safras de 1995 a 2024 (30 anos) × DSSAT e AquaCrop; semeadura no calendário GGCMI do sítio; cultivar típica da
+  latitude. Para o ano-alvo *Y*, os cenários usam todos os outros anos (deixa-um-ano-fora), com o clima de *Y*
+  conhecido até 0, 15, 30, …, 120 dias após a semeadura. Variante "previsão de 16 dias perfeita" (clima real de
+  *Y* nos 16 dias seguintes) para medir o valor da previsão de curto prazo.
+- Verdade: (A) o emulador com o clima completo de *Y* (isola o erro do método de cenários); (B) o DSSAT e o
+  AquaCrop rodados com o clima de *Y* (210 safras por modelo; mede o erro de ponta a ponta).
+- Métricas por dia após a semeadura: RMSE e MAE da mediana; CRPS do conjunto de cenários e *skill* contra a
+  climatologia (o CRPS na semeadura); cobertura da faixa 10–90% (deve ficar perto de 80%); acerto e alarme falso
+  para safras abaixo do P20 do sítio; o "ano mais parecido" contra a mediana (ele ajuda ou não?); cobertura
+  das trajetórias da projeção.
+- Saída: uma figura (CRPS/RMSE e cobertura × dias após a semeadura, por modelo), uma tabela, a subseção de
+  métodos (≈1 parágrafo) e de resultados (≈2 parágrafos); frase nova no resumo e nos destaques.
+- Estudo de caso com desfecho (D5): safra 2021/22 num sítio do Sul atingido pela seca (Passo Fundo ou um ponto no
+  oeste do Paraná), mostrando a produtividade esperada caindo semana a semana. Pode substituir a figura de
+  Londrina no texto principal (Londrina vai para o suplementar, ou fica como ilustração do app).
+- Se D1 = (b): repetir o hindcast de 1993–2016 com as anomalias SEAS5 e comparar com o modo "anos passados".
+
+**R3. Cauda inferior e risco (0,5 dia)** — *feito em 25/11* (`analises/08_tail_risk.py`): desfecho A com ressalva (P10 e quebras por ponto sem viés; acerto de safra ruim 78%/63%); números em RESULTADOS.md; falta levar ao texto.
+- Dados: `data/{dssat,aquacrop}_v3` (simulado e predições fora da dobra), safras de sequeiro sob clima histórico.
+- Por sítio: limiar = P20 simulado; fração das safras emuladas abaixo dele (deveria ser 20%); acerto/alarme falso
+  da classificação "safra ruim"; P10 simulado × emulado (viés e RMSE); limiar absoluto de 1 t/ha (quebra).
+- Desfecho A (concorda bem): uma frase + tabela no suplementar sustentam os usos de risco.
+  Desfecho B (subestima o risco): atenuar *Potential uses* e *Limitations* com o número, e citar a correção
+  possível (mapeamento de quantis por sítio) como trabalho futuro.
+
+**R4. Ensaios de campo no texto principal (0,5 dia)**
+- Refazer o S4 com os emuladores v3 (população agora é entrada; Paragominas com 10 plantas/m² fica fora do
+  domínio e deve ser sinalizada), pelo notebook `examples/dssat_soybean.ipynb`.
+- No texto principal: um parágrafo honesto em *Independent sites* ou *Limitations* (erro de campo, por que, o
+  ganho da calibração rápida de 1,43 → 0,90 t/ha); atualizar a frase do S4 que diz que a população não é entrada.
+
+**R5. Incerteza das métricas (0,5 dia; +CPU conforme D4)** — *feito em 25/11 sem sementes extras* (`analises/07_folds_years.py`): IC e DP por dobra; CNN melhor que v1 nas 5 dobras; falta levar ao texto ("±" na Tabela 5).
+- Desvio padrão entre as 5 dobras do RMSE de produtividade, maturação e ET (v3); IC de 95% por bootstrap de
+  blocos.
+- v1 × CNN pareado por dobra no mesmo conjunto: retreinar o MLP v1 nos dados v3 (~10 min por modelo), sem
+  depender das bases v1 que estão no Mac.
+- D4 (b)/(c): sementes extras da CNN.
+- Saída: "±" na Tabela 5 e no texto; uma frase na validação.
+
+**R6. Vazamento temporal (0,5 dia; ~2–3 h de CPU)** — *feito em 25/11*: RMSE da produtividade −0,8% (DSSAT) e +1,0% (AquaCrop) com a separação por anos; falta levar ao texto.
+- Validação por blocos **e** anos: o teste fica com os blocos da dobra nos anos de um grupo; o treino exclui esses
+  blocos e esses anos (em todos os sítios). Rodar com o MLP v1 (rápido) nos dados v3 e comparar com a validação
+  só por blocos.
+- Saída: um número ("a separação também por anos aumentou o RMSE em x%") nos métodos/resultados e uma linha nas
+  limitações.
+
+**R7. Open-Meteo × NASA POWER (0,5 dia)** — *feito em 25/11* (`web/tests/openmeteo_vs_power.mjs`): 5 últimos dias mudam a esperada em ~0,01–0,04 t/ha (mediana); falta levar ao texto.
+- Nos 7 sítios, 2015–2025: viés e RMSE diário de Tmax, Tmin, radiação, chuva e ponto de orvalho entre o
+  arquivo do Open-Meteo e a NASA POWER.
+- Efeito no monitoramento: trocar os últimos 5 dias do clima conhecido (NASA POWER → Open-Meteo) no hindcast e
+  medir a mudança na produtividade esperada.
+- Saída: uma frase nos métodos do monitoramento e uma linha no suplementar.
+
+**R8. Literatura (0,5 dia)**
+- Busca dirigida: emuladores de modelos de cultura com redes recorrentes/convolucionais ou *transformers*
+  (2022–2026), emuladores no monitoramento da safra e previsão de produtividade com modelos de cultura e
+  previsões sazonais (para situar o R2). Incluir 4–8 referências; conferir que nenhum trabalho já faz o
+  monitoramento com emulador (a afirmação de novidade da introdução).
+
+**R9. Reestruturação e enxugamento (1 dia; depois de R2–R7)**
+- Hoje: 10 tabelas + 11 figuras em 46 páginas. Meta: ≤ 14 elementos no texto principal.
+- Vão para o suplementar (proposta para D3): Tabela 2 (pontos por região), Tabela 7 (inclinações; a Fig. 8
+  já mostra), Fig. 6 (erro por estrato; ficam os números no texto), Fig. 10 (curva de aprendizagem), Fig. 7 ou
+  Fig. 9 (mapa de erro ou variabilidade dentro do sítio).
+- Entram: figura e tabela do hindcast (R2).
+- *Potential uses*: cortar para ~metade, um parágrafo por público, sem tom promocional; deixar só usos que os
+  resultados sustentam (ajustar pelo R3).
+- *Functionalities*: manter a Tabela 10 e cortar o texto que a repete.
+- Resumo ≤ limite da revista, com o resultado do hindcast; destaques atualizados; título mais curto (opcional).
+
+**R10. Fechamento (0,5 dia)**
+- Releitura de inglês; consistência de números entre resumo, texto, tabelas, conclusões e suplementar.
+- Carta ao editor (novidade, adequação à revista, dados e código abertos) e 3–5 revisores sugeridos.
+- Compilar, gerar o zip do Overleaf, conferir figuras em alta resolução.
+
+### 10.3 Ordem de execução
+
+| Dia | Frentes | Depende de |
+|---|---|---|
+| 1 | R1 (parte que não depende do autor), R3, R5 sem sementes extras | — |
+| 2–3 | R2 (script Node, rodadas, métricas, figura, caso 2021/22) | D1, D5 |
+| 4 | R6, R7, R4 | R2 (para o R7) |
+| 5 | R8; escrever as seções novas; R9 | D3, resultados de R2–R7 |
+| 6 | R10; R1 restante (declarações, Zenodo) | D2 |
+| (+1–2) | hindcast SEAS5, se D1 = (b); sementes, se D4 = (c) | conta CDS; CPU |
+
+### 10.4 Critério de "pronto para submeter"
+
+- Nenhum `[CONFERIR]`/`[INFORMAR]` no texto; declarações conforme o guia; DOIs do Zenodo no texto.
+- O monitoramento tem acerto medido (R2) e o texto só afirma o que o hindcast sustenta.
+- *Potential uses* coerente com a cauda (R3) e com o campo (R4).
+- Toda comparação principal com incerteza (R5) e o vazamento temporal quantificado (R6).
+- ≤ 14 elementos no texto principal; resumo e destaques dentro dos limites; compila sem avisos de referência.
+
+### 10.5 Riscos da revisão
+
+- **O hindcast pode mostrar pouco acerto no início do ciclo:** é esperado (a faixa larga é a climatologia) e
+  deve ser apresentado assim; o que importa é a cobertura correta da faixa e o ganho a partir do enchimento de
+  grãos.
+- **R3 pode mostrar que o emulador subestima o risco:** reescrever os usos de risco como "com correção" ou
+  retirá-los; não esconder.
+- **Tempo de CPU** (sementes, SEAS5): opcionais; a primeira submissão não depende deles.
+- **Dados v1 no Mac:** as análises novas usam os dados v3, que estão nesta máquina; os números de v1/v2 do artigo
+  continuam vindo das tabelas já geradas.

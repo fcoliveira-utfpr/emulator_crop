@@ -115,8 +115,8 @@ Acompanha a **safra em andamento**, semeada no ano atual. O clima é conhecido s
 Solo e cultivar ficam fixos; só o clima muda entre cenários. A safra é refeita **a cada 7 dias** desde a semeadura, cada vez com o clima conhecido até aquela data. Por isso dá para ver como a expectativa mudou ao longo da safra.
 
 **Quadros do topo**
-- **Produtividade esperada:** a mediana dos cenários, em sequeiro. O texto embaixo traz a faixa em que caem 80 % dos cenários; quanto mais estreita, menos o resultado depende do clima que ainda vai acontecer.
-- **Ano mais parecido até agora:** o ano passado cujo clima, de 30 dias antes da semeadura até o último dia observado, mais se pareceu com o desta safra. A comparação é semana a semana: chuva da semana, chuva acumulada e Tmax e Tmin médias, cada uma medida em relação à variação entre os anos, com mais peso nas semanas recentes. O texto traz a produtividade do cenário em que o resto do ciclo segue esse ano, em t/ha e em % do potencial (sem estresse hídrico), e os dois anos seguintes do ranking. É o **cenário mais provável** só no sentido de "a safra vem parecida com aquele ano até aqui"; o futuro ainda pode seguir outro caminho, por isso a faixa de 80 % continua sendo a referência.
+- **Produtividade esperada:** a mediana dos cenários, em sequeiro. O texto embaixo traz a faixa de 80 %: a dispersão dos cenários (o clima que ainda vai acontecer) ampliada pelo erro do emulador (o RMSE da validação), para que seja uma faixa de 80 % do que o modelo de cultura simularia. Quanto mais estreita, menos o resultado depende do clima que ainda vai acontecer. Em testes com safras passadas (hindcast), a expectativa ficou perto da climatologia na semeadura e passou a ser confiável a partir de uns 30–45 dias após a semeadura no AquaCrop e de 60–90 dias no DSSAT.
+- **Ano mais parecido até agora:** o ano passado cujo clima, de 30 dias antes da semeadura até o último dia observado, mais se pareceu com o desta safra. A comparação é semana a semana: chuva da semana, chuva acumulada e Tmax e Tmin médias, cada uma medida em relação à variação entre os anos, com mais peso nas semanas recentes. O texto traz a produtividade do cenário em que o resto do ciclo segue esse ano, em t/ha e em % do potencial (sem estresse hídrico), e os dois anos seguintes do ranking. É o **cenário mais provável** só no sentido de "a safra vem parecida com aquele ano até aqui"; o futuro ainda pode seguir outro caminho. No hindcast, esse cenário errou a produtividade final mais do que a mediana de todos os cenários, em todas as datas: use-o para imaginar a safra, e a mediana e a faixa de 80 % para estimar a produtividade.
 - **Variação desde a semeadura:** quanto a expectativa subiu ou caiu em relação à da data da semeadura. Uma queda indica que o clima até agora foi pior que o dos anos passados naquelas semanas.
 - **Yield gap (água):** a mediana, entre os cenários, da diferença *sem estresse hídrico − sequeiro*. É a produtividade que o modelo atribui à falta de água. Perto de zero, a água não está limitando.
 - **Fase da cultura:** dias após a semeadura e a fase esperada (vegetativa, reprodutiva, maturidade), com a média dos cenários.
@@ -124,7 +124,7 @@ Solo e cultivar ficam fixos; só o clima muda entre cenários. A safra é refeit
 **Produtividade esperada ao longo da safra.**
 - **Eixo horizontal:** a data em que a safra foi refeita.
 - **Linha azul:** a mediana de sequeiro.
-- **Faixa azul:** 80 % dos cenários. Ela se estreita conforme a safra avança, porque cada vez mais dias são conhecidos.
+- **Faixa azul:** a faixa de 80 % (cenários ampliados pelo erro do emulador). Ela se estreita conforme a safra avança, porque cada vez mais dias são conhecidos, mas não abaixo do erro do emulador.
 - **Linha tracejada cinza:** a produtividade sem estresse hídrico.
 - **Área vermelha:** o yield gap.
 - **Trecho tracejado:** a estimativa que já usa a previsão de 16 dias.

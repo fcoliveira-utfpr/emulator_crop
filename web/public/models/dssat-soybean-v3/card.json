@@ -1105,7 +1105,7 @@
   "seasons": 117720,
   "points": 1962,
   "weather": "NASA POWER 1984-01-01..2025-12-31",
-  "soil": "SoilGrids 2.0 1 km, 3x3 km median; LL/DUL from Reichert et al. (2009, DUL at 10 kPa) up to 30\u00b0 lat., Saxton & Rawls (2006) from 40\u00b0, blend between; SAT/Ksat from Saxton & Rawls",
+  "soil": "SoilGrids 2.0 1 km, 3x3 km median; LL/DUL from Reichert et al. (2009, DUL at 10 kPa) up to 30° lat., Saxton & Rawls (2006) from 40°, blend between; SAT/Ksat from Saxton & Rawls",
   "created": "2026-11-23"
  },
  "trajectory": {
@@ -1902,5 +1902,47 @@
    -30,
    170
   ]
- }
+ },
+ "nonnegative": [
+  "EDAT_dap",
+  "ADAT_dap",
+  "MDAT_dap",
+  "HDAT_dap",
+  "DWAP",
+  "CWAM",
+  "HWAM",
+  "HWAH",
+  "PWAM",
+  "HWUM",
+  "H#AM",
+  "H#UM",
+  "HIAM",
+  "LAIX",
+  "PRCM",
+  "ETCM",
+  "EPCM",
+  "ESCM",
+  "ROCM",
+  "DRCM",
+  "SWXM",
+  "CNAM",
+  "GNAM",
+  "OCTAM",
+  "OCAM",
+  "DMPEM",
+  "DMPTM",
+  "YPEM",
+  "YPTM",
+  "NDCH",
+  "TMAXA",
+  "SRADA",
+  "DAYLA",
+  "CO2A",
+  "PRCP",
+  "ETCP",
+  "ESCP",
+  "EPCP",
+  "YPPM",
+  "DMPPM"
+ ]
 }

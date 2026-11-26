@@ -91,6 +91,8 @@ export class Emulator {
     }
     for (const r of rows) {
       if (!r.ok) { for (const name of this.outputs) r.outputs[name] = NaN; continue; }
+      // outputs never negative in the simulations (yield, biomass, water terms...) are cut at 0
+      for (const name of this.card.nonnegative ?? []) if (r.outputs[name] < 0) r.outputs[name] = 0;
       for (const [name, [num, den, f, floor]] of Object.entries(this.card.derived ?? {})) {
         r.outputs[name] = f * Math.max(r.outputs[num], 0) / Math.max(r.outputs[den], floor);
       }

@@ -1,0 +1,3 @@
+model,sites,seasons,share_below_p20_emu,share_below_p20_emu_p10_p90,hit_rate,false_alarm,p10_bias,p10_rmse,p10_r,p50_bias,failure_sim,failure_emu,failure_hit,failure_false,failure_sites_sim,failure_sites_emu
+dssat,1962,65846,21.119,12-28,78.251,6.04,0.014,0.176,0.989,0.012,24.126,23.376,89.953,2.206,35.627,34.709
+aquacrop,1962,65841,22.775,10-34,62.727,10.663,0.034,0.315,0.949,0.022,30.789,29.527,87.865,3.575,48.624,45.464

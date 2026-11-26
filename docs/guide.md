@@ -115,8 +115,8 @@ Follows the **season in progress**, sown in the current year. The weather is onl
 Soil and cultivar stay fixed; only the weather changes between scenarios. The season is re-run **every 7 days** since sowing, each time with the weather known up to that date. That is why you can see how the expectation changed along the season.
 
 **Top tiles**
-- **Expected yield:** the median of the scenarios, rainfed. The line below gives the range of 80 % of the scenarios; the narrower it is, the less the result depends on the weather still to come.
-- **Most similar year so far:** the past year whose weather, from 30 days before sowing to the last observed day, was closest to this season's. The comparison is week by week: rain of the week, rain accumulated and mean Tmax and Tmin, each measured against the spread between the years, with more weight on the recent weeks. The text gives the yield of the scenario whose rest of the cycle follows that year, in t/ha and in % of the potential (no water stress), and the next two years of the ranking. It is the **most likely scenario** only in the sense of "the season looks like that year so far"; the future can still take another path, so the 80 % range remains the reference.
+- **Expected yield:** the median of the scenarios, rainfed. The line below gives the 80 % range: the spread of the scenarios (the weather still to come) widened by the error of the emulator (its validation RMSE), so that it is an 80 % range of what the crop model would simulate. The narrower it is, the less the result depends on the weather still to come. In tests on past seasons (hindcast), the expectation was close to the climatology at sowing and became reliable from about 30–45 days after sowing in AquaCrop and 60–90 days in DSSAT.
+- **Most similar year so far:** the past year whose weather, from 30 days before sowing to the last observed day, was closest to this season's. The comparison is week by week: rain of the week, rain accumulated and mean Tmax and Tmin, each measured against the spread between the years, with more weight on the recent weeks. The text gives the yield of the scenario whose rest of the cycle follows that year, in t/ha and in % of the potential (no water stress), and the next two years of the ranking. It is the **most likely scenario** only in the sense of "the season looks like that year so far"; the future can still take another path. In the hindcast, this scenario missed the final yield more than the median of all the scenarios did, at every date: use it to picture the season, and the median and the 80 % range to estimate the yield.
 - **Change since sowing:** how much the expectation rose or fell compared with the one at the sowing date. A fall means the weather so far was worse than that of the past years in those weeks.
 - **Yield gap (water):** the median, across the scenarios, of *no water stress − rainfed*. It is the yield the model attributes to the lack of water. Near zero, water is not limiting.
 - **Crop stage:** days after sowing and the expected stage (vegetative, reproductive, maturity), from the mean of the scenarios.
@@ -124,7 +124,7 @@ Soil and cultivar stay fixed; only the weather changes between scenarios. The se
 **Expected yield along the season.**
 - **Horizontal axis:** the date when the season was re-run.
 - **Blue line:** the rainfed median.
-- **Blue band:** 80 % of the scenarios. It narrows as the season advances, because more days are known.
+- **Blue band:** the 80 % range (scenarios widened by the emulator error). It narrows as the season advances, because more days are known, but not below the emulator error.
 - **Dashed gray line:** the yield without water stress.
 - **Red area:** the yield gap.
 - **Dashed segment:** the estimate that already uses the 16-day forecast.

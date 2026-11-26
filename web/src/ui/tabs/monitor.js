@@ -3,7 +3,7 @@
 // yield gap followed week by week from sowing.
 
 import { dayNumber, fromYMD, fullDate, isoDate, shortDate, today } from '../../engine/dates.js';
-import { analogYears, lastContinuous, monitor, projection, relativeCurves, scenarioDays, similarYears, summary } from '../../engine/monitor.js';
+import { analogYears, lastContinuous, monitor, projection, relativeCurves, scenarioDays, similarYears, summary, widen } from '../../engine/monitor.js';
 import { fetchOpenMeteo, fetchSeasonal, PAST_DAYS } from '../../engine/openmeteo.js';
 import { combine, fillGaps, SRC } from '../../engine/weather.js';
 import { t } from '../../i18n.js';
@@ -70,11 +70,13 @@ export const monitorTab = {
     const { emu } = ctx, k = emu.keys, meta = emu.meta, my = meta[k.yield], st = ctx.tabState('monitor', { sowing: null });
     const { sowing, now, known, observedEnd, table, analogs, cps, n, openMeteo, error, seasonal, seasonalError, similar = [] } = data;
     const val = (r) => r.outputs[k.yield] * my.scale;
+    // emulation error of the yield (spatial validation RMSE), added to the 10–90 % range of the scenarios
+    const sigma = (emu.card.acceptance?.[k.yield]?.rmse ?? 0) * my.scale;
     const RF = t('Rainfed', 'Sequeiro'), NS = t('No water stress', 'Sem estresse hídrico');
     const all = cps.map((cp) => {
       const rf = cp.rainfed.map(val), pt = cp.potential.map(val);
       const gaps = rf.map((v, i) => Math.max(pt[i] - v, 0));
-      return { ...cp, date: asDate(cp.day), rf: summary(rf), pt: summary(pt), gap: summary(gaps).p50, gapPct: 100 * summary(gaps).p50 / summary(pt).p50 };
+      return { ...cp, date: asDate(cp.day), rf: widen(summary(rf), sigma), pt: summary(pt), gap: summary(gaps).p50, gapPct: 100 * summary(gaps).p50 / summary(pt).p50 };
     });
     const traj = all.filter((d) => !d.seasonal), seas = all.find((d) => d.seasonal) ?? null;
     const first = traj[0], last = traj.at(-1);
@@ -119,7 +121,7 @@ export const monitorTab = {
     const tile = (label, value, unit, sub, cls = '') => h(`div.tile${cls}`, h('span.t-label', label), h('span.t-value', value, unit ? h('small', ` ${unit}`) : null), sub ? h('span.t-sub', sub) : null);
     el.append(h('div.tiles.compact',
       tile(finished ? t('Simulated yield of the season', 'Produtividade simulada da safra') : t('Expected yield (median of the scenarios)', 'Produtividade esperada (mediana dos cenários)'), fmt(cur.rf.p50, 2), yu,
-        finished ? RF : `${t(`80 % of the scenarios between ${fmt(cur.rf.p10, 2)} and ${fmt(cur.rf.p90, 2)}`, `80 % dos cenários entre ${fmt(cur.rf.p10, 2)} e ${fmt(cur.rf.p90, 2)}`)}${seas ? ` · ${useSeasonal ? t('with the seasonal forecast', 'com a previsão sazonal') : t(`past years only (seasonal: ${fmt(seas.rf.p50, 2)})`, `só anos passados (sazonal: ${fmt(seas.rf.p50, 2)})`)}` : ''}`, '.hero'),
+        finished ? RF : `${t(`80 % range ${fmt(cur.rf.p10, 2)}–${fmt(cur.rf.p90, 2)} (scenarios + emulator error)`, `faixa de 80 % ${fmt(cur.rf.p10, 2)}–${fmt(cur.rf.p90, 2)} (cenários + erro do emulador)`)}${seas ? ` · ${useSeasonal ? t('with the seasonal forecast', 'com a previsão sazonal') : t(`past years only (seasonal: ${fmt(seas.rf.p50, 2)})`, `só anos passados (sazonal: ${fmt(seas.rf.p50, 2)})`)}` : ''}`, '.hero'),
       ...(bestCur && !finished ? [tile(t('Most similar year so far', 'Ano mais parecido até agora'), String(best.year), '',
         `${t(`rest of the cycle like ${best.year}: ${fmt(bestCur.rf, 2)} ${yu}, ${fmt(bestCur.pct, 0)} % of the potential`, `resto do ciclo como ${best.year}: ${fmt(bestCur.rf, 2)} ${yu}, ${fmt(bestCur.pct, 0)} % do potencial`)}${similar.length > 2 ? ` · ${t('next', 'seguintes')}: ${similar[1].year}, ${similar[2].year}` : ''}`)] : []),
       tile(t('Change since sowing', 'Variação desde a semeadura'), `${change >= 0 ? '+' : '−'}${fmt(Math.abs(change), 2)}`, yu,
@@ -158,7 +160,7 @@ export const monitorTab = {
         return { day: d, date: asDate(d), ...summary(v), best: b ? b.values[j] * s : NaN };
       });
       const md = sowing + Math.round(matMean), fin = last.rainfed.map(val);
-      const end = { day: md, date: asDate(md), ...summary(fin), best: best ? val(last.rainfed.find((r) => r.year === best.year) ?? { outputs: {} }) : NaN };
+      const end = { day: md, date: asDate(md), ...widen(summary(fin), sigma), best: best ? val(last.rainfed.find((r) => r.year === best.year) ?? { outputs: {} }) : NaN };
       return [start, ...mid, end];
     };
     const drawF1 = () => {

@@ -304,6 +304,10 @@ class Emulator:
                 if traj:
                     shapes[rows] = res[1]
         P = pd.DataFrame(out, index=X.index, columns=self.outputs_)
+        # outputs never negative in the simulations (yield, biomass, water terms...) are cut at 0
+        nonneg = [c for c in self.card.get("nonnegative", []) if c in P]
+        if nonneg:
+            P[nonneg] = P[nonneg].clip(lower=0)
         # ratios computed from predicted outputs: name -> [numerator, denominator, factor, floor]
         for name, (num, den, f, floor) in self.card.get("derived", {}).items():
             P[name] = f * P[num].clip(lower=0) / P[den].clip(lower=floor)
