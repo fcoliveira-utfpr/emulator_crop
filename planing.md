@@ -920,7 +920,7 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
   Londrina no texto principal (Londrina vai para o suplementar, ou fica como ilustração do app).
 - Se D1 = (b): repetir o hindcast de 1993–2016 com as anomalias SEAS5 e comparar com o modo "anos passados".
 
-**R3. Cauda inferior e risco (0,5 dia)** — *feito em 25/11* (`analises/08_tail_risk.py`): desfecho A com ressalva (P10 e quebras por ponto sem viés; acerto de safra ruim 78%/63%); números em RESULTADOS.md; falta levar ao texto.
+**R3. Cauda inferior e risco (0,5 dia)** — *feito em 25/11* (`analises/08_tail_risk.py`): desfecho A com ressalva (P10 e quebras por ponto sem viés; acerto de safra ruim 78%/63%); números em RESULTADOS.md; no texto (Potential uses) e no suplementar (S7, Tabela S13).
 - Dados: `data/{dssat,aquacrop}_v3` (simulado e predições fora da dobra), safras de sequeiro sob clima histórico.
 - Por sítio: limiar = P20 simulado; fração das safras emuladas abaixo dele (deveria ser 20%); acerto/alarme falso
   da classificação "safra ruim"; P10 simulado × emulado (viés e RMSE); limiar absoluto de 1 t/ha (quebra).
@@ -928,13 +928,13 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
   Desfecho B (subestima o risco): atenuar *Potential uses* e *Limitations* com o número, e citar a correção
   possível (mapeamento de quantis por sítio) como trabalho futuro.
 
-**R4. Ensaios de campo no texto principal (0,5 dia)**
+**R4. Ensaios de campo no texto principal (0,5 dia)** — *feito em 25/11* (S4 em v3, Tabela S8; Paragominas a 10 plantas/m² sinalizada; Limitations com os números).
 - Refazer o S4 com os emuladores v3 (população agora é entrada; Paragominas com 10 plantas/m² fica fora do
   domínio e deve ser sinalizada), pelo notebook `examples/dssat_soybean.ipynb`.
 - No texto principal: um parágrafo honesto em *Independent sites* ou *Limitations* (erro de campo, por que, o
   ganho da calibração rápida de 1,43 → 0,90 t/ha); atualizar a frase do S4 que diz que a população não é entrada.
 
-**R5. Incerteza das métricas (0,5 dia; +CPU conforme D4)** — *feito em 25/11 sem sementes extras* (`analises/07_folds_years.py`): IC e DP por dobra; CNN melhor que v1 nas 5 dobras; falta levar ao texto ("±" na Tabela 5).
+**R5. Incerteza das métricas (0,5 dia; +CPU conforme D4)** — *feito em 25/11 sem sementes extras* (`analises/07_folds_years.py`): IC e DP por dobra; CNN melhor que v1 nas 5 dobras; no texto (2.7 e 3.1) e no suplementar (Tabela S14). A Tabela 5 é da campanha v2 (dados no Mac): os IC são da v3 e não entram nela.
 - Desvio padrão entre as 5 dobras do RMSE de produtividade, maturação e ET (v3); IC de 95% por bootstrap de
   blocos.
 - v1 × CNN pareado por dobra no mesmo conjunto: retreinar o MLP v1 nos dados v3 (~10 min por modelo), sem
@@ -942,27 +942,27 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
 - D4 (b)/(c): sementes extras da CNN.
 - Saída: "±" na Tabela 5 e no texto; uma frase na validação.
 
-**R6. Vazamento temporal (0,5 dia; ~2–3 h de CPU)** — *feito em 25/11*: RMSE da produtividade −0,8% (DSSAT) e +1,0% (AquaCrop) com a separação por anos; falta levar ao texto.
+**R6. Vazamento temporal (0,5 dia; ~2–3 h de CPU)** — *feito em 25/11*: RMSE da produtividade −0,8% (DSSAT) e +1,0% (AquaCrop) com a separação por anos; no texto (3.1) e no suplementar (Tabela S15).
 - Validação por blocos **e** anos: o teste fica com os blocos da dobra nos anos de um grupo; o treino exclui esses
   blocos e esses anos (em todos os sítios). Rodar com o MLP v1 (rápido) nos dados v3 e comparar com a validação
   só por blocos.
 - Saída: um número ("a separação também por anos aumentou o RMSE em x%") nos métodos/resultados e uma linha nas
   limitações.
 
-**R7. Open-Meteo × NASA POWER (0,5 dia)** — *feito em 25/11* (`web/tests/openmeteo_vs_power.mjs`): 5 últimos dias mudam a esperada em ~0,01–0,04 t/ha (mediana); falta levar ao texto.
+**R7. Open-Meteo × NASA POWER (0,5 dia)** — *feito em 25/11* (`web/tests/openmeteo_vs_power.mjs`): 5 últimos dias mudam a esperada em ~0,01–0,04 t/ha (mediana); no texto (2.9) e no suplementar (Tabela S16).
 - Nos 7 sítios, 2015–2025: viés e RMSE diário de Tmax, Tmin, radiação, chuva e ponto de orvalho entre o
   arquivo do Open-Meteo e a NASA POWER.
 - Efeito no monitoramento: trocar os últimos 5 dias do clima conhecido (NASA POWER → Open-Meteo) no hindcast e
   medir a mudança na produtividade esperada.
 - Saída: uma frase nos métodos do monitoramento e uma linha no suplementar.
 
-**R8. Literatura (0,5 dia)**
+**R8. Literatura (0,5 dia)** — *feito em 25–26/11*: hochman2009, togliatti2017, gneiting2007, vlachopoulos2026, saadati2026, iizumi2018 (este com DOI conferido no Crossref). Candidato não incluído: NeuralCrop (emulador do GGCMI fase 3 num modelo híbrido; conferir os dados antes de citar).
 - Busca dirigida: emuladores de modelos de cultura com redes recorrentes/convolucionais ou *transformers*
   (2022–2026), emuladores no monitoramento da safra e previsão de produtividade com modelos de cultura e
   previsões sazonais (para situar o R2). Incluir 4–8 referências; conferir que nenhum trabalho já faz o
   monitoramento com emulador (a afirmação de novidade da introdução).
 
-**R9. Reestruturação e enxugamento (1 dia; depois de R2–R7)**
+**R9. Reestruturação e enxugamento (1 dia; depois de R2–R7)** — *em grande parte feito em 25/11*: resumo com 231 palavras, 5 destaques ≤ 85 caracteres, 6 tabelas + 9 figuras = 15 elementos (meta ≤ 14: falta mover 1, decisão D3). Em 26/11 o texto passou a dizer que o app já amplia a faixa de 80% pelo erro de emulação (métodos 2.9, resultados, limitações e conclusões).
 - Hoje: 10 tabelas + 11 figuras em 46 páginas. Meta: ≤ 14 elementos no texto principal.
 - Vão para o suplementar (proposta para D3): Tabela 2 (pontos por região), Tabela 7 (inclinações; a Fig. 8
   já mostra), Fig. 6 (erro por estrato; ficam os números no texto), Fig. 10 (curva de aprendizagem), Fig. 7 ou

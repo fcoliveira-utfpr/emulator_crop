@@ -5,7 +5,7 @@
 Converts the Markdown subset used in the guide (## headings with <a id> anchors, paragraphs, bold, italic,
 code, links, nested bullet and numbered lists with continuation paragraphs) to LaTeX and replaces the text of
 S5 in the given file, from the first paragraph of the guide (the line starting with the CropEmu link) to
-\\end{document}. Links to other sections of the guide become "text~(Section~\\ref{guide-<id>})". The title,
+the next \\section (or \\end{document} if S5 is the last section). Links to other sections of the guide become "text~(Section~\\ref{guide-<id>})". The title,
 the "Versão em português" link and the table of contents of the Markdown file are skipped.
 """
 import re
@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 START = r"\href{https://fcoliveira-utfpr.github.io/emulator_crop/}{CropEmu}"
 END = r"\end{document}"
+NEXT = re.compile(r"(\\clearpage\s*)?\\section\*?\{")
 
 
 def escape(s: str) -> str:
@@ -127,7 +128,11 @@ def convert(md: str) -> str:
 def main():
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "artigo" / "supplementary.tex"
     tex = target.read_text(encoding="utf8")
-    a, b = tex.index(START), tex.rindex(END)
+    # S5 ends at the next section (S6, S7...) or, if it is the last one, at \end{document}; a \clearpage
+    # right before that section is kept with it
+    a = tex.index(START)
+    m = NEXT.search(tex, a)
+    b = m.start() if m else tex.rindex(END)
     new = convert((ROOT / "docs" / "guide.md").read_text(encoding="utf8"))
     target.write_text(tex[:a] + new + "\n\n" + tex[b:], encoding="utf8", newline="\n")
     print(f"S5 rewritten from docs/guide.md ({len(new.splitlines())} lines) -> {target}")
