@@ -962,7 +962,7 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
   previsões sazonais (para situar o R2). Incluir 4–8 referências; conferir que nenhum trabalho já faz o
   monitoramento com emulador (a afirmação de novidade da introdução).
 
-**R9. Reestruturação e enxugamento (1 dia; depois de R2–R7)** — *em grande parte feito em 25/11*: resumo com 231 palavras, 5 destaques ≤ 85 caracteres, 6 tabelas + 9 figuras = 15 elementos (meta ≤ 14: falta mover 1, decisão D3). Em 26/11 o texto passou a dizer que o app já amplia a faixa de 80% pelo erro de emulação (métodos 2.9, resultados, limitações e conclusões).
+**R9. Reestruturação e enxugamento (1 dia; depois de R2–R7)** — *em grande parte feito em 25/11*: resumo com 231 palavras, 5 destaques ≤ 85 caracteres, 6 tabelas + 9 figuras = 15 elementos; D3 decidido em 27/11: fica com 15 (o autor aceitou passar da meta de 14). Em 26/11 o texto passou a dizer que o app já amplia a faixa de 80% pelo erro de emulação (métodos 2.9, resultados, limitações e conclusões).
 - Hoje: 10 tabelas + 11 figuras em 46 páginas. Meta: ≤ 14 elementos no texto principal.
 - Vão para o suplementar (proposta para D3): Tabela 2 (pontos por região), Tabela 7 (inclinações; a Fig. 8
   já mostra), Fig. 6 (erro por estrato; ficam os números no texto), Fig. 10 (curva de aprendizagem), Fig. 7 ou
@@ -995,7 +995,7 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
 - O monitoramento tem acerto medido (R2) e o texto só afirma o que o hindcast sustenta.
 - *Potential uses* coerente com a cauda (R3) e com o campo (R4).
 - Toda comparação principal com incerteza (R5) e o vazamento temporal quantificado (R6).
-- ≤ 14 elementos no texto principal; resumo e destaques dentro dos limites; compila sem avisos de referência.
+- 15 elementos no texto principal (D3: aceito pelo autor em 27/11); resumo e destaques dentro dos limites; compila sem avisos de referência.
 
 ### 10.5 Riscos da revisão
 
