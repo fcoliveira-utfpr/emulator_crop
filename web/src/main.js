@@ -109,6 +109,7 @@ $('soil-file').addEventListener('change', async (e) => {
     } catch (error) { files.soil.error = error.message; e.target.value = ''; }
   }
   fileLabels();
+  if (soilMissing && state.userSoils) loadSite();     // the soil the point was missing has arrived
 });
 
 // spreadsheet help: preview of the expected layout + template download
@@ -153,12 +154,24 @@ $('reset-coef').addEventListener('click', () => { $('coefficients').querySelecto
 // ------------------------------------------------------------------ status
 /** Status under the load button; `text` returns [message, detail?] so it can be redone in another language. */
 let lastStatus = null;
-function setStatus(kind, text) {
-  lastStatus = { kind, text };
+/** `action` (optional): {label: () => string, onclick} shown as a button under the message. */
+function setStatus(kind, text, action = null) {
+  lastStatus = { kind, text, action };
   const [message, detail] = [].concat(text());
   $('status').className = `status ${kind}`;
-  $('status').replaceChildren(h('span.dot'), h('div', h('strong', message), detail ? h('small', detail) : null));
+  $('status').replaceChildren(h('span.dot'), h('div', h('strong', message), detail ? h('small', detail) : null,
+    action ? h('button.secondary.status-action', { type: 'button', onclick: action.onclick }, action.label()) : null));
 }
+
+/** Opens "Use my data" and points at the soil spreadsheet (SoilGrids has no soil at the point). */
+function askForSoil() {
+  const box = document.querySelector('details.userdata'), row = document.querySelector('.upload-row[data-template="soil"]');
+  box.open = true;
+  row.classList.remove('needed'); void row.offsetWidth; row.classList.add('needed');   // restart the highlight
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.querySelector('.upload').focus({ preventScroll: true });
+}
+let soilMissing = false;           // the last load failed for lack of soil: reload as soon as a soil file arrives
 
 // ------------------------------------------------------------------ loading
 async function emulator(name = state.model) {
@@ -188,12 +201,13 @@ async function loadSite() {
   const useUserWeather = !!state.userWeather, useUserSoil = !!state.userSoils;
   if (!Number.isFinite(lon) && !(useUserWeather && useUserSoil)) return setStatus('error', () => t('Enter the longitude to fetch weather and soil.', 'Informe a longitude para buscar clima e solo.'));
   const token = ++loading;
+  let failed = false;               // after an error, jobs still running must not redraw the progress
   $('load').disabled = true; $('load').classList.add('running'); $('load').textContent = t('Loading…', 'Carregando…');
   try {
     let soilDone = 0;
     const st = { weather: 'run', soil: useUserSoil ? 'done' : 'run', model: 'run' };
     const progress = () => {
-      if (token !== loading) return;
+      if (token !== loading || failed) return;
       setStatus('busy', () => [t('Loading site data…', 'Carregando dados do local…'), `${t('Weather', 'Clima')}: NASA POWER · ${t('soil', 'solo')}: ${useUserSoil ? t('spreadsheet', 'planilha') : `SoilGrids ${soilDone}/24`}`]);
       showBusy(`${t('Loading', 'Carregando')} ${fmt(lat, 2)}°, ${Number.isFinite(lon) ? fmt(lon, 2) : '—'}°`, [
         { label: useUserWeather ? t('Daily weather: your spreadsheet, completed with NASA POWER', 'Clima diário: sua planilha, completada pela NASA POWER') : t('Daily weather since 1984 (NASA POWER)', 'Clima diário desde 1984 (NASA POWER)'), state: st.weather },
@@ -223,6 +237,8 @@ async function loadSite() {
       info: { span, filled, taken, user: user / 4, power: (counts[SRC.power] ?? 0) / 4, cell: power?.cell, elevSource: $('elev').value !== '' ? 'input' : power ? 'power' : 'default' },
     };
     state.cache = {};
+    soilMissing = false;
+    document.querySelector('.upload-row[data-template="soil"]').classList.remove('needed');
     setSowing(Math.sign(lat) || 1);
     refreshYears();
     buildCoefficients();
@@ -233,7 +249,16 @@ async function loadSite() {
         `Clima ${fullDate(span[0])} a ${fullDate(span[1])} (${yrs?.length ?? 0} safras possíveis) · altitude ${fmt(elev, 0)} m · solo: ${soil.source.pt}`)]);
     renderTabs(); refresh();
   } catch (error) {
-    if (token === loading) { hideBusy(); setStatus('error', () => [t('Could not load the site.', 'Não foi possível carregar o local.'), `${error.message}. ${t('Try again or upload your spreadsheets.', 'Tente de novo ou envie suas planilhas.')}`]); }
+    failed = true;
+    if (token === loading && error.noData) {
+      // SoilGrids has no soil here (water, urban area, outside the maps): the user has to give the profile
+      hideBusy(); soilMissing = true;
+      setStatus('error', () => [t('No soil data at this point: add the soil profile to complete the simulation.', 'Sem dados de solo neste ponto: adicione o perfil de solo para completar a simulação.'),
+        t(`SoilGrids has no soil at ${fmt(lat, 2)}°, ${fmt(lon, 2)}° (water, urban area or outside its maps). Upload a soil spreadsheet (CSV, layers with clay, sand, organic carbon…; template under "?") in "Use my data"; the site loads again as soon as the file is read. Or pick a nearby point outside the city or the water.`,
+          `O SoilGrids não tem solo em ${fmt(lat, 2)}°, ${fmt(lon, 2)}° (água, área urbana ou fora dos mapas). Envie uma planilha de solo (CSV, camadas com argila, areia, carbono orgânico…; modelo no "?") em "Usar meus dados"; o local é carregado de novo assim que o arquivo for lido. Ou escolha um ponto próximo, fora da cidade ou da água.`)],
+        { label: () => t('Add soil data', 'Adicionar dados de solo'), onclick: askForSoil });
+      askForSoil();
+    } else if (token === loading) { hideBusy(); setStatus('error', () => [t('Could not load the site.', 'Não foi possível carregar o local.'), `${error.message}. ${t('Try again or upload your spreadsheets.', 'Tente de novo ou envie suas planilhas.')}`]); }
     console.error(error);
   } finally { if (token === loading) { $('load').disabled = false; $('load').classList.remove('running'); $('load').textContent = t('Load weather and soil', 'Carregar clima e solo'); } }
 }
@@ -462,7 +487,7 @@ document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener(
 markTheme();
 onLang(() => {
   translateDom(); markLang(); fillMonths(); fileLabels(); buildCoefficients(); updateCultivarHints();
-  if (lastStatus) setStatus(lastStatus.kind, lastStatus.text);
+  if (lastStatus) setStatus(lastStatus.kind, lastStatus.text, lastStatus.action);
   hidePopover(); renderTabs(); redraw();
 });
 markLang();

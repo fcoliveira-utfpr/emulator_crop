@@ -35,6 +35,7 @@ A barra lateral define a safra; as abas mostram análises diferentes da mesma co
    - **Onde escolher o local:** um local de exemplo, um ponto no mapa, as coordenadas ou a sua localização.
    - **Origem padrão dos dados:** o clima diário vem da NASA POWER (desde 1984) e o solo do SoilGrids 2.0, as mesmas fontes do treino.
    - **Seus dados:** em *Usar meus dados*, você pode enviar uma planilha de clima diário e um perfil de solo. Os seus valores têm prioridade, e a NASA POWER só completa dias e colunas que faltam.
+   - **Ponto sem solo no SoilGrids:** em água, áreas urbanas e fora dos mapas o SoilGrids não tem solo. O app avisa e abre *Usar meus dados* com o campo do perfil de solo destacado; ao enviar a planilha, o local é carregado de novo. Outra saída é escolher um ponto próximo, fora da cidade ou da água.
 3. **Semeadura e período.** Dia e mês da semeadura, o ano da safra (aba *Uma safra*) e o período de anos (abas *Série de anos*, *Janela*, *Cultivares* e *Cenários*).
 4. **Cultivar.** O padrão é a cultivar típica da latitude (grupo de maturidade no DSSAT, duração do ciclo no AquaCrop). Em *Todos os parâmetros da cultivar*, cada coeficiente pode ser alterado dentro da faixa do treino.
 5. **Manejo e cenário.**

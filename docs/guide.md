@@ -35,6 +35,7 @@ The sidebar defines the season; the tabs show different analyses of the same set
    - **Where to choose the site:** an example site, a point on the map, the coordinates or your location.
    - **Default data sources:** the daily weather comes from NASA POWER (since 1984) and the soil from SoilGrids 2.0, the same sources used in training.
    - **Your data:** under *Use my data*, you can upload a daily weather spreadsheet and a soil profile. Your values take precedence, and NASA POWER only fills the missing days and columns.
+   - **Point without soil in SoilGrids:** over water, urban areas and outside its maps, SoilGrids has no soil. The app says so and opens *Use my data* with the soil profile field highlighted; once the spreadsheet is uploaded, the site loads again. Another way out is to pick a nearby point, outside the city or the water.
 3. **Sowing and period.** Day and month of sowing, the season year (*One season* tab) and the period of years (*Many years*, *Sowing window*, *Cultivars* and *Climate scenarios* tabs).
 4. **Cultivar.** The default is the typical cultivar of the latitude (maturity group in DSSAT, cycle length in AquaCrop). Under *All cultivar parameters*, each coefficient can be changed within the training range.
 5. **Management and scenario.**
