@@ -973,7 +973,7 @@ previsão sazonal (D1). (i) e (ii) *feitos em 25/11* (`widen` em `monitor.js`, c
 - *Functionalities*: manter a Tabela 10 e cortar o texto que a repete.
 - Resumo ≤ limite da revista, com o resultado do hindcast; destaques atualizados; título mais curto (opcional).
 
-**R10. Fechamento (0,5 dia)**
+**R10. Fechamento (0,5 dia)** — *27/11*: carta ao editor em `artigo/cover_letter.tex` (+ PDF, 2 páginas, com 5 revisores sugeridos a conferir) e `artigo/highlights.txt` (arquivo separado exigido). Guide for Authors (por fontes indexadas; o site do Elsevier bloqueia acesso automático): resumo ≤ 250 palavras (231 ok), 3–5 destaques ≤ 85 caracteres em arquivo próprio (ok), resumo gráfico recomendado (falta), novidade julgada pela contribuição em computação (a carta enfatiza isso). Falta conferir no navegador: limites de páginas, revisores, texto da declaração de IA.
 - Releitura de inglês; consistência de números entre resumo, texto, tabelas, conclusões e suplementar.
 - Carta ao editor (novidade, adequação à revista, dados e código abertos) e 3–5 revisores sugeridos.
 - Compilar, gerar o zip do Overleaf, conferir figuras em alta resolução.
